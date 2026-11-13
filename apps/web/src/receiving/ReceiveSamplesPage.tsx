@@ -1,8 +1,11 @@
 import type { MeResponse, ReceiverOption } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ErrorState, PageHeader } from '../components/app-ui';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ErrorState } from '../components/app-ui';
 import { useMe } from '../session/context';
+import { useOptionalRecordingPerson } from '../session/recording-person-store';
 import { newDraft } from './draft';
 import { fetchDraftSettings } from '../settings/receiving/api';
 import {
@@ -23,8 +26,9 @@ import { ReceiptWizard } from './ReceiptWizard';
 import './receiving.css';
 
 // Receiving landing (MM-T11): "Drafts on this computer" above "Start a delivery". With no
-// drafts to show, or with ?new=1 (the receiving log's Start a delivery), it goes straight to a
-// new draft. The open draft's ID is kept in the URL (?draft=…, the receiving log's Continue) so
+// drafts to show, with ?new=1 (the receiving log's Start a delivery) or with ?project=new
+// (Quick actions › New project: a new draft with Add project open), it goes straight to a new
+// draft. The open draft's ID is kept in the URL (?draft=…, the receiving log's Continue) so
 // signing in again after an expired session comes back to the same draft.
 // On opening, draft auto-delete (MM-T45) runs first: only with the setting loaded from the
 // server and switched on; if it can't load, nothing is deleted.
@@ -51,13 +55,31 @@ type Listing =
 interface OpenDraft {
   record: StoredDraft;
   persisted: boolean;
+  /** Open Add project at once (`?project=new`). */
+  addProject?: boolean;
+  /** Pre-fill this project on a new draft (`?new=1&projectId=…`, a project's page). */
+  projectId?: string;
 }
 
 export function ReceiveSamplesPage() {
   const me = useMe();
+  const station = useOptionalRecordingPerson();
+  // On a LAB station the person recording is the draft's starter (STRATA-108); never its
+  // Received by, which starts blank there (T8/AC5).
+  const starter =
+    station?.isStation && station.person
+      ? {
+          userId: station.person.id,
+          name: station.person.displayName,
+          initials: station.person.initials,
+        }
+      : null;
+  const starterKey = starter ? `${starter.userId}|${starter.name}|${starter.initials}` : '';
   const [params, setParams] = useSearchParams();
   const requested = params.get('draft');
-  const startRequested = params.get('new') === '1';
+  const addProjectRequested = params.get('project') === 'new';
+  const projectIdRequested = params.get('projectId');
+  const startRequested = params.get('new') === '1' || addProjectRequested;
   const [listing, setListing] = useState<Listing>({ state: 'loading' });
   const [open, setOpen] = useState<OpenDraft | null>(null);
   const [autoDelete, setAutoDelete] = useState<DraftAutoDelete | null>(null);
@@ -85,8 +107,16 @@ export function ReceiveSamplesPage() {
   );
 
   const startNew = useCallback(
-    () => show({ record: newRecord(newDraft(defaultReceiver(me)), me), persisted: false }),
-    [me, show],
+    (addProject = false, projectId?: string) =>
+      show({
+        record: newRecord(newDraft(defaultReceiver(me)), me, new Date(), starter),
+        persisted: false,
+        addProject,
+        projectId,
+      }),
+    // `starter` is rebuilt each render; its key says when it really changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [me, show, starterKey],
   );
 
   const backToList = useCallback(async () => {
@@ -135,7 +165,7 @@ export function ReceiveSamplesPage() {
       const drafts = result.state === 'ready' ? result.drafts : [];
       const linked = drafts.find((d) => d.draftId === requested);
       // "Start a delivery" in the receiving log always starts a new draft (?new=1).
-      if (startRequested) startNew();
+      if (startRequested) startNew(addProjectRequested, projectIdRequested ?? undefined);
       else if (linked) show({ record: linked, persisted: true });
       // After a clean-up, stay on the list so its notice is seen.
       else if (result.state === 'ready' && drafts.length === 0 && !cleaned) startNew();
@@ -156,17 +186,21 @@ export function ReceiveSamplesPage() {
         persisted={open.persisted}
         resumed={open.persisted}
         me={me}
-        onStartNew={startNew}
+        addProject={open.addProject}
+        prefillProjectId={open.projectId}
+        onStartNew={() => startNew()}
         onDiscarded={() => void backToList()}
       />
     );
   }
 
   return (
-    <>
-      <PageHeader title="Receive samples" />
+    <div className="flex w-full flex-col gap-6">
+      <h1 className="m-0 text-2xl font-semibold tracking-tight">Receive samples</h1>
       {listing.state === 'loading' ? (
-        <p aria-busy="true">Loading drafts on this computer…</p>
+        <p className="text-muted-foreground m-0 text-sm" aria-busy="true">
+          Loading drafts on this computer…
+        </p>
       ) : null}
       {listing.state === 'error' ? (
         <ErrorState message={`Drafts on this computer couldn't load. ${listing.message}`} />
@@ -185,12 +219,13 @@ export function ReceiveSamplesPage() {
         />
       ) : null}
       {listing.state !== 'loading' ? (
-        <div className="receive-actions">
-          <button type="button" className="primary receive-big" onClick={startNew}>
+        <div>
+          <Button type="button" size="lg" onClick={() => startNew()}>
+            <Plus aria-hidden="true" />
             Start a delivery
-          </button>
+          </Button>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

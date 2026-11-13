@@ -1,16 +1,24 @@
 import {
   BULK_GROUP_DESCRIPTION_MAX_LENGTH,
   bulkGroupOptionLabel,
-  parseScanPayload,
   type BulkGroupSummary,
-  type InventoryLocation,
 } from '@materialmule/shared';
-import { FormField } from '../components/app-ui';
+import { CornerDownRight, RotateCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   fieldId,
   formatSampleDraft,
   newBulkChoice,
-  UNIT_PREFIX,
+  UNIT_KIND_LABEL,
+  UNIT_KINDS,
   unitKindOf,
   unitName,
   withHoles,
@@ -23,11 +31,12 @@ import {
   type UnitKind,
 } from './draft';
 import { CoreRunsField } from './CoreRunsField';
+import { FieldErrorText, LabeledField, NATIVE_SELECT_CLASS } from './LabeledField';
 import { SampleFields } from './SampleFields';
 import { SummaryEditor } from './SummaryEditor';
 import { TestHolePicker } from './TestHolePicker';
 
-/** The project's existing bulk samples, loaded once per project by the wizard (MM-T36). */
+/** The project's existing bulk samples, loaded once per project by the page (MM-T36). */
 export type BulkGroupsState =
   | { state: 'idle' }
   | { state: 'loading' }
@@ -35,12 +44,12 @@ export type BulkGroupsState =
   | { state: 'ready'; groups: BulkGroupSummary[] };
 
 /**
- * The editor inside one storage unit row (MM-T10, MM-T36; the row itself is UnitRow): its
- * physical holder as prefix blocks (BKT Bucket, ST Shelby tube, CRE Core box),
- * then what it holds. An ordinary bucket lists its test holes with one summary each (All samples
- * by default); a bucket marked Bulk soil sample holds one bulk sample (new, or an existing one of
- * the project) and nothing else; a Shelby tube has its own sampling source; a core box belongs to
- * one test hole and holds 1–3 runs (3 by default). Never asks for individual samples.
+ * What one storage unit row holds (STRATA-76; MM-T10, MM-T36): the holder (Bucket, Bulk bucket,
+ * Shelby tube, Core box), then its contents. An ordinary bucket lists its test holes with one
+ * SAMPLE#/DEPTH summary each, the second and later ones as "Also holds" lines; a bulk bucket
+ * holds one bulk sample (new, the same as an earlier row, or an existing one of the project); a
+ * Shelby tube has its own sampling source; a core box belongs to one test hole and holds 1–3
+ * runs. Never asks for individual samples.
  */
 export function UnitEditor({
   unit,
@@ -52,12 +61,13 @@ export function UnitEditor({
   online,
   errors,
   bulkGroups = { state: 'idle' },
-  locations = [],
+  holeReloadKey = 0,
+  onHolesLoadError,
   onChange,
 }: {
   unit: UnitDraft;
   index: number;
-  /** The whole receipt, for "same bulk sample as Bucket 1" choices and the band. */
+  /** The whole receipt, for "same bulk sample as Bucket 1" choices. */
   draft?: Pick<ReceiptDraft, 'units'>;
   projectId: string | null;
   /** Named in the message after a test hole is added here. */
@@ -66,8 +76,9 @@ export function UnitEditor({
   online: boolean;
   errors: ReadonlyMap<string, string>;
   bulkGroups?: BulkGroupsState;
-  /** Active storage locations, offered for "Where it will go". */
-  locations?: InventoryLocation[];
+  /** Changing it reloads the project's test holes (the page's Try again). */
+  holeReloadKey?: number;
+  onHolesLoadError?: (failed: boolean) => void;
   onChange: (recipe: (unit: UnitDraft) => UnitDraft) => void;
 }) {
   const path = `units.${index}`;
@@ -76,63 +87,74 @@ export function UnitEditor({
   const receipt = draft ?? { units: [unit] };
   const kind = unitKindOf(unit);
   const coreBox = kind === 'core_box';
-  const sampleProps = { projectId, projectNumber, receiverUserId, online, errors };
+  const sampleProps = {
+    projectId,
+    projectNumber,
+    receiverUserId,
+    online,
+    errors,
+    holeReloadKey,
+    onHolesLoadError,
+  };
+  const holderId = fieldId(`${path}.unitType`);
 
-  const holderLabelId = `${fieldId(`${path}.unitType`)}-label`;
+  const holder = (
+    <div className="flex w-44 shrink-0 flex-col gap-1.5">
+      <span className="text-[13px] leading-none font-semibold" aria-hidden="true">
+        Holder
+      </span>
+      <Select
+        value={kind}
+        onValueChange={(next) => onChange((current) => withUnitKind(current, next as UnitKind))}
+      >
+        <SelectTrigger id={holderId} aria-label={`${name} holder`} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {UNIT_KINDS.map((option) => (
+            <SelectItem key={option} value={option}>
+              {UNIT_KIND_LABEL[option]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
-  return (
-    <div className="unit-body receive-unit-editor">
-      <div className="unit-kind">
-        <div className="form-field">
-          <span className="field-label" id={holderLabelId}>
-            Physical holder
-          </span>
+  const note = (
+    <LabeledField
+      id={fieldId(`${path}.note`)}
+      label="Note (optional)"
+      error={errors.get(`${path}.note`)}
+      className="min-w-48 flex-1 basis-48"
+    >
+      {(props) => (
+        <Input
+          {...props}
+          aria-label={`${name} note (optional)`}
+          maxLength={2000}
+          placeholder="Description (optional)"
+          value={unit.note}
+          onChange={(e) => onChange((current) => ({ ...current, note: e.target.value }))}
+        />
+      )}
+    </LabeledField>
+  );
+
+  if (kind === 'bucket' || coreBox) {
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-wrap items-start gap-3">
+          {holder}
           <div
-            className="receive-holders"
-            role="group"
-            aria-labelledby={holderLabelId}
-            id={fieldId(`${path}.unitType`)}
+            id={fieldId(`${path}.holeSummaries`)}
+            className="flex w-60 min-w-0 shrink-0 flex-col gap-1.5"
           >
-            {HOLDERS.map((holder) => (
-              <button
-                key={holder.type}
-                type="button"
-                aria-pressed={unit.unitType === holder.type}
-                onClick={() => onChange((current) => withUnitKind(current, holder.type))}
-              >
-                <span className="receive-holder-prefix">{UNIT_PREFIX[holder.type]}</span>{' '}
-                <span className="receive-holder-name">{holder.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        {unit.unitType === 'bucket' ? (
-          <div className="form-field checkbox-field">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={unit.bulk}
-                aria-describedby={`${fieldId(`${path}.bulk`)}-hint`}
-                onChange={(e) =>
-                  onChange((current) => withUnitKind(current, e.target.checked ? 'bulk' : 'bucket'))
-                }
-              />
-              Bulk soil sample
-            </label>
-            <p id={`${fieldId(`${path}.bulk`)}-hint`} className="field-hint">
-              A bulk sample commonly fills one or two buckets. Each bucket gets its own BKT ID.
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      {kind === 'bucket' || coreBox ? (
-        <>
-          <div id={fieldId(`${path}.holeSummaries`)}>
             {projectId ? (
               <TestHolePicker
-                key={projectId}
+                key={`${projectId}:${holeReloadKey}`}
                 projectId={projectId}
+                legend={coreBox ? 'Test hole' : 'Test holes'}
                 selected={unit.summaries.map((summary) => summary.testHole)}
                 // A core box belongs to one test hole: choosing another replaces it.
                 onChange={(holes) =>
@@ -144,6 +166,7 @@ export function UnitEditor({
                 online={online}
                 required
                 invalid={Boolean(holesError)}
+                onLoadError={onHolesLoadError}
                 // Holes are shared project data, kept even if the draft is discarded (decided
                 // 2026-10-27, MM-T61).
                 addedNote={(holeName) =>
@@ -151,28 +174,15 @@ export function UnitEditor({
                 }
               />
             ) : (
-              <p className="field-hint">Choose the project first, then this unit’s test holes.</p>
+              <>
+                <span className="text-[13px] leading-none font-semibold">Test hole</span>
+                <p className="text-muted-foreground m-0 text-[13px]">
+                  Choose the project first, then this unit’s test holes.
+                </p>
+              </>
             )}
-            {holesError ? <p className="field-error">{holesError}</p> : null}
+            {holesError ? <FieldErrorText>{holesError}</FieldErrorText> : null}
           </div>
-
-          {unit.summaries.map((summary, summaryIndex) => (
-            <SummaryEditor
-              key={summary.testHole.id}
-              summary={summary}
-              path={`${path}.holeSummaries.${summaryIndex}`}
-              errors={errors}
-              onChange={(changes) =>
-                onChange((current) => ({
-                  ...current,
-                  summaries: current.summaries.map((s) =>
-                    s.testHole.id === summary.testHole.id ? { ...s, ...changes } : s,
-                  ),
-                }))
-              }
-            />
-          ))}
-
           {coreBox ? (
             <CoreRunsField
               id={fieldId(`${path}.coreRunCount`)}
@@ -181,136 +191,138 @@ export function UnitEditor({
               onChange={(coreRunCount) => onChange((current) => ({ ...current, coreRunCount }))}
             />
           ) : null}
-        </>
-      ) : null}
+          {note}
+        </div>
 
-      {kind === 'bulk' ? (
-        <BulkSampleChoice
-          unit={unit}
-          index={index}
-          draft={receipt}
-          path={`${path}.bulkGroup`}
-          bulkGroups={projectId ? bulkGroups : { state: 'idle' }}
-          onChange={(recipe) =>
-            onChange((current) => ({ ...current, bulkChoice: recipe(current.bulkChoice) }))
+        {unit.summaries.length > 0 ? (
+          <ul
+            className="m-0 flex list-none flex-col gap-3 p-0"
+            aria-label={`${name} samples and depth`}
+          >
+            {unit.summaries.map((summary, summaryIndex) => (
+              <li
+                key={summary.testHole.id}
+                className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2"
+              >
+                <span className="text-muted-foreground flex h-11 w-44 shrink-0 items-center gap-1.5 self-end text-[13px]">
+                  {summaryIndex > 0 ? (
+                    <>
+                      <CornerDownRight aria-hidden="true" className="size-3.5" />
+                      Also holds
+                    </>
+                  ) : (
+                    'Samples and depth'
+                  )}
+                  <span className="text-foreground font-mono font-semibold">
+                    {summary.testHole.name}
+                  </span>
+                </span>
+                <SummaryEditor
+                  summary={summary}
+                  path={`${path}.holeSummaries.${summaryIndex}`}
+                  errors={errors}
+                  className="flex-1"
+                  onChange={(changes) =>
+                    onChange((current) => ({
+                      ...current,
+                      summaries: current.summaries.map((s) =>
+                        s.testHole.id === summary.testHole.id ? { ...s, ...changes } : s,
+                      ),
+                    }))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (kind === 'bulk') {
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-wrap items-start gap-3">
+          {holder}
+          <BulkSampleChoice
+            unit={unit}
+            index={index}
+            draft={receipt}
+            path={`${path}.bulkGroup`}
+            bulkGroups={projectId ? bulkGroups : { state: 'idle' }}
+            errors={errors}
+            onChange={(recipe) =>
+              onChange((current) => ({ ...current, bulkChoice: recipe(current.bulkChoice) }))
+            }
+          />
+          {note}
+        </div>
+        {unit.bulkChoice.kind === 'new' ? (
+          <SampleFields
+            sample={unit.bulkChoice.identity}
+            path={`${path}.bulkGroup.new`}
+            required
+            referencePlaceholder="B1"
+            onChange={(changes) =>
+              onChange((current) => ({
+                ...current,
+                bulkChoice: withIdentity(current.bulkChoice, changes),
+              }))
+            }
+            {...sampleProps}
+          >
+            <LabeledField
+              id={fieldId(`${path}.bulkGroup.new.description`)}
+              label="Bulk sample description (optional)"
+              error={errors.get(`${path}.bulkGroup.new.description`)}
+              className="max-w-xl"
+            >
+              {(props) => (
+                <Input
+                  {...props}
+                  maxLength={BULK_GROUP_DESCRIPTION_MAX_LENGTH}
+                  value={unit.bulkChoice.kind === 'new' ? unit.bulkChoice.identity.description : ''}
+                  onChange={(e) =>
+                    onChange((current) => ({
+                      ...current,
+                      bulkChoice: withIdentity(current.bulkChoice, {
+                        description: e.target.value,
+                      }),
+                    }))
+                  }
+                />
+              )}
+            </LabeledField>
+          </SampleFields>
+        ) : null}
+        <p className="text-muted-foreground m-0 text-[13px]">
+          A bulk sample commonly fills one or two buckets. Each bucket gets its own BKT- ID.
+        </p>
+      </div>
+    );
+  }
+
+  // Shelby tube: its own sampling source, sample reference and depth.
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex min-w-0 flex-wrap items-start gap-3">
+        {holder}
+        {note}
+      </div>
+      <fieldset className="m-0 min-w-0 border-0 p-0">
+        <legend className="sr-only">{name} sample</legend>
+        <SampleFields
+          sample={unit.tube}
+          path={`${path}.sample`}
+          required={false}
+          referencePlaceholder="e.g. T5"
+          onChange={(changes: Partial<SampleDraft>) =>
+            onChange((current) => ({ ...current, tube: { ...current.tube, ...changes } }))
           }
           {...sampleProps}
         />
-      ) : null}
-
-      {kind === 'shelby_tube' ? (
-        <fieldset className="hole-summary">
-          <legend>{name} sample</legend>
-          <SampleFields
-            sample={unit.tube}
-            path={`${path}.sample`}
-            required={false}
-            referencePlaceholder="e.g. T5"
-            onChange={(changes: Partial<SampleDraft>) =>
-              onChange((current) => ({ ...current, tube: { ...current.tube, ...changes } }))
-            }
-            {...sampleProps}
-          />
-        </fieldset>
-      ) : null}
-
-      <FormField
-        id={fieldId(`${path}.note`)}
-        label={`${name} note (optional)`}
-        error={errors.get(`${path}.note`)}
-      >
-        {(props) => (
-          <input
-            {...props}
-            type="text"
-            maxLength={2000}
-            value={unit.note}
-            onChange={(e) => onChange((current) => ({ ...current, note: e.target.value }))}
-          />
-        )}
-      </FormField>
-
-      <TargetLocationField
-        id={fieldId(`${path}.targetLocation`)}
-        name={name}
-        value={unit.targetLocation ?? ''}
-        locations={locations}
-        onChange={(targetLocation) => onChange((current) => ({ ...current, targetLocation }))}
-      />
+      </fieldset>
     </div>
-  );
-}
-
-const HOLDERS: { type: Exclude<UnitKind, 'bulk'>; label: string }[] = [
-  { type: 'bucket', label: 'Bucket' },
-  { type: 'shelby_tube', label: 'Shelby tube' },
-  { type: 'core_box', label: 'Core box' },
-];
-
-/** "WH-C1 · Warehouse C1": how a location is written in the field and on the unit row. */
-function locationText(location: Pick<InventoryLocation, 'code' | 'name'>): string {
-  return `${location.code} · ${location.name}`;
-}
-
-/**
- * Where the unit will go (optional): typed, picked from the active locations, or scanned from a
- * shelf label (LOC-… becomes that location). Kept in the draft as a plan only.
- */
-function TargetLocationField({
-  id,
-  name,
-  value,
-  locations,
-  onChange,
-}: {
-  id: string;
-  name: string;
-  value: string;
-  locations: InventoryLocation[];
-  onChange: (value: string) => void;
-}) {
-  const listId = `${id}-options`;
-  /** A whole scanned shelf label (scanners end with Enter) becomes that location's name. */
-  function resolve(raw: string) {
-    const scanned = parseScanPayload(raw);
-    if (scanned.type !== 'location') return;
-    const known = locations.find((l) => l.code.toUpperCase() === scanned.code);
-    onChange(known ? locationText(known) : scanned.code);
-  }
-  return (
-    <FormField
-      id={id}
-      label={`Where ${name} will go (optional)`}
-      hint="Scan the shelf label or type it. Units stay at Receiving until they are moved."
-    >
-      {(props) => (
-        <>
-          <input
-            {...props}
-            type="text"
-            className="mono"
-            maxLength={120}
-            list={locations.length > 0 ? listId : undefined}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onBlur={(e) => resolve(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter never submits the receipt; here it ends a scan.
-              if (e.key !== 'Enter') return;
-              e.preventDefault();
-              resolve(e.currentTarget.value);
-            }}
-          />
-          {locations.length > 0 ? (
-            <datalist id={listId}>
-              {locations.map((location) => (
-                <option key={location.id} value={locationText(location)} />
-              ))}
-            </datalist>
-          ) : null}
-        </>
-      )}
-    </FormField>
   );
 }
 
@@ -324,9 +336,9 @@ function withIdentity(choice: BulkChoice, changes: Partial<BulkIdentityDraft>): 
 }
 
 /**
- * The bulk sample a bulk soil bucket holds. Existing samples are offered by source, sample
- * reference and depth (B1 alone could be any hole's B1), with how many buckets they have so far.
- * Joining one takes its identity as it is: nothing about it is typed again.
+ * The bulk sample a bulk bucket holds. Existing samples are offered by source, sample reference
+ * and depth (B1 alone could be any hole's B1), with how many buckets they have so far. Joining
+ * one takes its identity as it is: nothing about it is typed again.
  */
 function BulkSampleChoice({
   unit,
@@ -336,7 +348,6 @@ function BulkSampleChoice({
   bulkGroups,
   onChange,
   errors,
-  ...sampleProps
 }: {
   unit: UnitDraft;
   index: number;
@@ -346,10 +357,6 @@ function BulkSampleChoice({
   /** Functional, so quick successive edits (pick a hole, clear its search) all apply. */
   onChange: (recipe: (choice: BulkChoice) => BulkChoice) => void;
   errors: ReadonlyMap<string, string>;
-  projectId: string | null;
-  projectNumber: string | null;
-  receiverUserId: string | null;
-  online: boolean;
 }) {
   const choice = unit.bulkChoice;
   // Earlier rows of this receipt that describe a new bulk sample.
@@ -389,16 +396,21 @@ function BulkSampleChoice({
   }
 
   return (
-    <fieldset className="hole-summary bulk-sample">
-      <legend>{unitName(index, unit)} bulk sample</legend>
-      <FormField
+    <div className="flex w-72 min-w-0 flex-col gap-1.5">
+      <LabeledField
         id={fieldId(path)}
         label="Bulk sample"
         hint="Choose an existing bulk sample of this project to add another bucket to it."
         error={errors.get(path)}
       >
         {(props) => (
-          <select {...props} value={known ? value : ''} onChange={(e) => choose(e.target.value)}>
+          <select
+            {...props}
+            data-slot="native-select"
+            className={NATIVE_SELECT_CLASS}
+            value={known ? value : ''}
+            onChange={(e) => choose(e.target.value)}
+          >
             {known ? null : <option value="">Choose…</option>}
             <option value={NEW}>New bulk sample</option>
             {earlier.length > 0 ? (
@@ -413,7 +425,7 @@ function BulkSampleChoice({
               </optgroup>
             ) : null}
             {groups.length > 0 ? (
-              <optgroup label="Existing bulk samples">
+              <optgroup label="Already received for this project">
                 {groups.map((group) => (
                   <option key={group.id} value={`existing:${group.id}`}>
                     {bulkGroupOptionLabel(group)}
@@ -426,50 +438,21 @@ function BulkSampleChoice({
             ) : null}
           </select>
         )}
-      </FormField>
+      </LabeledField>
       {bulkGroups.state === 'loading' ? (
-        <p className="field-hint" role="status">
+        <p className="text-muted-foreground m-0 text-[13px]" role="status">
           Loading this project’s bulk samples…
         </p>
       ) : null}
       {bulkGroups.state === 'error' ? (
-        <div className="error-state" role="alert">
-          <p>This project’s bulk samples couldn’t load.</p>
-          <button type="button" onClick={bulkGroups.retry}>
+        <div className="flex flex-wrap items-center gap-2" role="alert">
+          <FieldErrorText>This project’s bulk samples couldn’t load.</FieldErrorText>
+          <Button type="button" variant="outline" size="sm" onClick={bulkGroups.retry}>
+            <RotateCw aria-hidden="true" />
             Retry
-          </button>
+          </Button>
         </div>
       ) : null}
-
-      {choice.kind === 'new' ? (
-        <SampleFields
-          sample={choice.identity}
-          path={`${path}.new`}
-          required
-          referencePlaceholder="B1"
-          errors={errors}
-          onChange={(changes) => onChange((current) => withIdentity(current, changes))}
-          {...sampleProps}
-        >
-          <FormField
-            id={fieldId(`${path}.new.description`)}
-            label="Bulk sample description (optional)"
-            error={errors.get(`${path}.new.description`)}
-          >
-            {(props) => (
-              <input
-                {...props}
-                type="text"
-                maxLength={BULK_GROUP_DESCRIPTION_MAX_LENGTH}
-                value={choice.identity.description}
-                onChange={(e) =>
-                  onChange((current) => withIdentity(current, { description: e.target.value }))
-                }
-              />
-            )}
-          </FormField>
-        </SampleFields>
-      ) : null}
-    </fieldset>
+    </div>
   );
 }

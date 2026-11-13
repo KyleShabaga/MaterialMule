@@ -54,7 +54,7 @@ for (const route of [
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
     if (route === '/receiving-log/new') {
-      await expect(page.getByRole('button', { name: 'Next: add the units' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Confirm and print labels' })).toBeVisible();
     }
     expect(await smallTargets(page)).toEqual([]);
   });

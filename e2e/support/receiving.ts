@@ -41,15 +41,38 @@ export async function chooseDemoProject(page: Page) {
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
 }
 
-/** Delivery → Units (Field Ledger receiving: units are added on step 2). */
+/**
+ * Receive samples is one page (STRATA-76): the units are already there. Kept so specs read in
+ * the order a person works (project, then units).
+ */
 export async function toUnits(page: Page) {
-  await page.getByRole('button', { name: 'Next: add the units' }).click();
-  await expect(page.getByRole('heading', { name: 'Storage units in this delivery' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Storage units', exact: true })).toBeVisible();
 }
 
-/** Confirms the delivery from the On confirm panel (IDs are issued only here). */
+/** The sticky bar's Confirm and print labels, then the confirm dialog (IDs are issued here). */
 export async function confirmDelivery(page: Page) {
-  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
+  await page.getByRole('button', { name: 'Confirm and print labels' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /^Confirm \d+ units? and print labels$/ })
+    .click();
+}
+
+/** Chooses a row's holder: "Bucket 1" → "Shelby tube", "Core box" or "Bulk bucket". */
+export async function chooseHolder(page: Page, unitName: string, holder: string) {
+  await page.getByRole('combobox', { name: `${unitName} holder` }).click();
+  await page.getByRole('option', { name: holder, exact: true }).click();
+}
+
+/** Runs an item of a row's actions menu ("Bucket 2" → "Remove Bucket 2"). */
+export async function rowAction(page: Page, unitName: string, item: string | RegExp) {
+  await page.getByRole('button', { name: `${unitName} actions` }).click();
+  await page.getByRole('menuitem', { name: item }).click();
+}
+
+/** "Add unit" under the rows. */
+export async function addUnit(page: Page) {
+  await page.getByRole('button', { name: 'Add unit', exact: true }).click();
 }
 
 export async function addHole(unit: Locator, name: string) {

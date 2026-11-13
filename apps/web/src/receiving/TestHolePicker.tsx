@@ -4,10 +4,15 @@ import {
   testHoleNameSchema,
   type TestHole,
 } from '@materialmule/shared';
+import { X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { createTestHole, listTestHoles } from '../api/projects';
 import { RequiredMarker } from '../components/app-ui';
 import { useListHighlight } from '../components/useListHighlight';
+import { FieldErrorText } from './LabeledField';
 
 // Test-hole multi-select within one project, with "Add TH26-03" as the last option when nothing
 // matches exactly (MM-T08). Names are kept as typed (trimmed): never renamed or re-yeared.
@@ -31,6 +36,8 @@ export function TestHolePicker({
   legend = 'Test holes',
   required = false,
   invalid = false,
+  hideLegend = false,
+  onLoadError,
 }: {
   projectId: string;
   selected: TestHole[];
@@ -52,6 +59,10 @@ export function TestHolePicker({
   required?: boolean;
   /** The form reported a problem with the holes: the search box says so (MTR-133). */
   invalid?: boolean;
+  /** The legend stays for assistive technology only (a receiving row's column names it). */
+  hideLegend?: boolean;
+  /** Told when the project's holes fail (true) or load (false), for a page-level Try again. */
+  onLoadError?: (failed: boolean) => void;
 }) {
   const id = useId();
   const [loaded, setLoaded] = useState<{ projectId: string; holes: Holes } | null>(null);
@@ -73,6 +84,14 @@ export function TestHolePicker({
   }, [projectId, attempt]);
 
   const holes: Holes = loaded?.projectId === projectId ? loaded.holes : { state: 'loading' };
+  const loadState = holes.state;
+  const reportLoad = useRef(onLoadError);
+  useEffect(() => {
+    reportLoad.current = onLoadError;
+  });
+  useEffect(() => {
+    if (loadState !== 'loading') reportLoad.current?.(loadState === 'error');
+  }, [loadState]);
   const known = holes.state === 'ready' ? holes.holes : [];
   const key = testHoleNameKey(query);
   const selectedIds = new Set(selected.map((hole) => hole.id));
@@ -188,35 +207,52 @@ export function TestHolePicker({
   }
 
   return (
-    <fieldset className="picker">
-      <legend>
+    <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+      <legend className={hideLegend ? 'sr-only' : 'mb-1.5 text-[13px] font-semibold'}>
         {legend}
         {required ? <RequiredMarker /> : null}
       </legend>
       {selected.length > 0 ? (
-        <ul className="chips" aria-label={single ? 'Selected test hole' : 'Selected test holes'}>
+        <ul
+          className="m-0 flex list-none flex-wrap gap-1.5 p-0"
+          aria-label={single ? 'Selected test hole' : 'Selected test holes'}
+        >
           {selected.map((hole) => (
-            <li key={hole.id}>
+            <li
+              key={hole.id}
+              className="bg-accent text-accent-foreground inline-flex h-8 items-center gap-1 rounded-md pr-1 pl-2.5 font-mono text-[13px] font-semibold"
+            >
               {hole.name}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={`Remove ${hole.name}`}
+                title={`Remove ${hole.name}`}
                 onClick={() => onChange(selected.filter((h) => h.id !== hole.id))}
               >
-                ×
-              </button>
+                <X aria-hidden="true" />
+              </Button>
             </li>
           ))}
         </ul>
       ) : null}
-      <div className="form-field combobox">
-        <label htmlFor={`${id}-search`}>
+      <div className="relative flex min-w-0 flex-col gap-1.5">
+        <label htmlFor={`${id}-search`} className="sr-only">
           {single && selected.length > 0 ? 'Change the test hole' : 'Find or add a test hole'}
         </label>
-        <input
+        <Input
           ref={input}
           id={`${id}-search`}
           role="combobox"
+          className="font-mono"
+          placeholder={
+            single && selected.length > 0
+              ? 'Change the test hole'
+              : selected.length > 0
+                ? 'Add another test hole'
+                : 'Test hole'
+          }
           aria-required={required || undefined}
           aria-invalid={invalid || undefined}
           aria-autocomplete="list"
@@ -240,7 +276,7 @@ export function TestHolePicker({
             role="listbox"
             aria-label="Test holes"
             aria-multiselectable={single ? undefined : 'true'}
-            className="listbox"
+            className="bg-popover text-popover-foreground absolute top-full right-0 left-0 z-30 m-0 mt-1 max-h-64 list-none overflow-y-auto rounded-md border p-1 shadow-md"
           >
             {options.map((option, index) => (
               <li
@@ -249,7 +285,10 @@ export function TestHolePicker({
                 role="option"
                 aria-selected={index === active}
                 aria-disabled={option.kind === 'add' && (!online || saving) ? 'true' : undefined}
-                className={option.kind === 'add' ? 'add-option' : undefined}
+                className={cn(
+                  'flex min-h-9 cursor-pointer items-center rounded-sm px-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
+                  option.kind === 'hole' ? 'font-mono' : 'font-semibold',
+                )}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => pick(option)}
               >
@@ -264,20 +303,28 @@ export function TestHolePicker({
         ) : null}
       </div>
       {holes.state === 'error' ? (
-        <div className="error-state" role="alert">
-          <p>Test holes couldn’t load.</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+        <div className="flex flex-wrap items-center gap-2" role="alert">
+          <FieldErrorText>Test holes couldn’t load.</FieldErrorText>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
             Retry
-          </button>
+          </Button>
         </div>
       ) : null}
       {message ? (
-        <p
-          className={message.tone === 'error' ? 'field-error' : 'field-hint'}
-          role={message.tone === 'error' ? 'alert' : 'status'}
-        >
-          {message.text}
-        </p>
+        message.tone === 'error' ? (
+          <div role="alert">
+            <FieldErrorText>{message.text}</FieldErrorText>
+          </div>
+        ) : (
+          <p className="text-muted-foreground m-0 text-[13px]" role="status">
+            {message.text}
+          </p>
+        )
       ) : null}
     </fieldset>
   );
