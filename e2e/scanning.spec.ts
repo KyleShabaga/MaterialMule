@@ -235,7 +235,14 @@ test('scan-anywhere leaves a focused field alone', async ({ page }) => {
   const data = await insertInventoryFixture();
   await signInAs(page, 'at');
   await page.goto('/sample-storage');
-  const search = page.getByRole('searchbox', { name: 'Search' });
+  // The toolbar's search opens from its Search button (STRATA-79).
+  const search = page.getByRole('searchbox', { name: 'Search storage units' });
+  if (!(await search.isVisible())) {
+    await page
+      .getByRole('toolbar', { name: 'Storage unit tools' })
+      .getByRole('button', { name: 'Search', exact: true })
+      .click();
+  }
   await search.click();
   const resolves = recordResolves(page);
   await page.keyboard.type(data.a1);

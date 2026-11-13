@@ -185,7 +185,17 @@ export function InventoryPage() {
 
   const stage = readStage(params);
   const table = readInventoryTable(params);
-  const search = useDebounced(table.search, SEARCH_DEBOUNCE_MS);
+  // The box shows what was typed (local state), never the URL read back: navigation lands after
+  // the next keystroke, so a box driven by the URL dropped fast typing (a person, a wedge
+  // scanner). The URL follows each keystroke; the URL is adopted again only when it changes from
+  // elsewhere (Clear filters, Back) while the box still matches it (MM-T46).
+  const [searchText, setSearchText] = useState(table.search);
+  const [searchSeen, setSearchSeen] = useState(table.search);
+  if (table.search !== searchSeen) {
+    setSearchSeen(table.search);
+    if (searchText === searchSeen) setSearchText(table.search);
+  }
+  const search = useDebounced(searchText, SEARCH_DEBOUNCE_MS);
   const { query, ignored } = useMemo(() => inventoryRequest(params, search), [params, search]);
   const requestKey = inventoryRequestParams(query).toString();
 
@@ -286,7 +296,12 @@ export function InventoryPage() {
   const activeFilters = INVENTORY_FILTERS.filter(
     (f) => filterHasValue(params, f) || table.filters.includes(f),
   );
-  const toolbarQuery: TableQuery = { ...table, filters: activeFilters, view: density };
+  const toolbarQuery: TableQuery = {
+    ...table,
+    search: searchText,
+    filters: activeFilters,
+    view: density,
+  };
   const onQueryChange = (patch: Partial<TableQuery>) => {
     if (patch.view === 'comfortable' || patch.view === 'compact') setDensity(patch.view);
     if (patch.filters) {
@@ -300,6 +315,7 @@ export function InventoryPage() {
         return updated;
       });
     }
+    if (patch.search !== undefined) setSearchText(patch.search);
     if (patch.search !== undefined || patch.sort !== undefined) {
       setParams(
         (prev) => {

@@ -1,5 +1,6 @@
 import {
   DISPOSED_AFTER_TESTING_LABEL,
+  STORAGE_UNIT_RECORD_STATUS_LABELS,
   TESTED_CONTENTS_LABEL,
   formatBulkBadge,
   currentLocationName,
@@ -167,7 +168,8 @@ export function StorageUnitTable({
         id: 'stage',
         header: 'Stage',
         priority: 'state',
-        width: '10rem',
+        // Fits the longest tag, "Disposed after testing": a status is never cut off.
+        width: '12rem',
         wrap: true,
         sortKey: 'stage',
         cell: (item) => <StageCell item={item} />,
@@ -255,8 +257,15 @@ function WhereCell({ item, pending }: { item: InventoryListItem; pending?: Queue
 function StageCell({ item }: { item: InventoryItem }) {
   const status = rowRecordStatus(item);
   const tested = Boolean(item.contentsDestroyed && item.status !== 'disposed');
+  const words =
+    status === 'disposed' && item.testedRemovalReason
+      ? DISPOSED_AFTER_TESTING_LABEL
+      : status
+        ? STORAGE_UNIT_RECORD_STATUS_LABELS[status]
+        : storageUnitStatusLabel(item.status);
   return (
-    <span className="flex flex-col items-start gap-0.5">
+    // The title keeps the words readable should a narrow list ever clip the tag.
+    <span className="flex min-w-0 flex-col items-start gap-0.5" title={words}>
       {status === 'disposed' && item.testedRemovalReason ? (
         // MM-T36: removed through the post-testing route.
         <StageTag stage="closed" label={DISPOSED_AFTER_TESTING_LABEL} />

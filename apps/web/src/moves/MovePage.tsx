@@ -95,6 +95,7 @@ import {
   type PlaceRef,
 } from './store';
 import { useMoveQueue } from './useMoveQueue';
+import { useToastClearance } from './useToastClearance';
 
 function toFacts(detail: StorageUnitDetail): UnitFacts {
   return {
@@ -183,6 +184,9 @@ export function MovePage() {
   const [camera, setCamera] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  // A toast ("4 moves saved · Undo") never covers the Save bar: the bar rises above it.
+  const saveBar = useRef<HTMLDivElement | null>(null);
+  const toastClearance = useToastClearance(saveBar);
   const [places, setPlaces] = useState<{ byId: Map<string, CachedLocation>; cached: boolean }>(
     () => ({ byId: new Map(), cached: false }),
   );
@@ -1056,7 +1060,12 @@ export function MovePage() {
       </div>
 
       {/* The sticky Save bar: one primary per screen. */}
-      <div className="sticky bottom-0 z-10 mt-auto border-t bg-background/95 backdrop-blur">
+      <div
+        ref={saveBar}
+        data-testid="move-save-bar"
+        className="sticky bottom-0 z-10 mt-auto border-t bg-background/95 backdrop-blur"
+        style={toastClearance > 0 ? { bottom: toastClearance } : undefined}
+      >
         <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-3 px-4 py-3 md:px-8">
           <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground" data-testid="move-bar">
             {barText}

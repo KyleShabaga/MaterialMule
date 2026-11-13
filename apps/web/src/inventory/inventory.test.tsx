@@ -329,6 +329,25 @@ describe('Sample Storage inventory (STRATA-79)', () => {
     });
   });
 
+  it('keeps every character of fast, key-by-key typing (a wedge scanner) in the search box', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    const router = renderAt('/sample-storage');
+    await screen.findByText('42 storage units');
+    const user = userEvent.setup({ delay: null });
+    await user.click(
+      within(screen.getByRole('toolbar', { name: 'Storage unit tools' })).getByRole('button', {
+        name: 'Search',
+      }),
+    );
+    const box = screen.getByRole('searchbox', { name: 'Search storage units' });
+    await user.type(box, 'BKT-2024-309942');
+    expect(box).toHaveValue('BKT-2024-309942');
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({ search: 'BKT-2024-309942' }),
+    );
+    expect(box).toHaveValue('BKT-2024-309942');
+  });
+
   it('adds filter chips with their own pickers, removes them with ×, and clears them all', async () => {
     const fetchMock = stubApi((url) =>
       url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined,

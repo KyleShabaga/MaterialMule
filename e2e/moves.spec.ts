@@ -133,7 +133,7 @@ test('T4/AC1: LAB scans a destination, then two units; both save with actor, per
   await saveMoves(page, 2);
   await expect(row(page, u1).getByText(MOVED)).toBeVisible();
   await expect(row(page, u2).getByText(MOVED)).toBeVisible();
-  await expect(page.getByText('All moves saved.')).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'All moves saved.' })).toBeVisible();
 
   expect(await savedLocation(u1)).toBe(c2.code);
   expect(await savedLocation(u2)).toBe(c2.code);
@@ -175,7 +175,9 @@ test('T5/AC2: offline scans stay Pending (saved location unchanged) and sync onc
   await expect(second.getByRole('heading', { level: 1, name: HEADING })).toBeVisible();
 
   await context.setOffline(true);
-  await expect(page.getByText('This computer is offline.')).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'This computer is offline.' }),
+  ).toBeVisible();
   await setDestination(page, c2);
   await scan(page, u1.readableId);
   // Never fabricated: a unit this computer hasn't seen needs online lookup and queues nothing.
@@ -310,7 +312,9 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
   await scan(page, kept.readableId);
   await scan(page, removed.readableId);
   await saveMoves(page, 2);
-  await expect(page.getByText('This computer is offline.')).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'This computer is offline.' }),
+  ).toBeVisible();
   await expect(page.getByTestId('move-bar')).toContainText('2 moves waiting to send');
   // Meanwhile the tube/bucket is removed and disposed, and the LAB session runs out. (Set
   // directly here; MM-T80 T2 below runs the same queue against a real removal after testing.)
@@ -322,7 +326,9 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
   );
   await expireSession(sessionId);
   await context.setOffline(false);
-  await expect(page.getByText('Your session has ended.')).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Your session has ended.' }),
+  ).toBeVisible();
   await expect(page.getByTestId('move-bar')).toContainText('2 moves waiting to send');
 
   // A different account on this computer never sends LAB's queue.

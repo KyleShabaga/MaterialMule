@@ -16,13 +16,20 @@ import { UnitStatusTag } from '@/components/strata/stage-tag';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  CommandDialog,
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +56,12 @@ import type { PlaceRef, QueuedMove } from './store';
 // Presentational parts of the Move screen (STRATA-80, round 3 boards R3Move*, R3PutAway).
 
 const CODE = 'font-mono whitespace-nowrap';
+
+/**
+ * shadcn Item makes an ItemContent that follows another one `flex-none` (its content width), so
+ * a long shelf path pushed the row past a phone's width. These grow, shrink and wrap instead.
+ */
+const SECOND_CONTENT = 'min-w-0 [flex:1_1_14rem]!';
 
 /** "Moved by Pat Example · recording here", with Change on a LAB station. Attribution only. */
 export function MovedBy({
@@ -139,39 +152,46 @@ export function MovedBy({
       )}
       {menu ? <span className="ml-auto">{menu}</span> : null}
       {isLab ? (
-        <CommandDialog
-          open={searching}
-          onOpenChange={setSearching}
-          title="Who is moving these units?"
-          description="Search active staff by name or initials. It is attribution only."
-        >
-          <CommandInput placeholder="Search by name or initials" aria-label="Search staff" />
-          <CommandList>
-            <CommandEmpty>
-              {people.state === 'error'
-                ? 'Staff couldn’t be loaded. Close this and try again.'
-                : 'No active staff match. Not listed? Ask an administrator to add them.'}
-            </CommandEmpty>
-            <CommandGroup heading="Active staff">
-              {staff.map((person) => (
-                <CommandItem
-                  key={person.id}
-                  value={`${person.initials} ${person.displayName}`}
-                  onSelect={() => {
-                    choose({ ...person, initials: person.initials! });
-                    setSearching(false);
-                  }}
-                >
-                  <PersonAvatar person={{ initials: person.initials! }} className="size-7" />
-                  <span className="grid leading-tight">
-                    <span>{person.displayName}</span>
-                    <span className="text-[13px] text-muted-foreground">{roleLineOf(person)}</span>
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </CommandDialog>
+        <Dialog open={searching} onOpenChange={setSearching}>
+          <DialogContent className="overflow-hidden p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Who is moving these units?</DialogTitle>
+              <DialogDescription>
+                Search active staff by name or initials. It is attribution only.
+              </DialogDescription>
+            </DialogHeader>
+            <Command>
+              <CommandInput placeholder="Search by name or initials" aria-label="Search staff" />
+              <CommandList>
+                <CommandEmpty>
+                  {people.state === 'error'
+                    ? 'Staff couldn’t be loaded. Close this and try again.'
+                    : 'No active staff match. Not listed? Ask an administrator to add them.'}
+                </CommandEmpty>
+                <CommandGroup heading="Active staff">
+                  {staff.map((person) => (
+                    <CommandItem
+                      key={person.id}
+                      value={`${person.initials} ${person.displayName}`}
+                      onSelect={() => {
+                        choose({ ...person, initials: person.initials! });
+                        setSearching(false);
+                      }}
+                    >
+                      <PersonAvatar person={{ initials: person.initials! }} className="size-7" />
+                      <span className="grid leading-tight">
+                        <span>{person.displayName}</span>
+                        <span className="text-[13px] text-muted-foreground">
+                          {roleLineOf(person)}
+                        </span>
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );
@@ -355,7 +375,7 @@ export function UnitRow({
                 : 'Storage unit')}
         </ItemDescription>
       </ItemContent>
-      <ItemContent className="min-w-56 gap-1">
+      <ItemContent className={`${SECOND_CONTENT} gap-1`}>
         {item.problem === 'not_found' || item.problem === 'disposed' ? (
           <Problem>{UNIT_PROBLEM_TEXT[item.problem]}</Problem>
         ) : (
@@ -504,7 +524,7 @@ export function ShelfRow({
           <ItemTitle className={CODE}>{item.place?.code ?? item.code}</ItemTitle>
           <ItemDescription>Shelf label</ItemDescription>
         </ItemContent>
-        <ItemContent className="min-w-56">
+        <ItemContent className={SECOND_CONTENT}>
           <Problem>
             {`${SHELF_PROBLEM_TEXT[item.problem]}${
               stillGoingTo ? ` Units scanned after it still go to ${stillGoingTo.code}.` : ''
@@ -533,8 +553,8 @@ export function ShelfRow({
       <ItemContent className="min-w-32 flex-none">
         <ItemTitle className={CODE}>{item.place!.code}</ItemTitle>
       </ItemContent>
-      <ItemContent>
-        <ItemDescription className="line-clamp-none">
+      <ItemContent className={SECOND_CONTENT}>
+        <ItemDescription className="line-clamp-none break-words">
           Shelf scanned. Units scanned after it go to {path}
         </ItemDescription>
       </ItemContent>
@@ -559,7 +579,7 @@ export function WaitingReceiptRow({
         <ItemTitle className={CODE}>{readableId}</ItemTitle>
         <ItemDescription>{description}</ItemDescription>
       </ItemContent>
-      <ItemContent>
+      <ItemContent className={SECOND_CONTENT}>
         <p className="m-0 flex flex-wrap items-center gap-x-1.5 text-sm">
           <span className={CODE}>{from.code}</span>
           <ArrowRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
