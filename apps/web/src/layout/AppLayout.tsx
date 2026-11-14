@@ -68,8 +68,14 @@ function TopBar() {
         <QuickActions />
         {/* A LAB station shows the picked person's bell through the consent-based station
             summary only (STRATA-27); LAB itself never holds notification.read. */}
-        {me.permissions.includes('notification.read') || recording?.isStation ? (
+        {me.permissions.includes('notification.read') ? (
           <NotificationsBell />
+        ) : recording?.isStation ? (
+          // Beside the recording chip the phone top bar has no room: there the station's Inbox
+          // is the sidebar row (stations are desktop computers; phones rarely sign in as LAB).
+          <div className="contents max-md:hidden">
+            <NotificationsBell />
+          </div>
         ) : null}
       </div>
     </header>
