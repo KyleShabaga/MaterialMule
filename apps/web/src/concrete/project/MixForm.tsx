@@ -6,7 +6,27 @@ import {
   type ConcreteAdmixtures,
   type ConcreteMixSpec,
 } from '@materialmule/shared';
+import { CircleAlert } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ADMIXTURE_LABEL, commaAges, parseAges } from './mix-format';
 
 // MM-V2-C30: add or edit a mix's specification (the Lead only; the server checks). Supplier and
@@ -25,6 +45,8 @@ const NUMBER_FIELDS = [
   ['maxAggregateSizeMm', 'Max aggregate size (mm)'],
 ] as const;
 type NumberField = (typeof NUMBER_FIELDS)[number][0];
+
+const UNANSWERED = 'unanswered';
 
 const toText = (n: number | null) => (n === null ? '' : String(n));
 
@@ -141,115 +163,122 @@ export function MixForm({
 
   const shown = problem ?? error;
   return (
-    <form className="concrete-form mix-form" aria-label={title} onSubmit={submit}>
-      <div className="mix-form-grid">
-        <div>
-          <label htmlFor={`${id}-supplier`}>Supplier</label>
-          <input
+    <form
+      className="flex max-w-3xl flex-col gap-5 rounded-lg border bg-card p-5"
+      aria-label={title}
+      onSubmit={submit}
+    >
+      <FieldGroup className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor={`${id}-supplier`}>Supplier</FieldLabel>
+          <Input
             id={`${id}-supplier`}
-            type="text"
             required
             maxLength={200}
             value={supplier}
             onChange={(e) => setSupplier(e.target.value)}
           />
-        </div>
-        <div>
-          <label htmlFor={`${id}-number`}>Mix number</label>
-          <input
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`${id}-number`}>Mix number</FieldLabel>
+          <Input
             id={`${id}-number`}
-            type="text"
+            className="font-mono"
             required
             maxLength={100}
             value={mixNumber}
             onChange={(e) => setMixNumber(e.target.value)}
           />
-        </div>
-        <div className="mix-form-wide">
-          <label htmlFor={`${id}-plants`}>Plants (separate with commas)</label>
-          <input
-            id={`${id}-plants`}
-            type="text"
-            value={plants}
-            onChange={(e) => setPlants(e.target.value)}
-          />
-        </div>
+        </Field>
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor={`${id}-plants`}>Plants (separate with commas)</FieldLabel>
+          <Input id={`${id}-plants`} value={plants} onChange={(e) => setPlants(e.target.value)} />
+        </Field>
         {NUMBER_FIELDS.map(([field, label]) => (
-          <div key={field}>
-            <label htmlFor={`${id}-${field}`}>{label}</label>
-            <input
+          <Field key={field}>
+            <FieldLabel htmlFor={`${id}-${field}`}>{label}</FieldLabel>
+            <Input
               id={`${id}-${field}`}
-              type="text"
+              className="font-mono"
               inputMode="decimal"
               value={numbers[field]}
               onChange={(e) => setNumbers({ ...numbers, [field]: e.target.value })}
             />
-          </div>
+          </Field>
         ))}
-        <div>
-          <label htmlFor={`${id}-cement`}>Cement type</label>
-          <input
+        <Field>
+          <FieldLabel htmlFor={`${id}-cement`}>Cement type</FieldLabel>
+          <Input
             id={`${id}-cement`}
-            type="text"
             maxLength={100}
             value={cement}
             onChange={(e) => setCement(e.target.value)}
           />
-        </div>
-        <div className="mix-form-wide">
-          <label htmlFor={`${id}-ages`}>Test ages</label>
-          <input
+        </Field>
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor={`${id}-ages`}>Test ages</FieldLabel>
+          <Input
             id={`${id}-ages`}
-            type="text"
+            className="font-mono"
             value={ages}
             aria-describedby={`${id}-ages-hint`}
             onChange={(e) => setAges(e.target.value)}
           />
-          <p id={`${id}-ages-hint`} className="field-hint">
+          <FieldDescription id={`${id}-ages-hint`}>
             One per specimen, e.g. 7, 28, 28, HOLD.{' '}
             {initial ? '' : 'Leave blank to use the project’s default ages.'}
-          </p>
-        </div>
-      </div>
+          </FieldDescription>
+        </Field>
+      </FieldGroup>
 
-      <fieldset className="mix-admixtures">
-        <legend>Project specification admixtures</legend>
-        <label htmlFor={`${id}-declaration`}>Admixtures</label>
-        <select
-          id={`${id}-declaration`}
-          value={admixtures.declaration ?? ''}
-          onChange={(e) => {
-            const next = e.target.value;
-            setAdmixtures(
-              next === 'listed'
-                ? { declaration: 'listed', items: admixtures.items }
-                : { declaration: next === '' ? null : (next as 'none' | 'unknown'), items: [] },
-            );
-          }}
-        >
-          <option value="">Not answered</option>
-          <option value="none">None</option>
-          <option value="unknown">Unknown</option>
-          <option value="listed">Listed below</option>
-        </select>
+      <FieldSet>
+        <FieldLegend variant="label">Project specification admixtures</FieldLegend>
+        <Field className="max-w-xs">
+          <FieldLabel htmlFor={`${id}-declaration`}>Admixtures</FieldLabel>
+          <Select
+            value={admixtures.declaration ?? UNANSWERED}
+            onValueChange={(next) =>
+              setAdmixtures(
+                next === 'listed'
+                  ? { declaration: 'listed', items: admixtures.items }
+                  : {
+                      declaration: next === UNANSWERED ? null : (next as 'none' | 'unknown'),
+                      items: [],
+                    },
+              )
+            }
+          >
+            <SelectTrigger id={`${id}-declaration`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNANSWERED}>Not answered</SelectItem>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="unknown">Unknown</SelectItem>
+              <SelectItem value="listed">Listed below</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
         {admixtures.declaration === 'listed' ? (
-          <ul className="mix-admixture-list">
+          <ul className="flex flex-col gap-2">
             {CONCRETE_ADMIXTURE_KINDS.map((kind) => {
               const item = admixtures.items.find((i) => i.kind === kind);
               const unit = CONCRETE_ADMIXTURE_DOSAGE_UNIT[kind];
               return (
-                <li key={kind}>
-                  <label>
-                    <input
-                      type="checkbox"
+                <li key={kind} className="flex min-h-9 flex-wrap items-center gap-3">
+                  <Field orientation="horizontal" className="w-48">
+                    <Checkbox
+                      id={`${id}-${kind}`}
                       checked={Boolean(item)}
-                      onChange={(e) => setKind(kind, e.target.checked)}
-                    />{' '}
-                    {ADMIXTURE_LABEL[kind]}
-                  </label>
+                      onCheckedChange={(on) => setKind(kind, on === true)}
+                    />
+                    <FieldLabel htmlFor={`${id}-${kind}`} className="font-normal">
+                      {ADMIXTURE_LABEL[kind]}
+                    </FieldLabel>
+                  </Field>
                   {item && unit ? (
-                    <input
-                      type="text"
+                    <Input
+                      className="w-32 font-mono"
                       inputMode="decimal"
                       aria-label={`${ADMIXTURE_LABEL[kind]} dosage (${unit})`}
                       placeholder={unit}
@@ -262,8 +291,8 @@ export function MixForm({
                     />
                   ) : null}
                   {item && kind === 'other' ? (
-                    <input
-                      type="text"
+                    <Input
+                      className="w-56"
                       aria-label="Other admixture"
                       maxLength={200}
                       value={item.description ?? ''}
@@ -275,27 +304,30 @@ export function MixForm({
             })}
           </ul>
         ) : null}
-      </fieldset>
+      </FieldSet>
 
       {shown ? (
-        <div className="field-error" role="alert">
-          <p>{shown}</p>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle>{shown}</AlertTitle>
           {fieldErrors && fieldErrors.length > 0 ? (
-            <ul>
-              {fieldErrors.map((e) => (
-                <li key={`${e.field}-${e.message}`}>{e.message}</li>
-              ))}
-            </ul>
+            <AlertDescription>
+              <ul className="list-disc pl-4">
+                {fieldErrors.map((e) => (
+                  <li key={`${e.field}-${e.message}`}>{e.message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
           ) : null}
-        </div>
+        </Alert>
       ) : null}
-      <div className="page-actions">
-        <button type="submit" className="primary" disabled={busy}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={busy}>
           {submitLabel}
-        </button>
-        <button type="button" onClick={onCancel} disabled={busy}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

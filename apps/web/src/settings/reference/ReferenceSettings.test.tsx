@@ -356,10 +356,10 @@ describe('Mix detail: Discard draft and supplier link (MM-V2-C37 on the C30 Mixe
       }
       return undefined;
     });
-    const tabs = await screen.findByRole('navigation', { name: 'Concrete' });
-    expect(within(tabs).getByRole('link', { name: 'Mixes' })).toHaveAttribute(
-      'aria-current',
-      'page',
+    const tabs = await screen.findByRole('navigation', { name: 'Concrete sections' });
+    expect(within(tabs).getByRole('tab', { name: 'Mixes' })).toHaveAttribute(
+      'aria-selected',
+      'true',
     );
   });
 
@@ -374,8 +374,10 @@ describe('Mix detail: Discard draft and supplier link (MM-V2-C37 on the C30 Mixe
       ),
     );
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Discard draft revision 2' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Discard draft revision 2?' });
+    // STRATA-98: Discard draft sits in the mix page's More menu.
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Discard draft revision 2' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Discard draft revision 2?' });
     expect(within(dialog).getByText(/stays in effect, unchanged/)).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText(/Note/), 'Wrong strength');
     await user.click(within(dialog).getByRole('button', { name: 'Discard draft' }));
@@ -410,9 +412,13 @@ describe('Mix detail: Discard draft and supplier link (MM-V2-C37 on the C30 Mixe
       ),
     );
     const user = userEvent.setup();
-    const select = await screen.findByLabelText('Listed supplier');
-    await screen.findByRole('option', { name: 'Example Ready-Mix' });
-    await user.selectOptions(select, supplier.id);
+    // STRATA-98: the picker is a shadcn Select (a combobox with a listbox of options).
+    const select = await screen.findByRole('combobox', { name: 'Listed supplier' });
+    await vi.waitFor(() => expect(select).toBeEnabled());
+    select.focus();
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('option', { name: 'Example Ready-Mix' }));
+    expect(select).toHaveTextContent('Example Ready-Mix');
     await user.click(screen.getByRole('button', { name: 'Save link' }));
     expect(await screen.findByText('M-1 linked to Example Ready-Mix.')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({
@@ -423,9 +429,7 @@ describe('Mix detail: Discard draft and supplier link (MM-V2-C37 on the C30 Mixe
   it('without mix authority there is no Discard draft or supplier picker', async () => {
     renderAt(at, TECH, base(false));
     expect(
-      await screen.findByText(
-        'Only the project’s Lead Project Engineer can edit or approve this mix.',
-      ),
+      await screen.findByText('Only the project’s lead changes mixes. You can see every revision.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Discard draft/ })).toBeNull();
     expect(screen.queryByLabelText('Listed supplier')).toBeNull();

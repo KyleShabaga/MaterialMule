@@ -136,7 +136,7 @@ describe('Summary tab (MM-V2-C32)', () => {
     );
 
     await user.click(generate);
-    const dialog = await screen.findByRole('dialog', { name: 'Issue this summary report?' });
+    const dialog = await screen.findByRole('alertdialog', { name: 'Issue this summary report?' });
     await user.click(within(dialog).getByRole('button', { name: 'Issue summary report' }));
     expect(await screen.findByText('CSR-2026-0004 issued.')).toBeInTheDocument();
     expect(posts).toHaveLength(1);

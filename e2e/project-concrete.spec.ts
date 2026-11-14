@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 
-// MM-V2-C30 T2: the project Concrete section's five tabs, add / copy / approve a mix, and the
-// mix propagation review (approve only some records), on desktop and phone, against the real API.
+// MM-V2-C30 T2, STRATA-98: the project Concrete tab's five sub-tabs (inside the project page),
+// add / copy / approve a mix, lead-only mix controls, Sets with "n of m tested", and the change
+// propagation (apply to only some records), on desktop and phone, against the real API.
 // Fictional data only: DEMO-2601 and DEMO-2602 (both led by Pat Example), technician Alex
 // Tester, invented supplier and mix numbers. There is no field-report form yet, so the
 // technician's reports and sets are created through the API.
@@ -65,33 +66,34 @@ test('T2: five tabs, add / copy / approve a mix, and approve only some affected 
     revisionId: source.draftRevision.id,
   });
 
-  // The Concrete section sits beside the project's Overview.
+  // The Concrete tab sits in the project page, beside Overview (STRATA-98: inside the layout).
   await page.goto(`/projects/${PROJECT_ID}`);
   await expectProjectSections(page);
   await page
     .getByRole('navigation', { name: 'Project sections' })
     .getByRole('tab', { name: 'Concrete' })
     .click();
-  const tabs = page.getByRole('navigation', { name: 'Concrete' });
-  for (const name of ['Reports', 'Specimens', 'Summary', 'Mixes', 'Settings']) {
-    await expect(tabs.getByRole('link', { name })).toBeVisible();
+  await expectProjectSections(page);
+  const tabs = page.getByRole('navigation', { name: 'Concrete sections' });
+  for (const name of ['Field reports', 'Sets', 'Mixes', 'Summary', 'Settings']) {
+    await expect(tabs.getByRole('tab', { name })).toBeVisible();
   }
-  await expect(page.getByRole('searchbox', { name: 'Search reports' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'New field report' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Field reports', level: 2 })).toBeVisible();
+  await expect(page.getByRole('button', { name: /New field report/ })).toBeDisabled();
 
-  await tabs.getByRole('link', { name: 'Summary' }).click();
+  await tabs.getByRole('tab', { name: 'Summary' }).click();
   await expect(page.getByRole('radio', { name: 'All dates' })).toBeChecked();
   // MM-V2-C32: the lead may issue a summary report (concrete-report-output.spec.ts issues one).
   await expect(page.getByRole('button', { name: 'Generate summary report' })).toBeEnabled();
 
-  await tabs.getByRole('link', { name: 'Settings' }).click();
+  await tabs.getByRole('tab', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Concrete settings' })).toBeVisible();
-  await expect(page.getByLabel('Default specimen ages')).toHaveValue(/HOLD/);
-  await expect(page.getByRole('heading', { name: 'Lead and reviewers' })).toBeVisible();
+  await expect(page.getByLabel('Default test ages')).toHaveValue(/HOLD/);
+  await expect(page.getByRole('heading', { name: 'Who reviews concrete work' })).toBeVisible();
   await expect(page.getByText('Pat Example', { exact: false }).first()).toBeVisible();
 
   // Add a mix (Unapproved), then approve it.
-  await tabs.getByRole('link', { name: 'Mixes' }).click();
+  await tabs.getByRole('tab', { name: 'Mixes' }).click();
   await page.getByRole('button', { name: 'Add mix' }).click();
   const form = page.getByRole('form', { name: 'Add mix' });
   await form.getByLabel('Supplier').fill('Example Ready-Mix');
@@ -104,31 +106,31 @@ test('T2: five tabs, add / copy / approve a mix, and approve only some affected 
   await form.getByLabel('Max aggregate size (mm)').fill('20');
   await form.getByLabel('Cement type').fill('GU');
   await form.getByRole('button', { name: 'Add mix' }).click();
-  await expect(
-    page.getByRole('heading', { name: `Example Ready-Mix · ${mixNumber}` }),
-  ).toBeVisible();
-  await expect(page.getByText('Unapproved', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: mixNumber, level: 1 })).toBeVisible();
+  const mixStatus = page.getByRole('group', { name: 'Mix status' });
+  await expect(mixStatus.getByText('Unapproved', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Approve revision 1' }).click();
   await page
-    .getByRole('dialog', { name: 'Approve revision 1?' })
+    .getByRole('alertdialog', { name: 'Approve revision 1?' })
     .getByRole('button', { name: 'Approve' })
     .click();
   await expect(page.getByText('Revision 1 approved.')).toBeVisible();
-  await expect(page.locator('.mix-heading').getByText('Approved', { exact: true })).toBeVisible();
+  await expect(mixStatus.getByText('Approved', { exact: true })).toBeVisible();
   const mixUrl = page.url();
   const mixId = mixUrl.split('/mixes/')[1]!.split(/[?#/]/)[0]!;
 
   // AC2: a copy from another project starts Unapproved.
-  await page.getByRole('link', { name: '← Back to Mixes' }).click();
+  await page
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: 'Mixes' })
+    .click();
   await page.getByRole('button', { name: 'Copy from another project' }).click();
   await page.getByRole('searchbox', { name: 'Find the source project' }).fill('DEMO-2602');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await page.getByRole('button', { name: /DEMO-2602/ }).click();
   await page.getByRole('button', { name: `Copy ${sourceNumber}` }).click();
-  await expect(
-    page.getByRole('heading', { name: `Example Ready-Mix · ${sourceNumber}` }),
-  ).toBeVisible();
-  await expect(page.getByText('Unapproved', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: sourceNumber, level: 1 })).toBeVisible();
+  await expect(mixStatus.getByText('Unapproved', { exact: true })).toBeVisible();
   await expect(page.getByText(/Copied from DEMO-2602/)).toBeVisible();
 
   // The technician has two draft reports made with revision 1 (one with a specimen set).
@@ -153,62 +155,82 @@ test('T2: five tabs, add / copy / approve a mix, and approve only some affected 
     idempotencyKey: randomUUID(),
   });
 
-  // AC3: a non-Lead sees no mix actions.
+  // AC3: a non-Lead sees no mix actions (the server refuses them too).
   await page.goto(mixUrl);
   await expect(
-    page.getByText('Only the project’s Lead Project Engineer can edit or approve this mix.'),
+    page.getByText('Only the project’s lead changes mixes. You can see every revision.'),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: /Edit/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Edit|Change this mix|Approve/ })).toHaveCount(0);
   await page.goto(`/projects/${PROJECT_ID}/concrete/mixes`);
   await expect(page.getByRole('button', { name: 'Add mix' })).toHaveCount(0);
-  await expect(page.getByText(/Only the project’s Lead Project Engineer can add/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy from another project' })).toHaveCount(0);
+  await expect(
+    page.getByText(/Only the project’s lead, .+, adds, changes and approves mixes/),
+  ).toBeVisible();
 
-  // The Reports and Specimens tabs list the technician's records.
+  // Field reports and Sets list the technician's records; a set shows "n of m tested".
   await page.goto(`/projects/${PROJECT_ID}/concrete/reports`);
-  await page.getByRole('searchbox', { name: 'Search reports' }).fill(`C30 run ${run}`);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.getByText('Showing 1–2 of 2 reports')).toBeVisible();
+  await page
+    .getByRole('toolbar', { name: 'Field reports tools' })
+    .getByRole('button', { name: 'Search' })
+    .click();
+  await page.getByRole('searchbox', { name: 'Search field reports' }).fill(`C30 run ${run}`);
+  await expect(page.getByText('1–2 of 2 reports')).toBeVisible();
+  // The former Specimens address opens Sets.
   await page.goto(`/projects/${PROJECT_ID}/concrete/specimens`);
-  await page.getByRole('searchbox', { name: 'Search specimens' }).fill(`C30 run ${run}`);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.getByText('Showing 1–4 of 4 specimens')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT_ID}/concrete/sets$`));
+  await page
+    .getByRole('toolbar', { name: 'Sets tools' })
+    .getByRole('button', { name: 'Search' })
+    .click();
+  await page.getByRole('searchbox', { name: 'Search sets' }).fill(`C30 run ${run}`);
+  await expect(page.getByText('1–1 of 1 set')).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Open Set \d+$/ })).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: /^0 of \d+ tested$/ })).toBeVisible();
+  await expect(page.getByText(/permanent set numbering is an open item/)).toBeVisible();
 
-  // The Lead edits the mix (a draft revision), approves it and lands on the propagation review.
+  // The Lead changes the mix (a new revision), approves it and lands on the change propagation.
   await signInAs(page, 'pe');
   await page.goto(mixUrl);
-  await page.getByRole('button', { name: 'Edit (makes a draft revision)' }).click();
+  await page.getByRole('button', { name: 'Change this mix' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit as a new revision' })).toBeVisible();
   const edit = page.getByRole('form', { name: 'Edit mix' });
   await edit.getByLabel('Slump target (mm)').fill('100');
   await edit.getByRole('button', { name: 'Save draft' }).click();
   await expect(page.getByText(/Saved as draft revision 2/)).toBeVisible();
   await page.getByRole('button', { name: 'Approve revision 2' }).click();
   await page
-    .getByRole('dialog', { name: 'Approve revision 2?' })
+    .getByRole('alertdialog', { name: 'Approve revision 2?' })
     .getByRole('button', { name: 'Approve' })
     .click();
-  await expect(page.getByRole('heading', { name: 'Update open records', level: 1 })).toBeVisible();
   await expect(
-    page.getByText(`Records made from earlier revisions of Example Ready-Mix ${mixNumber}.`),
+    page.getByRole('heading', { name: 'Update records from revision 2', level: 1 }),
   ).toBeVisible();
-  // Field Ledger: the records that can change, each old value struck through beside the new one.
+  // Can be updated: chosen by default, each old value struck through beside the new one.
   const reportsCard = page.getByRole('region', { name: 'Can be updated', exact: true });
   await expect(reportsCard.getByRole('checkbox')).toHaveCount(2);
   await expect(reportsCard).toContainText('Slump target (mm)');
   await expect(reportsCard).toContainText('from 80 to 100');
   await expect(reportsCard.locator('s').filter({ hasText: /^80$/ }).first()).toBeVisible();
 
-  // AC1: approve only one report; the other stays listed and the history shows the scope.
+  // AC1: apply to one report only; the other stays listed and the history shows the scope.
+  await expect(
+    reportsCard.getByRole('checkbox', { name: `Update Field report 2026-11-06, ticket ${run}-A` }),
+  ).toBeChecked();
   await reportsCard
-    .getByRole('checkbox', { name: `Update Field report 2026-11-06, ticket ${run}-A` })
-    .check();
-  await page.getByLabel('Note (optional, kept in the history)').fill('Supplier revised slump');
-  await page.getByRole('button', { name: 'Approve selected (1)' }).click();
-  await expect(page.getByText('Updated 1 record from the mix.', { exact: false })).toBeVisible();
+    .getByRole('checkbox', { name: `Update Field report 2026-11-06, ticket ${run}-B` })
+    .uncheck();
+  await page.getByLabel('Note for the mix history').fill('Supplier revised slump');
+  await page.getByRole('button', { name: 'Apply to 1 record' }).click();
+  await expect(page.getByText('Applied to 1 record', { exact: true })).toBeVisible();
   await expect(reportsCard.getByRole('checkbox')).toHaveCount(1);
   await expect(reportsCard).toContainText(`ticket ${run}-B`);
   await expect(reportsCard).not.toContainText(`ticket ${run}-A`);
 
-  await page.getByRole('link', { name: '← Back to the mix' }).click();
+  await page
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: mixNumber })
+    .click();
   const history = page.getByRole('region', { name: 'History', exact: true });
   await expect(history).toContainText('Records updated from the mix');
   await expect(history).toContainText(

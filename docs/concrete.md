@@ -195,6 +195,13 @@ erDiagram
 - **Reads:** `GET /api/concrete/projects/:projectId/specimens?search=&status=&page=&pageSize=`
   (`inventory.read`; status derived on today's date in America/Edmonton, never stored) and the
   C04 report list, which gains `search=` and `issued=` plus the Reports-tab columns.
+- **Sets tab (STRATA-98):** `GET /api/concrete/projects/:projectId/specimen-sets?search=&page=&pageSize=`
+  (`inventory.read`, same as the Specimens read): one row per set, newest first, with its test
+  ages, "n of m tested" (m = the set's non-HOLD specimens, n = those with a complete test entry,
+  C23's rule) and a status derived on today's date (No casting time, Curing, Break today, Break
+  overdue, On HOLD, All tested, Void). Sets show a working label, "Set N" with specimens
+  "NA–ND", where N is the set's place in its project in creation order; it is derived, never
+  stored and never an ID. Permanent set numbering stays an open item (package 3).
 - **Propagation review** (`GET|POST /api/concrete-mixes/:id/propagation`): after the Lead approves
   a revision, records made from an earlier revision are listed with what the approved revision
   would change: a field report's "Mix spec" members (and its mix snapshot, which moves to the
