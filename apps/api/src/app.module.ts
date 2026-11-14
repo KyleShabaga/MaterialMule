@@ -57,9 +57,13 @@ import { MovesController } from './moves/moves.controller.js';
 import { ActionItemsController } from './notifications/action-items.controller.js';
 import { DisposalController } from './disposal/disposal.controller.js';
 import { DisposalService } from './disposal/disposal.service.js';
+import { DisposalScanController } from './disposal/disposal-scan.controller.js';
+import { DisposalScanService } from './disposal/disposal-scan.service.js';
 import { BusinessClock } from './retention/business-clock.js';
 import { RetentionController } from './retention/retention.controller.js';
 import { RetentionService } from './retention/retention.service.js';
+import { RetentionPipelineController } from './retention/retention-pipeline.controller.js';
+import { RetentionPipelineService } from './retention/retention-pipeline.service.js';
 import { ActionItemsService } from './notifications/action-items.service.js';
 import { EmailWorkerService } from './notifications/email-worker.service.js';
 import { NotificationsController } from './notifications/notifications.controller.js';
@@ -207,7 +211,9 @@ export class AppModule {
         ReceiptDraftsController,
         StationController,
         RetentionController,
+        RetentionPipelineController,
         DisposalController,
+        DisposalScanController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -308,7 +314,9 @@ export class AppModule {
         EmailWorkerService,
         BusinessClock,
         RetentionService,
+        RetentionPipelineService,
         DisposalService,
+        DisposalScanService,
         // Units referenced by open testing programs block project corrections (MM-T23, D47).
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: ProgramLabRequestLinks },
         // Default deny on every route (MM-T04).

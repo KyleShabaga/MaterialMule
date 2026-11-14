@@ -9,14 +9,14 @@ import {
 import {
   DISPOSAL_PAGE_SIZE,
   DISPOSAL_READY_PAGE_SIZE,
-  normalizeStorageUnitCode,
   type ApproveDisposal,
   type ApproveDisposalResult,
   type DisposalBlocker,
   type DisposalCandidates,
   type DisposalReady,
-  type DisposalScanResult,
-  type RemoveDisposal,
+  type RemoveFromDisposalList,
+  type RemoveFromDisposalListResult,
+  type RetentionDecisionResult,
   type RevokeDisposal,
 } from '@materialmule/shared';
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
@@ -59,7 +59,16 @@ function intentHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-interface Standing {
+export type ListFailure = RetentionDecisionResult['failed'][number];
+
+export interface ListStanding {
+  unit: Standing;
+  version: number;
+  listed: boolean;
+  blockers: DisposalBlocker[];
+}
+
+export interface Standing {
   id: string;
   readable_id: string;
   unit_type: string;
@@ -159,7 +168,7 @@ export async function disposalStanding(
  * Standard disposal (MM-T30): eligible list, batch approval and revocation (the project's Lead Project Engineer
  * or a Lab Manager, `disposal.approve`), and the online-only disposal scan (personal accounts,
  * `storage_unit.dispose_scan`). Approval never disposes; removal rechecks everything under the
- * unit's row lock. The MM-T36 post-testing route is separate.
+ * unit's row lock (DisposalScanService). The MM-T36 post-testing route is separate.
  */
 @Injectable()
 export class DisposalService {
@@ -408,6 +417,14 @@ export class DisposalService {
              WHERE id = $1`,
             [id],
           );
+          // STRATA-90: the unit leaves the disposal list for Approved.
+          await client.query(
+            `UPDATE disposal_list_entry
+             SET ended_at = now(), end_kind = 'approved', ended_by_user_id = $2,
+                 ended_by_name_snapshot = $3, approval_id = $4
+             WHERE storage_unit_id = $1 AND ended_at IS NULL`,
+            [id, user.userId, user.displayName, rows[0]!.id],
+          );
           await recordAudit(client, {
             action: 'disposal.approved',
             entityType: 'storage_unit',
@@ -493,6 +510,27 @@ export class DisposalService {
          WHERE id = $1 AND status = 'approved_for_disposal'`,
         [unitId],
       );
+      // STRATA-90: a revoked approval puts the unit back on the disposal list to wait for
+      // approval again (nothing has left the shelf).
+      await client.query(
+        `INSERT INTO disposal_list_entry
+           (storage_unit_id, project_id, added_by_user_id, added_by_initials_snapshot,
+            added_by_name_snapshot, reason, from_approval_id, idempotency_key, request_hash)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+         WHERE NOT EXISTS (SELECT 1 FROM disposal_list_entry
+                           WHERE storage_unit_id = $1 AND ended_at IS NULL)`,
+        [
+          unitId,
+          unit.project_id,
+          user.userId,
+          user.initials,
+          user.displayName,
+          body.reason,
+          approvalId,
+          body.idempotencyKey,
+          intentHash({ revoke: approvalId }),
+        ],
+      );
       await recordAudit(client, {
         action: 'disposal.approval_revoked',
         entityType: 'storage_unit',
@@ -507,203 +545,223 @@ export class DisposalService {
   }
 
   /**
-   * One Disposal scan. Locks the unit, needs a live approval and rechecks standard eligibility
-   * now (a hold placed after approval blocks it). A refusal is audited (`disposal.blocked`) and
-   * returned with its reasons; success records the disposition atomically. Retrying with the
-   * same key returns the recorded result.
+   * STRATA-90: why each unit can't go on the disposal list now (an empty list = it can). The
+   * standard eligibility (unit_disposal_eligible) plus: a tested unit leaves through "Confirm
+   * removal after testing", and a unit already on the list stays there once.
    */
-  async remove(user: AuthUser, body: RemoveDisposal): Promise<DisposalScanResult> {
-    if (!can(user, 'storage_unit.dispose_scan')) {
-      throw new ForbiddenException({ code: 'forbidden' });
+  async listStanding(db: Db, unitIds: string[], asOf: string): Promise<Map<string, ListStanding>> {
+    const result = new Map<string, ListStanding>();
+    if (unitIds.length === 0) return result;
+    // One query at a time: `db` may be a transaction's client.
+    const standing = await disposalStanding(db, unitIds, asOf);
+    const extra = await db.query<{ id: string; version: number; listed: boolean }>(
+      `SELECT su.id, su.version,
+                EXISTS (SELECT 1 FROM disposal_list_entry e
+                        WHERE e.storage_unit_id = su.id AND e.ended_at IS NULL
+                          AND e.project_id = su.project_id) AS listed
+       FROM storage_unit su WHERE su.id = ANY($1::uuid[])`,
+      [unitIds],
+    );
+    for (const row of extra.rows) {
+      const found = standing.get(row.id);
+      if (!found) continue;
+      const blockers: DisposalBlocker[] = [];
+      if (found.unit.retention_exempt) {
+        blockers.push({
+          code: 'retention_exempt',
+          label: 'Tested: use “Confirm removal after testing” on its page',
+        });
+      }
+      if (row.listed) {
+        blockers.push({ code: 'on_disposal_list', label: 'Already on the disposal list' });
+      }
+      if (!found.unit.eligible) blockers.push(...found.blockers);
+      result.set(row.id, { unit: found.unit, version: row.version, listed: row.listed, blockers });
     }
-    const code = body.suNumber.trim();
-    const hash = intentHash({ suNumber: normalizeStorageUnitCode(code) });
-    try {
-      return await withTransaction(this.database.pool, async (client) => {
-        const where = UUID_PATTERN.test(code) ? 'id = $1' : 'readable_id = $1';
-        const value = UUID_PATTERN.test(code) ? code : normalizeStorageUnitCode(code);
-        const { rows: found } = await client.query<{ project_id: string }>(
-          `SELECT project_id FROM storage_unit WHERE ${where}`,
-          [value],
-        );
-        if (!found[0]) {
-          return scan('not_found', null, null, [], `No storage unit found for ${code}.`);
-        }
-        // Project first (FOR SHARE; a new project-wide hold or extension takes NO KEY UPDATE, so
-        // the two serialise), then the unit: the order retention placements use.
-        await client.query('SELECT 1 FROM project WHERE id = $1 FOR SHARE', [found[0].project_id]);
-        const { rows } = await client.query<{
-          id: string;
-          readable_id: string;
-          status: string;
-          project_id: string;
-        }>(
-          `SELECT id, readable_id, status, project_id FROM storage_unit WHERE ${where} FOR UPDATE`,
-          [value],
-        );
-        const unit = rows[0]!;
-        if (unit.project_id !== found[0].project_id) {
-          throw new ConflictException({ code: 'storage_unit_changed' });
-        }
-        // After the lock, so a concurrent exact retry returns the disposition that committed.
-        const replay = await this.replay(client, body.idempotencyKey, hash, user);
-        if (replay) return replay;
-        const asOf = this.clock.today();
-        const { blockers, unit: standing } = (
-          await disposalStanding(client, [unit.id], asOf, true)
-        ).get(unit.id)!;
-        const { rows: approvals } = await client.query<{ id: string; project_id: string }>(
-          `SELECT id, project_id FROM disposal_approval
-           WHERE storage_unit_id = $1 AND revoked_at IS NULL AND used_at IS NULL FOR UPDATE`,
-          [unit.id],
-        );
-        // MM-T70: an approval only counts under the project it was granted for (D19). One from
-        // before a project correction leaves the unit Not approved until the new project's Lead Project Engineer
-        // or a Lab Manager approves it (unit locked first, then the approval, as revoke does).
-        const stale = approvals[0] && approvals[0].project_id !== unit.project_id;
-        const approval = stale ? undefined : approvals[0];
-        let outcome: DisposalScanResult | null = null;
-        if (unit.status === 'disposed') {
-          outcome = scan(
-            'not_approved',
-            unit.id,
-            unit.readable_id,
-            blockers,
-            `${unit.readable_id} is already disposed.`,
-          );
-        } else if (stale) {
-          outcome = scan(
-            'not_approved',
-            unit.id,
-            unit.readable_id,
-            [projectChanged()],
-            `${unit.readable_id} isn’t approved for disposal: it was approved under another project. Its current project’s Lead Project Engineer or a Lab Manager must approve it again.`,
-          );
-        } else if (!approval || unit.status !== 'approved_for_disposal') {
-          outcome = scan(
-            'not_approved',
-            unit.id,
-            unit.readable_id,
-            [],
-            `${unit.readable_id} isn’t approved for disposal.`,
-          );
-        } else if (!standing.eligible || standing.open_conflict) {
-          outcome = scan(
-            'blocked',
-            unit.id,
-            unit.readable_id,
-            blockers,
-            `Blocked: ${blockers.map((b) => b.label).join('; ')}`,
-          );
-        }
-        if (outcome) {
-          await recordAudit(client, {
-            action: 'disposal.blocked',
-            entityType: 'storage_unit',
-            entityId: unit.id,
-            actor: actorOf(user),
-            after: { result: outcome.result, blockers: outcome.blockers.map((b) => b.code), asOf },
-          });
-          return outcome;
-        }
+    return result;
+  }
+
+  /**
+   * STRATA-90: puts units on the disposal list inside the caller's transaction (projects FOR
+   * SHARE and units FOR UPDATE already locked, authority already checked under lock). Each unit is
+   * rechecked now and fails on its own: changed since it was read, not eligible, tested, or
+   * already listed. Retrying with the same key returns what that key listed.
+   */
+  async addToList(
+    client: PoolClient,
+    user: AuthUser,
+    units: { id: string; version: number }[],
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<{ done: { storageUnitId: string; readableId: string }[]; failed: ListFailure[] }> {
+    const hash = intentHash({ list: units.map((u) => u.id).sort(), reason });
+    const { rows: earlier } = await client.query<{
+      storage_unit_id: string;
+      added_by_user_id: string;
+      request_hash: string;
+      readable_id: string;
+    }>(
+      `SELECT e.storage_unit_id, e.added_by_user_id, e.request_hash, su.readable_id
+       FROM disposal_list_entry e JOIN storage_unit su ON su.id = e.storage_unit_id
+       WHERE e.idempotency_key = $1 AND e.from_approval_id IS NULL`,
+      [idempotencyKey],
+    );
+    if (earlier.some((e) => e.added_by_user_id !== user.userId || e.request_hash !== hash)) {
+      throw new ConflictException({ code: 'idempotency_key_reused' });
+    }
+    if (earlier.length > 0) {
+      return {
+        done: earlier.map((e) => ({ storageUnitId: e.storage_unit_id, readableId: e.readable_id })),
+        failed: [],
+      };
+    }
+    const asOf = this.clock.today();
+    const standing = await this.listStanding(
+      client,
+      units.map((u) => u.id),
+      asOf,
+    );
+    const done: { storageUnitId: string; readableId: string }[] = [];
+    const failed: ListFailure[] = [];
+    for (const { id, version } of units) {
+      const found = standing.get(id);
+      if (!found) {
+        failed.push({
+          storageUnitId: id,
+          readableId: null,
+          code: 'not_found',
+          message: 'Not found',
+        });
+        continue;
+      }
+      const readableId = found.unit.readable_id;
+      const fail = (code: ListFailure['code'], message: string) =>
+        failed.push({ storageUnitId: id, readableId, code, message });
+      if (found.unit.status === 'disposed') fail('disposed', 'Already disposed');
+      else if (found.version !== version) {
+        fail('changed', 'It changed after you opened it. Check it and try again.');
+      } else if (found.listed) fail('already_on_list', 'Already on the disposal list');
+      else if (found.blockers.length > 0) {
+        fail('not_eligible', found.blockers.map((b) => b.label).join('; '));
+      } else {
+        // A live entry from before a project correction no longer counts: it is closed first.
         await client.query(
-          `UPDATE storage_unit SET status = 'disposed', version = version + 1, updated_at = now(),
-                  disposed_at = now(), disposed_by_user_id = $2
-           WHERE id = $1`,
-          [unit.id, user.userId],
+          `UPDATE disposal_list_entry SET ended_at = now(), end_kind = 'closed'
+           WHERE storage_unit_id = $1 AND ended_at IS NULL`,
+          [id],
         );
-        await client.query('UPDATE disposal_approval SET used_at = now() WHERE id = $1', [
-          approval!.id,
-        ]);
-        const { rows: removed } = await client.query<{ removed_at: Date }>(
-          `INSERT INTO disposal_removal
-             (storage_unit_id, approval_id, project_id, unit_readable_id_snapshot, location_id,
-              location_code_snapshot, location_name_snapshot, removed_by_user_id,
-              removed_by_account_type, removed_by_initials_snapshot, removed_by_name_snapshot,
-              idempotency_key, request_hash)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING removed_at`,
+        const { rows } = await client.query<{ id: string }>(
+          `INSERT INTO disposal_list_entry
+             (storage_unit_id, project_id, added_by_user_id, added_by_initials_snapshot,
+              added_by_name_snapshot, reason, idempotency_key, request_hash)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
           [
-            unit.id,
-            approval!.id,
-            standing.project_id,
-            unit.readable_id,
-            standing.location_id,
-            standing.location_code,
-            standing.location_name,
+            id,
+            found.unit.project_id,
             user.userId,
-            user.accountType,
             user.initials,
             user.displayName,
-            body.idempotencyKey,
+            reason,
+            idempotencyKey,
             hash,
           ],
         );
         await recordAudit(client, {
-          action: 'disposal.removed',
+          action: 'disposal.listed',
+          entityType: 'storage_unit',
+          entityId: id,
+          actor: actorOf(user),
+          reason,
+          before: null,
+          after: {
+            listEntryId: rows[0]!.id,
+            effectiveRetainUntil: found.unit.effective_retain_until,
+            asOf,
+          },
+        });
+        done.push({ storageUnitId: id, readableId });
+      }
+    }
+    return { done, failed };
+  }
+
+  /**
+   * STRATA-90: takes units off the disposal list, with a reason (the project's Lead Project
+   * Engineer or a Lab Manager, checked under lock for every unit's project; one refusal refuses
+   * all). A unit no longer on the list (approved meanwhile, already removed) is reported, not an
+   * error. Retrying with the same key returns the same result.
+   */
+  async removeFromList(
+    user: AuthUser,
+    body: RemoveFromDisposalList,
+  ): Promise<RemoveFromDisposalListResult> {
+    if (user.accountType === 'shared_lab') throw new ForbiddenException({ code: 'forbidden' });
+    const unitIds = [...new Set(body.unitIds)].sort();
+    return withTransaction(this.database.pool, async (client) => {
+      await client.query(
+        `SELECT p.id FROM project p
+         WHERE p.id IN (SELECT su.project_id FROM storage_unit su WHERE su.id = ANY($1::uuid[]))
+         ORDER BY p.id FOR SHARE`,
+        [unitIds],
+      );
+      const { rows: units } = await client.query<{
+        id: string;
+        readable_id: string;
+        project_id: string;
+      }>(
+        `SELECT id, readable_id, project_id FROM storage_unit WHERE id = ANY($1::uuid[])
+         ORDER BY id FOR UPDATE`,
+        [unitIds],
+      );
+      if (units.length !== unitIds.length) {
+        throw new NotFoundException({ code: 'storage_unit_not_found' });
+      }
+      for (const projectId of new Set(units.map((u) => u.project_id))) {
+        if (!(await canUnderLock(client, user, 'disposal.approve', projectId))) {
+          throw new ForbiddenException({ code: 'forbidden' });
+        }
+      }
+      const { rows: earlier } = await client.query<{ storage_unit_id: string; by: string }>(
+        `SELECT storage_unit_id, ended_by_user_id AS by FROM disposal_list_entry
+         WHERE end_idempotency_key = $1`,
+        [body.idempotencyKey],
+      );
+      if (earlier.some((e) => e.by !== user.userId)) {
+        throw new ConflictException({ code: 'idempotency_key_reused' });
+      }
+      const already = new Set(earlier.map((e) => e.storage_unit_id));
+      const removed: RemoveFromDisposalListResult['removed'] = [];
+      const notOnList: RemoveFromDisposalListResult['notOnList'] = [];
+      for (const unit of units) {
+        const item = { storageUnitId: unit.id, readableId: unit.readable_id };
+        if (already.has(unit.id)) {
+          removed.push(item);
+          continue;
+        }
+        const { rows } = await client.query<{ id: string }>(
+          `UPDATE disposal_list_entry
+           SET ended_at = now(), end_kind = 'removed', ended_by_user_id = $2,
+               ended_by_name_snapshot = $3, end_reason = $4, end_idempotency_key = $5
+           WHERE storage_unit_id = $1 AND ended_at IS NULL RETURNING id`,
+          [unit.id, user.userId, user.displayName, body.reason, body.idempotencyKey],
+        );
+        if (!rows[0]) {
+          notOnList.push(item);
+          continue;
+        }
+        await recordAudit(client, {
+          action: 'disposal.list_removed',
           entityType: 'storage_unit',
           entityId: unit.id,
           actor: actorOf(user),
-          before: {
-            status: 'approved_for_disposal',
-            locationCode: standing.location_code,
-            locationName: standing.location_name,
-          },
-          after: { status: 'disposed', route: 'standard', approvalId: approval!.id, asOf },
+          reason: body.reason,
+          before: { listEntryId: rows[0].id },
+          after: null,
         });
-        return {
-          ...scan('disposed', unit.id, unit.readable_id, [], `${unit.readable_id} disposed.`),
-          removedAt: removed[0]!.removed_at.toISOString(),
-          removedBy: { userId: user.userId, initials: user.initials, name: user.displayName },
-        };
-      });
-    } catch (error) {
-      if (
-        error instanceof DatabaseError &&
-        error.code === '23505' &&
-        error.constraint === 'disposal_removal_idempotency_key_key'
-      ) {
-        throw new ConflictException({ code: 'idempotency_key_reused' });
+        removed.push(item);
       }
-      throw error;
-    }
-  }
-
-  private async replay(
-    client: PoolClient,
-    key: string,
-    hash: string,
-    user: AuthUser,
-  ): Promise<DisposalScanResult | null> {
-    const { rows } = await client.query<{
-      storage_unit_id: string;
-      unit_readable_id_snapshot: string;
-      request_hash: string;
-      removed_by_user_id: string;
-      removed_by_initials_snapshot: string | null;
-      removed_by_name_snapshot: string;
-      removed_at: Date;
-    }>('SELECT * FROM disposal_removal WHERE idempotency_key = $1', [key]);
-    const row = rows[0];
-    if (!row) return null;
-    if (row.request_hash !== hash || row.removed_by_user_id !== user.userId) {
-      throw new ConflictException({ code: 'idempotency_key_reused' });
-    }
-    return {
-      ...scan(
-        'disposed',
-        row.storage_unit_id,
-        row.unit_readable_id_snapshot,
-        [],
-        `${row.unit_readable_id_snapshot} disposed.`,
-      ),
-      removedAt: row.removed_at.toISOString(),
-      removedBy: {
-        userId: row.removed_by_user_id,
-        initials: row.removed_by_initials_snapshot,
-        name: row.removed_by_name_snapshot,
-      },
-      replayed: true,
-    };
+      return { removed, notOnList };
+    });
   }
 
   private async liveApprovals(db: Db, unitIds: string[]) {
@@ -745,25 +803,6 @@ export class DisposalService {
       ]),
     );
   }
-}
-
-function scan(
-  result: DisposalScanResult['result'],
-  storageUnitId: string | null,
-  readableId: string | null,
-  blockers: DisposalBlocker[],
-  message: string,
-): DisposalScanResult {
-  return {
-    result,
-    storageUnitId,
-    readableId,
-    blockers,
-    message,
-    removedAt: null,
-    removedBy: null,
-    replayed: false,
-  };
 }
 
 /** The batch an earlier request with this key approved, or null. */

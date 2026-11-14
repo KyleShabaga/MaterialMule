@@ -4,7 +4,12 @@ import {
   type StorageUnitRetention,
 } from '@materialmule/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { BandedCard, StatusBadge } from '../components/app-ui';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
+import { UnitFact, UnitFacts, UnitSection } from '../inventory/UnitRecordParts';
 import { formatExpiry } from '../lib/format';
 import { fetchProjectRetention, fetchUnitRetention, postRetention } from './api';
 import { RetentionForm, RetentionHistory } from './RetentionParts';
@@ -29,8 +34,9 @@ function useLoad<T>(load: () => Promise<T | null>) {
 }
 
 /**
- * Storage unit → Retention (MM-T29): received date, minimum and effective retain-until, active
- * holds and extensions with reasons and who set them, history and the tested-unit exception.
+ * Storage unit → Retention (MM-T29; Strata styles, STRATA-90): received date, minimum and
+ * effective retain-until, active holds and extensions with reasons and who set them, history and
+ * the tested-unit exception.
  */
 export function UnitRetentionCard({
   unitId,
@@ -54,42 +60,39 @@ export function UnitRetentionCard({
     onChanged?.();
   };
   return (
-    <BandedCard
+    <UnitSection
       id="retention"
       title="Retention"
-      aside={
+      meta={
         r.retentionExempt ? (
-          <StatusBadge tone="info">Not applicable</StatusBadge>
+          <Badge variant="outline">Not applicable</Badge>
         ) : r.onHold ? (
-          <StatusBadge tone="warning">On hold</StatusBadge>
+          <Badge variant="outline">On hold</Badge>
         ) : r.eligibleByDate ? (
-          <StatusBadge tone="neutral">Eligible by date</StatusBadge>
+          <Badge variant="outline">Eligible by date</Badge>
         ) : null
       }
     >
-      <p className="retention-summary">{retentionSummary(r, unitType)}</p>
+      <p className="text-sm font-semibold">{retentionSummary(r, unitType)}</p>
       {r.retentionExempt ? (
-        <p className="field-hint">
+        <p className="text-muted-foreground text-[13px]">
           Completed testing is linked to this exact unit, so it is removed after testing instead of
           by retention. The holds and dates below stay as history; they don’t block that removal and
           still apply to other units.
         </p>
       ) : null}
-      <dl className="details">
-        <div>
-          <dt>Received</dt>
-          <dd className="nowrap">{r.receivedDate}</dd>
-        </div>
-        <div>
-          <dt>Minimum retain-until</dt>
-          <dd className="nowrap">{r.minimumRetainUntil}</dd>
-        </div>
-        <div>
-          <dt>Effective retain-until</dt>
-          <dd className="nowrap">{r.effectiveRetainUntil}</dd>
-        </div>
-      </dl>
-      <p className="field-hint">
+      <UnitFacts wide>
+        <UnitFact term="Received">
+          <span className="font-mono">{r.receivedDate}</span>
+        </UnitFact>
+        <UnitFact term="Minimum retain-until">
+          <span className="font-mono">{r.minimumRetainUntil}</span>
+        </UnitFact>
+        <UnitFact term="Effective retain-until">
+          <span className="font-mono">{r.effectiveRetainUntil}</span>
+        </UnitFact>
+      </UnitFacts>
+      <p className="text-muted-foreground text-[13px]">
         Received date + 1 year, or later with an extension. Eligible by date on that day itself.
       </p>
       <RetentionHistory
@@ -107,12 +110,17 @@ export function UnitRetentionCard({
             onDone={changed}
           />
         ) : (
-          <button type="button" onClick={() => setAdding(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="self-start"
+            onClick={() => setAdding(true)}
+          >
             {data.canManage ? 'Add hold or extension' : 'Request hold or extension'}
-          </button>
+          </Button>
         )
       ) : null}
-    </BandedCard>
+    </UnitSection>
   );
 }
 
@@ -135,15 +143,11 @@ export function ProjectRetentionSection({
     onChanged?.();
   };
   return (
-    <BandedCard
+    <UnitSection
       id="retention"
-      className="project-section"
+      className="project-section gap-4 p-5 shadow-none"
       title="Retention"
-      aside={
-        <span className="field-hint">
-          {data.counts.onHold} of {data.counts.current} current units on hold
-        </span>
-      }
+      meta={`${data.counts.onHold} of ${data.counts.current} current units on hold`}
     >
       <RetentionHistory
         holds={data.holds}
@@ -153,8 +157,8 @@ export function ProjectRetentionSection({
       />
       {data.requests.length > 0 ? (
         <>
-          <h3>Requests</h3>
-          <ul className="retention-history">
+          <h3 className="text-sm font-semibold">Requests</h3>
+          <ul className="flex flex-col divide-y">
             {data.requests.map((request) => (
               <RequestRow
                 key={request.id}
@@ -174,12 +178,17 @@ export function ProjectRetentionSection({
             onDone={changed}
           />
         ) : (
-          <button type="button" onClick={() => setAdding(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="self-start"
+            onClick={() => setAdding(true)}
+          >
             {data.canManage ? 'Add project hold or extension' : 'Request project hold or extension'}
-          </button>
+          </Button>
         )
       ) : null}
-    </BandedCard>
+    </UnitSection>
   );
 }
 
@@ -200,6 +209,8 @@ function RequestRow({
     request.kind === 'hold'
       ? 'Hold'
       : `Extension ${request.retainUntil ? `to ${request.retainUntil}` : `+${request.extendMonths} months`}`;
+  const holdDate =
+    request.kind === 'hold' && request.holdUntil ? ` until ${request.holdUntil}` : '';
   const scope =
     request.scope === 'project'
       ? 'whole project'
@@ -216,21 +227,22 @@ function RequestRow({
   }
 
   return (
-    <li className="retention-item" aria-label={`${what} request`}>
-      <p>
-        <StatusBadge tone={request.status === 'open' ? 'warning' : 'neutral'}>
+    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0" aria-label={`${what} request`}>
+      <p className="text-sm">
+        <Badge variant="outline">
           {request.status === 'open'
             ? 'Requested'
             : request.status === 'approved'
               ? 'Approved'
               : 'Declined'}
-        </StatusBadge>{' '}
-        <strong>
-          {what} for {scope}
+        </Badge>{' '}
+        <strong className="font-semibold">
+          {what}
+          {holdDate} for {scope}
         </strong>
         : {request.reason}
       </p>
-      <p className="field-hint">
+      <p className="text-muted-foreground text-[13px]">
         Requested by {request.requestedBy.initials ?? request.requestedBy.name} ·{' '}
         {formatExpiry(request.requestedAt)}
         {request.decidedBy
@@ -238,29 +250,39 @@ function RequestRow({
           : ''}
       </p>
       {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertTitle>{error}</AlertTitle>
+        </Alert>
       ) : null}
       {canDecide && request.status === 'open' ? (
         declining ? (
-          <form aria-label="Decline" onSubmit={(event) => void decide('decline', event)}>
-            <label>
-              Reason for declining (required)
-              <textarea value={reason} onChange={(event) => setReason(event.target.value)} />
-            </label>
-            <button type="submit" disabled={!reason.trim()}>
+          <form
+            aria-label="Decline"
+            className="flex flex-col gap-3"
+            onSubmit={(event) => void decide('decline', event)}
+          >
+            <Field>
+              <FieldLabel htmlFor={`decline-${request.id}`}>
+                Reason for declining (required)
+              </FieldLabel>
+              <Textarea
+                id={`decline-${request.id}`}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </Field>
+            <Button type="submit" size="sm" className="self-start" disabled={!reason.trim()}>
               Decline
-            </button>
+            </Button>
           </form>
         ) : (
-          <div className="dialog-actions">
-            <button type="button" onClick={() => setDeclining(true)}>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeclining(true)}>
               Decline…
-            </button>
-            <button type="button" className="primary" onClick={() => void decide('approve')}>
+            </Button>
+            <Button type="button" size="sm" onClick={() => void decide('approve')}>
               Approve
-            </button>
+            </Button>
           </div>
         )
       ) : null}

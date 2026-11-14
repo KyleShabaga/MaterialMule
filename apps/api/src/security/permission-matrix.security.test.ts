@@ -113,6 +113,10 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-T30: standard disposal approval and revocation by the project's Lead Project Engineer or a Lab Manager.
   'POST /api/disposal/approvals': 'disposal.approve',
   'POST /api/disposal/approvals/:id/revoke': 'disposal.approve',
+  // STRATA-90/91: the decision drawer and the disposal list, by the project's Lead Project
+  // Engineer or a Lab Manager (checked per project under lock).
+  'POST /api/retention/decisions': 'retention.manage',
+  'POST /api/disposal/list/remove': 'disposal.approve',
   // MM-AO03: team and scoped reviewers by the project's Lead Project Engineer or an admin; report
   // issuers by the project's Lead Project Engineer only. A person reads their own grants.
   'POST /api/projects/:projectId/team-members': 'project_team.manage',

@@ -1105,6 +1105,23 @@ Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-r
   (`test_request_unit_link_guard`), so a link and a source change serialize. The API refuses first with 422 (`storage_unit_disposed`,
   `storage_unit_tested`). A bulk group's own identity (`bulk_group`) is not covered.
 
+## Retention pipeline (STRATA-90/91, `0046_retention_pipeline.sql`)
+
+- `retention_hold.hold_until` and `retention_request.hold_until` (date, nullable): the date a hold
+  is meant to last until. Shown only; a hold never releases itself (a release still needs a reason).
+- `disposal_list_entry`: the step between Eligible and Approved. At most one live entry per unit;
+  only an in-stock unit can be added; an entry ends once, as removed (reason, who, when), approved
+  (the `disposal_approval` it became, same unit) or closed (the unit left stock another way).
+  Entries are never deleted or changed after they end. Proof: `schema-retention-pipeline.test.ts`.
+
+## Disposal scan intents (STRATA-92, `0047_disposal_scan_intents.sql`)
+
+- `disposal_scan_intent`: one row per scan intent ID, written in the same transaction as what
+  recording did, so a retry returns the first outcome. `user_id` is a personal account, never
+  LAB; `request_hash` is what was scanned, so an ID can't be reused for another unit; `not_found`
+  has no unit and every other result has one; a `disposed` row matches its `disposal_removal`.
+  Append-only. Proof: `schema-disposal-scan-intents.test.ts`.
+
 ## Project assignments and scoped grants (MM-AO02)
 
 Storage for the adopted owner decisions D01–D16 (AO01 register, 2026-10-29). Nothing here is read

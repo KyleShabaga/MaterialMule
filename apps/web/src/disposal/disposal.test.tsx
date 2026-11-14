@@ -1,5 +1,5 @@
-import type { DisposalCandidates, DisposalReady, MeResponse } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import type { MeResponse, RetentionPipeline } from '@materialmule/shared';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -7,9 +7,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { pickStationPerson } from '../session/station-test-person';
+import { decisionUnit, pipeline, pipelineUnit } from './retention-fixtures';
+import { disposalTags } from './retention-rows';
 
-// MM-T30 UI: eligible/approved/not-eligible lists with reasons, batch approval summary, and the
-// distinct online-only Disposal scan mode (disabled offline, nothing queued). Fictional data.
+// STRATA-90 Retention page: pipeline tabs with the server's counts, bands, tags, the disposal list
+// and approvals. Approval never disposes; the server decides everything. Fictional data only.
 
 const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   id: 'u-lm',
@@ -24,41 +26,6 @@ const me = (overrides: Partial<MeResponse> = {}): MeResponse => ({
   ...overrides,
 });
 
-const unit = (id: string, overrides: Partial<DisposalCandidates['units'][number]> = {}) => ({
-  storageUnitId: id,
-  readableId: `BKT-2026-00000${id}`,
-  unitType: 'bucket',
-  status: 'in_stock' as const,
-  location: { code: 'WH-A1', name: 'Warehouse A1' },
-  receivedDate: '2026-10-23',
-  effectiveRetainUntil: '2027-10-23',
-  eligible: true,
-  blockers: [],
-  approval: null,
-  retentionExempt: false,
-  ...overrides,
-});
-
-const candidates: DisposalCandidates = {
-  projectId: 'p1',
-  asOf: '2027-10-24',
-  canApprove: true,
-  total: 2,
-  page: 1,
-  pageSize: 200,
-  units: [
-    unit('1'),
-    unit('2', {
-      eligible: false,
-      effectiveRetainUntil: '2028-06-30',
-      blockers: [
-        { code: 'on_hold', label: 'On hold: Claim review' },
-        { code: 'program_open', label: 'Program LP-2026-0004 open' },
-      ],
-    }),
-  ],
-};
-
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -68,8 +35,8 @@ function json(status: number, body: unknown) {
 
 function renderAt(
   path: string,
-  user: MeResponse,
   api: (url: string, init?: RequestInit) => Response,
+  user: MeResponse = me(),
 ) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
     api(String(input), init),
@@ -90,421 +57,269 @@ function renderAt(
   return fetchMock;
 }
 
+/** Serves the pipeline per tab; everything else gets an empty 200. */
+function pipelineApi(
+  byTab: Partial<Record<string, RetentionPipeline>>,
+  extra?: (url: string, init?: RequestInit) => Response | undefined,
+) {
+  return (url: string, init?: RequestInit) => {
+    if (url.startsWith('/api/retention/pipeline')) {
+      const tab = new URL(url, 'http://x').searchParams.get('tab') ?? 'coming';
+      const body = byTab[tab];
+      return body ? json(200, body) : json(500, {});
+    }
+    return extra?.(url, init) ?? fallback(url);
+  };
+}
+function fallback(url: string, init?: RequestInit): Response {
+  void init;
+  if (url.startsWith('/api/me')) return json(200, {});
+  return json(200, { items: [], total: 0 });
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
-describe('Disposal (MM-T30)', () => {
-  it('lists eligible units, shows why others are not, and confirms a batch with a summary', async () => {
-    const user = userEvent.setup();
-    const fetchMock = renderAt('/disposal-retention?projectId=p1', me(), (url, init) => {
-      if (url.startsWith('/api/disposal/eligible')) return json(200, candidates);
-      if (url === '/api/disposal/approvals' && init?.method === 'POST') {
-        return json(201, { batchId: 'b1', approvals: [{ id: 'a1', storageUnitId: '1' }] });
-      }
-      return json(200, { open: 0 });
+describe('Retention page (STRATA-90)', () => {
+  it('Coming up: tab counts from the server, three bands, tags and the tested units apart', async () => {
+    const overdue = pipelineUnit(143, { extensionCount: 1 });
+    const blocked = pipelineUnit(10, {
+      readableId: 'CRE-2026-000010',
+      eligible: false,
+      programOpen: true,
+      requestWaiting: true,
     });
-    const eligible = await screen.findByRole('region', { name: 'Eligible for disposal' });
-    const others = screen.getByRole('region', { name: 'Not eligible' });
-    expect(others).toHaveTextContent('On hold: Claim review · Program LP-2026-0004 open');
-    await user.click(within(eligible).getByRole('checkbox'));
-    await user.click(within(eligible).getByRole('button', { name: 'Approve 1 for disposal' }));
-    // jsdom has no showModal; the dialog element is still rendered with its summary.
-    const dialog = document.querySelector<HTMLElement>('dialog.confirm-dialog')!;
-    expect(dialog).toHaveTextContent('Approve 1 for disposal?');
-    expect(dialog).toHaveTextContent('BKT-2026-000001 · retain until 2027-10-23');
-    expect(dialog).toHaveTextContent(/Approval doesn.t dispose anything/);
-    await user.click(within(dialog).getByRole('button', { name: 'Approve', hidden: true }));
-    const call = fetchMock.mock.calls.find(([url]) => String(url) === '/api/disposal/approvals');
-    expect(JSON.parse(String(call![1]!.body))).toMatchObject({ unitIds: ['1'] });
-  });
-
-  it('MM-T71 T3: a tested unit shows only its exception and points to Confirm removal after testing', async () => {
-    renderAt('/disposal-retention?projectId=p1', me(), (url) => {
-      if (url.startsWith('/api/disposal/eligible')) {
-        return json(200, {
-          ...candidates,
-          total: 1,
-          units: [
-            unit('7', {
-              unitType: 'shelby_tube',
-              readableId: 'ST-2026-000007',
-              eligible: false,
-              retentionExempt: true,
-            }),
-          ],
-        });
-      }
-      return json(200, { open: 0 });
+    const month = pipelineUnit(7, {
+      readableId: 'CT-2026-000007',
+      band: 'month',
+      eligible: false,
+      effectiveRetainUntil: '2026-11-25',
+      hold: { count: 1, holdUntil: '2027-03-31', reason: 'Claim review' },
     });
-    const tested = await screen.findByRole('region', { name: 'Tested: removed after testing' });
-    expect(tested).toHaveTextContent('ST-2026-000007');
-    expect(tested).toHaveTextContent('Retention: Not applicable');
-    expect(tested).toHaveTextContent(/Confirm removal after testing/);
-    expect(tested).not.toHaveTextContent(/On hold|Retain until/);
-    expect(screen.getByRole('region', { name: 'Not eligible' })).toHaveTextContent('None.');
-  });
-
-  it('MM-T71 T4: pages through every current unit with the total', async () => {
-    const user = userEvent.setup();
-    const pages: number[] = [];
-    renderAt('/disposal-retention?projectId=p1', me(), (url) => {
-      if (url.startsWith('/api/disposal/eligible')) {
-        const page = Number(new URL(url, 'http://x').searchParams.get('page'));
-        pages.push(page);
-        return json(200, {
-          ...candidates,
-          total: 501,
-          page,
-          units: page === 3 ? [unit('9', { readableId: 'BKT-2026-000501' })] : [unit('1')],
-        });
-      }
-      return json(200, { open: 0 });
-    });
-    const pager = await screen.findByRole('navigation', { name: 'Pages' });
-    expect(pager).toHaveTextContent('Page 1 of 3');
-    expect(screen.getByText(/of 501 current units/)).toBeVisible();
-    await user.click(within(pager).getByRole('button', { name: 'Next' }));
-    expect(await within(pager).findByText('Page 2 of 3')).toBeVisible();
-    await user.click(within(pager).getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('BKT-2026-000501')).toBeVisible();
-    expect(within(pager).getByRole('button', { name: 'Next' })).toBeDisabled();
-    expect(pages).toEqual([1, 2, 3]);
-  });
-
-  it('Disposal scan is a distinct mode; offline it is disabled and nothing is sent or queued', async () => {
-    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
-    const fetchMock = renderAt('/disposal-retention/scan', me(), () => json(200, { open: 0 }));
-    expect(await screen.findByRole('heading', { name: 'Disposal scan' })).toBeVisible();
-    expect(
-      screen.getByText(/switched off while offline, and nothing is saved or queued/),
-    ).toBeVisible();
-    expect(screen.getByLabelText('Scan or type a storage unit ID')).toBeDisabled();
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/disposal/remove'))).toBe(
-      false,
-    );
-  });
-
-  it('each scan says Disposed, Not approved or Blocked with the reason', async () => {
-    const user = userEvent.setup();
-    const replies = [
-      json(200, {
-        result: 'disposed',
-        storageUnitId: '1',
-        readableId: 'BKT-2026-000001',
-        blockers: [],
-        message: 'BKT-2026-000001 disposed.',
-        removedAt: '2027-10-24T16:00:00.000Z',
-        removedBy: { userId: 'u-lm', initials: 'LM', name: 'Lee Manager' },
-        replayed: false,
-      }),
-      json(422, {
-        result: 'blocked',
-        storageUnitId: '2',
-        readableId: 'BKT-2026-000002',
-        blockers: [{ code: 'on_hold', label: 'On hold: Claim review' }],
-        message: 'Blocked: On hold: Claim review',
-        removedAt: null,
-        removedBy: null,
-        replayed: false,
-      }),
-    ];
-    renderAt('/disposal-retention/scan', me(), (url) =>
-      url === '/api/disposal/remove' ? replies.shift()! : json(200, { open: 0 }),
-    );
-    const input = await screen.findByLabelText('Scan or type a storage unit ID');
-    await user.type(input, 'BKT-2026-000001{Enter}');
-    expect(await screen.findByText(/BKT-2026-000001 disposed\./)).toBeVisible();
-    await user.type(input, 'BKT-2026-000002{Enter}');
-    const results = screen.getByRole('list', { name: 'Scan results' });
-    expect(await within(results).findByText(/Blocked: On hold: Claim review/)).toBeVisible();
-    expect(within(results).getByText('Disposed')).toBeVisible();
-    expect(within(results).getByText('Blocked')).toBeVisible();
-  });
-
-  it('a LAB station is told disposal scans need a personal sign-in', async () => {
+    const tested = pipelineUnit(4, { readableId: 'ST-2026-000004', band: null, eligible: false });
     renderAt(
-      '/disposal-retention/scan',
-      me({ accountType: 'shared_lab', roles: [], permissions: ['inventory.read'] }),
-      () => json(403, {}),
+      '/disposal-retention',
+      pipelineApi({
+        coming: pipeline({
+          rows: [overdue, blocked, month],
+          total: 3,
+          tested: [tested],
+          counts: { coming: 3, eligible: 1, list: 9, approved: 5, disposed: 214, tested: 1 },
+        }),
+      }),
     );
-    expect(await screen.findByText(/need a personal sign-in/)).toBeVisible();
-    expect(screen.getByLabelText('Scan or type a storage unit ID')).toBeDisabled();
+    const tabs = await screen.findByRole('tablist', { name: 'Retention stage' });
+    expect(within(tabs).getByRole('tab', { name: /On disposal list 9/ })).toBeInTheDocument();
+    expect(within(tabs).getByRole('tab', { name: /Disposed 214/ })).toBeInTheDocument();
+
+    const overdueBand = await screen.findByRole('region', { name: 'Overdue' });
+    const first = within(overdueBand).getByRole('row', { name: /BKT-2026-000143/ });
+    expect(first).toHaveTextContent('Retention ended 2026-11-04 · 7 days ago');
+    expect(first).toHaveTextContent('Eligible');
+    expect(first).toHaveTextContent('Extended 1×');
+    const second = within(overdueBand).getByRole('row', { name: /CRE-2026-000010/ });
+    expect(second).toHaveTextContent('Program open');
+    expect(second).toHaveTextContent('Request waiting');
+    expect(second).not.toHaveTextContent(/Eligible/);
+
+    const monthBand = screen.getByRole('region', { name: 'Within 30 days' });
+    expect(monthBand).toHaveTextContent('On hold until 2027-03-31');
+    expect(monthBand).not.toHaveTextContent('Eligible');
+    expect(
+      within(screen.getByRole('region', { name: 'Within 90 days' })).getByText(
+        'Nothing in this band.',
+      ),
+    ).toBeInTheDocument();
+
+    const testedSection = screen.getByRole('region', { name: 'Tested units' });
+    expect(testedSection).toHaveTextContent(
+      'Retention doesn’t apply. Open each unit and use “Confirm removal after testing”.',
+    );
+    expect(within(testedSection).getByRole('link', { name: 'Open unit' })).toHaveAttribute(
+      'href',
+      '/sample-storage/ST-2026-000004',
+    );
+    // Tested units never sit in the bands.
+    expect(overdueBand).not.toHaveTextContent('ST-2026-000004');
   });
-});
 
-const readyUnit = (
-  id: string,
-  overrides: Partial<DisposalReady['units'][number]> = {},
-): DisposalReady['units'][number] => ({
-  storageUnitId: id,
-  readableId: `BKT-2026-00010${id}`,
-  unitType: 'bucket',
-  project: { id: 'p1', projectNumber: 'DEMO-2601', name: 'Fictional project' },
-  location: { code: 'WH-D1', name: 'Warehouse D1 (long-term)' },
-  effectiveRetainUntil: '2027-10-23',
-  stage: 'awaiting_approval',
-  reason: {
-    code: 'retention_ended',
-    label:
-      'Retention ended 2027-10-23 (1 year after receipt 2026-10-23); no hold, open program or location conflict',
-  },
-  canApprove: true,
-  ...overrides,
-});
+  it('STRATA-110 seam: only an eligible Overdue row is tagged Eligible', () => {
+    expect(disposalTags(pipelineUnit(1))).toEqual(['Eligible']);
+    expect(disposalTags(pipelineUnit(2, { band: 'month', eligible: false }))).toEqual([]);
+    expect(disposalTags(pipelineUnit(3, { eligible: false, programOpen: true }))).toEqual([
+      'Program open',
+    ]);
+  });
 
-const ready = (units: DisposalReady['units']): DisposalReady => ({
-  asOf: '2027-10-24',
-  units,
-  total: units.length,
-  page: 1,
-  pageSize: 50,
-});
+  it('Decide on a band opens the decision drawer for those units', async () => {
+    const a = pipelineUnit(143);
+    const b = pipelineUnit(144);
+    const fetchMock = renderAt(
+      '/disposal-retention',
+      pipelineApi(
+        {
+          coming: pipeline({
+            rows: [a, b],
+            total: 2,
+            bandCounts: { overdue: 2, month: 0, later: 0 },
+          }),
+        },
+        (url) =>
+          url.startsWith('/api/retention/decision-units')
+            ? json(200, {
+                asOf: '2026-11-11',
+                projectId: null,
+                canRequest: true,
+                units: [decisionUnit(143), decisionUnit(144)],
+              })
+            : undefined,
+      ),
+    );
+    const band = await screen.findByRole('region', { name: 'Overdue' });
+    await userEvent.click(within(band).getByRole('button', { name: 'Decide on 2 units' }));
+    const drawer = await screen.findByRole('form', {
+      name: 'Decide on 2 units at end of retention',
+    });
+    expect(drawer).toHaveTextContent('Overdue · DEMO-2610');
+    const decisionCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith('/api/retention/decision-units'),
+    );
+    expect(String(decisionCall![0])).toContain(`ids=${a.storageUnitId},${b.storageUnitId}`);
+  });
 
-describe('Ready for disposal (MISC-13)', () => {
-  it('lists ready units from every project before a project is chosen, each linked onward', async () => {
-    const fetchMock = renderAt('/disposal-retention', me(), (url) => {
-      if (url.startsWith('/api/disposal/ready')) {
-        return json(
-          200,
-          ready([
-            readyUnit('1'),
-            readyUnit('2', {
-              readableId: 'ST-2026-000102',
-              unitType: 'shelby_tube',
-              project: { id: 'p2', projectNumber: 'DEMO-2603', name: 'Other project' },
-              stage: 'approved',
-              canApprove: false,
-            }),
-            readyUnit('3', {
-              project: { id: 'p3', projectNumber: 'DEMO-2604', name: 'Third project' },
-              canApprove: false,
-              reason: {
-                code: 'extension_ended',
-                label:
-                  'Extended retention ended 2027-10-23; no hold, open program or location conflict',
+  it('On disposal list: grouped by project with the lead; Approve posts the group', async () => {
+    const rows = [
+      pipelineUnit(61, {
+        listEntry: {
+          id: 'e1',
+          addedBy: { userId: 'u-ss', initials: 'SS', name: 'Sam Sample' },
+          addedAt: '2026-11-06T16:00:00.000Z',
+          reason: 'Report issued',
+        },
+      }),
+      pipelineUnit(62),
+    ];
+    const fetchMock = renderAt(
+      '/disposal-retention?tab=list',
+      pipelineApi({ list: pipeline({ tab: 'list', rows, total: 2 }) }, (url) =>
+        url === '/api/disposal/approvals' ? json(201, { batchId: 'b', approvals: [] }) : undefined,
+      ),
+    );
+    const group = await screen.findByRole('region', { name: 'Disposal list DEMO-2610' });
+    expect(group).toHaveTextContent('Lead Pat Example');
+    expect(group).toHaveTextContent('Sam Sample');
+    expect(
+      screen.getByText(
+        'Approval doesn’t dispose anything; the units stay in stock until scanned out.',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(within(group).getByRole('button', { name: 'Approve 2 units' }));
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Approve 2 units of DEMO-2610 for disposal?',
+    });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([url]) => url === '/api/disposal/approvals');
+      expect(JSON.parse(String(call![1]!.body)).unitIds).toEqual([
+        rows[0]!.storageUnitId,
+        rows[1]!.storageUnitId,
+      ]);
+    });
+  });
+
+  it('Approved: Revoke approval needs a reason; they go back on the disposal list', async () => {
+    const approval = {
+      id: 'a1',
+      batchId: 'b1',
+      approvedBy: { userId: 'u-pe', initials: 'PE', name: 'Pat Example' },
+      approvedAt: '2026-11-09T16:00:00.000Z',
+      effectiveRetainUntil: '2026-11-04',
+    };
+    const fetchMock = renderAt(
+      '/disposal-retention?tab=approved',
+      pipelineApi(
+        {
+          approved: pipeline({
+            tab: 'approved',
+            rows: [pipelineUnit(44, { status: 'approved_for_disposal', approval })],
+            total: 1,
+          }),
+        },
+        (url) => (url.includes('/revoke') ? json(200, { id: 'a1' }) : undefined),
+      ),
+    );
+    const group = await screen.findByRole('region', { name: 'Approved DEMO-2610' });
+    expect(group).toHaveTextContent('Approved by Pat Example on 2026-11-09');
+    expect(group).toHaveTextContent('The scan at the shelf');
+    await userEvent.click(within(group).getByRole('button', { name: 'Revoke approval' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('They go back on the disposal list to wait for approval.');
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Revoke approval for 1 unit' }),
+    );
+    expect(
+      await within(dialog).findByText('Give a reason. It’s recorded in each unit’s history.'),
+    ).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/revoke'))).toBe(false);
+    await userEvent.type(
+      within(dialog).getByLabelText('Reason (required)'),
+      'Client wants it kept',
+    );
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Revoke approval for 1 unit' }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([url]) => url === '/api/disposal/approvals/a1/revoke'),
+      ).toBe(true),
+    );
+  });
+
+  it('nothing approved, and a failed load offers Try again', async () => {
+    let fail = true;
+    renderAt('/disposal-retention?tab=approved', (url) => {
+      if (url.startsWith('/api/retention/pipeline')) {
+        if (fail) return json(500, {});
+        return json(200, pipeline({ tab: 'approved' }));
+      }
+      return fallback(url);
+    });
+    expect(await screen.findByText('Retention couldn’t load.')).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Nothing is approved for disposal.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the disposal list' })).toBeInTheDocument();
+  });
+
+  it('Disposed is read-only and keeps each ID', async () => {
+    renderAt(
+      '/disposal-retention?tab=disposed',
+      pipelineApi({
+        disposed: pipeline({
+          tab: 'disposed',
+          total: 1,
+          rows: [
+            pipelineUnit(31, {
+              status: 'disposed',
+              canDecide: false,
+              disposal: {
+                disposedAt: '2026-11-10T18:00:00.000Z',
+                disposedBy: { userId: 'u-ss', initials: 'SS', name: 'Sam Sample' },
+                route: 'standard',
               },
             }),
-          ]),
-        );
-      }
-      return json(200, { open: 0 });
-    });
-    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
-    expect(within(card).getByLabelText('Ready count')).toHaveTextContent('3 units');
-    expect(card).toHaveTextContent('As of 2027-10-24, all projects');
-    const rows = within(card).getAllByRole('row').slice(1);
-    expect(rows).toHaveLength(3);
-    const [first, approved, waiting] = rows as [HTMLElement, HTMLElement, HTMLElement];
-    expect(within(first).getByRole('link', { name: 'BKT-2026-000101' })).toHaveAttribute(
-      'href',
-      '/sample-storage/BKT-2026-000101',
-    );
-    expect(within(first).getByRole('link', { name: 'DEMO-2601' })).toHaveAttribute(
-      'href',
-      '/disposal-retention?projectId=p1',
-    );
-    expect(first).toHaveTextContent('Warehouse D1 (long-term)');
-    expect(first).toHaveTextContent('2027-10-23');
-    expect(first).toHaveTextContent('Retention ended 2027-10-23 (1 year after receipt 2026-10-23)');
-    expect(within(first).getByRole('link', { name: 'Approve in project' })).toHaveAttribute(
-      'href',
-      '/disposal-retention?projectId=p1',
-    );
-    expect(within(approved).getByRole('link', { name: 'Scan to dispose' })).toHaveAttribute(
-      'href',
-      '/disposal-retention/scan',
-    );
-    expect(waiting).toHaveTextContent('Extended retention ended 2027-10-23');
-    expect(waiting).toHaveTextContent(/Waiting for the Lead Project Engineer or a Lab Manager/);
-    expect(within(waiting).queryByRole('link', { name: 'Approve in project' })).toBeNull();
-    // Eligibility is the server's: the page asked for no project's units to work it out.
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/disposal/eligible')),
-    ).toBe(false);
-  });
-
-  it('says so when nothing is ready', async () => {
-    renderAt('/disposal-retention', me(), (url) =>
-      url.startsWith('/api/disposal/ready') ? json(200, ready([])) : json(200, { open: 0 }),
-    );
-    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
-    expect(
-      await within(card).findByText('No storage units are ready for disposal right now.'),
-    ).toBeVisible();
-    expect(within(card).getByLabelText('Ready count')).toHaveTextContent('0 units');
-    expect(within(card).queryByRole('table')).toBeNull();
-  });
-
-  it('shows an error with Retry when the list fails to load', async () => {
-    const user = userEvent.setup();
-    let fail = true;
-    renderAt('/disposal-retention', me(), (url) => {
-      if (url.startsWith('/api/disposal/ready')) {
-        return fail ? json(500, {}) : json(200, ready([readyUnit('1')]));
-      }
-      return json(200, { open: 0 });
-    });
-    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
-    const alert = await within(card).findByRole('alert');
-    expect(alert).toHaveTextContent(/couldn.t be loaded/);
-    fail = false;
-    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
-    expect(await within(card).findByRole('link', { name: 'BKT-2026-000101' })).toBeVisible();
-    expect(within(card).queryByRole('alert')).toBeNull();
-  });
-
-  it('reloads after an approval on the page', async () => {
-    const user = userEvent.setup();
-    let readyCalls = 0;
-    renderAt('/disposal-retention?projectId=p1', me(), (url, init) => {
-      if (url.startsWith('/api/disposal/ready')) {
-        readyCalls += 1;
-        return json(200, ready(readyCalls === 1 ? [readyUnit('1')] : []));
-      }
-      if (url.startsWith('/api/disposal/eligible')) return json(200, candidates);
-      if (url === '/api/disposal/approvals' && init?.method === 'POST') {
-        return json(201, { batchId: 'b1', approvals: [{ id: 'a1', storageUnitId: '1' }] });
-      }
-      return json(200, { open: 0 });
-    });
-    const card = await screen.findByRole('region', { name: 'Ready for disposal' });
-    expect(await within(card).findByRole('link', { name: 'BKT-2026-000101' })).toBeVisible();
-    const eligible = await screen.findByRole('region', { name: 'Eligible for disposal' });
-    await user.click(within(eligible).getByRole('checkbox'));
-    await user.click(within(eligible).getByRole('button', { name: 'Approve 1 for disposal' }));
-    const dialog = document.querySelector<HTMLElement>('dialog.confirm-dialog')!;
-    await user.click(within(dialog).getByRole('button', { name: 'Approve', hidden: true }));
-    expect(
-      await within(card).findByText('No storage units are ready for disposal right now.'),
-    ).toBeVisible();
-    expect(readyCalls).toBe(2);
-  });
-});
-
-describe('Disposal approvals follow the route project (review fix, PR #120)', () => {
-  const summary = (id: string, projectNumber: string) => ({
-    id,
-    projectNumber,
-    name: `Fictional ${projectNumber}`,
-    client: 'Fictional client',
-    leadProjectEngineer: null,
-  });
-  const forProject = (projectId: string, unitId: string): DisposalCandidates => ({
-    ...candidates,
-    projectId,
-    total: 1,
-    units: [unit(unitId)],
-  });
-
-  /** Renders with a router the test can drive, and B's eligible list held until released. */
-  function setup(path: string) {
-    let releaseB: (() => void) | null = null;
-    const bHeld = new Promise<void>((resolve) => {
-      releaseB = resolve;
-    });
-    const posts: unknown[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        if (url.startsWith('/api/disposal/ready')) {
-          return json(
-            200,
-            ready([
-              readyUnit('9', {
-                project: { id: 'p2', projectNumber: 'DEMO-2602', name: 'Fictional B' },
-              }),
-            ]),
-          );
-        }
-        if (url.startsWith('/api/disposal/eligible?projectId=p1')) {
-          return json(200, forProject('p1', '1'));
-        }
-        if (url.startsWith('/api/disposal/eligible?projectId=p2')) {
-          await bHeld;
-          return json(200, forProject('p2', '9'));
-        }
-        if (url === '/api/projects/p1') return json(200, summary('p1', 'DEMO-2601'));
-        if (url === '/api/projects/p2') return json(200, summary('p2', 'DEMO-2602'));
-        if (url === '/api/disposal/approvals' && init?.method === 'POST') {
-          posts.push(JSON.parse(String(init.body)));
-          return json(201, { batchId: 'b1', approvals: [] });
-        }
-        return json(200, { open: 0 });
+          ],
+        }),
       }),
     );
-    const router = createMemoryRouter(routes, { initialEntries: [path] });
-    render(
-      <SessionContext.Provider
-        value={{
-          session: { status: 'active', me: me() },
-          refresh: vi.fn(async () => undefined),
-          signOut: vi.fn(async () => undefined),
-        }}
-      >
-        <RouterProvider router={router} />
-      </SessionContext.Provider>,
-    );
-    return { router, posts, releaseB: () => releaseB!() };
-  }
-
-  async function approveOne(user: ReturnType<typeof userEvent.setup>) {
-    const eligible = await screen.findByRole('region', { name: 'Eligible for disposal' });
-    await user.click(within(eligible).getByRole('checkbox'));
-    await user.click(within(eligible).getByRole('button', { name: 'Approve 1 for disposal' }));
-    const dialog = document.querySelector<HTMLElement>('dialog.confirm-dialog')!;
-    await user.click(within(dialog).getByRole('button', { name: 'Approve', hidden: true }));
-  }
-
-  it("never submits A's checked units after following a link to B, and posts only B's", async () => {
-    const user = userEvent.setup();
-    const { posts, releaseB } = setup('/disposal-retention?projectId=p1');
-    const eligibleA = await screen.findByRole('region', { name: 'Eligible for disposal' });
-    expect(await screen.findByText(/DEMO-2601 · Fictional DEMO-2601/)).toBeVisible();
-    await user.click(within(eligibleA).getByRole('checkbox'));
-    await user.click(within(eligibleA).getByRole('button', { name: 'Approve 1 for disposal' }));
-    // The dialog is open for A when the operator follows the ready-list link to B.
-    const card = screen.getByRole('region', { name: 'Ready for disposal' });
-    await user.click(within(card).getByRole('link', { name: 'Approve in project' }));
-    // While B loads: A's units are hidden, nothing can be approved, the dialog is closed.
-    expect(screen.queryByRole('region', { name: 'Eligible for disposal' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Approve \d* ?for disposal/ })).toBeNull();
-    expect(document.querySelector('dialog.confirm-dialog')).not.toHaveAttribute('open');
-    expect(await screen.findByText(/DEMO-2602 · Fictional DEMO-2602/)).toBeVisible();
-    expect(screen.queryByText(/DEMO-2601 · Fictional DEMO-2601/)).toBeNull();
-    expect(posts).toEqual([]);
-    releaseB();
-    expect(await screen.findByRole('link', { name: 'BKT-2026-000009' })).toBeVisible();
-    const eligibleB = screen.getByRole('region', { name: 'Eligible for disposal' });
-    expect(within(eligibleB).getByRole('checkbox')).not.toBeChecked();
-    await approveOne(user);
-    expect(posts).toHaveLength(1);
-    expect(posts[0]).toMatchObject({ unitIds: ['9'] });
-  });
-
-  it('clears selections on Back and shows the right project on a direct B URL', async () => {
-    const user = userEvent.setup();
-    const { router, posts, releaseB } = setup('/disposal-retention?projectId=p2');
-    // A direct link resolves the picker label from the route's project instead of "Loading…".
-    expect(await screen.findByText(/DEMO-2602 · Fictional DEMO-2602/)).toBeVisible();
-    releaseB();
-    const eligibleB = await screen.findByRole('region', { name: 'Eligible for disposal' });
-    await user.click(within(eligibleB).getByRole('checkbox'));
-    await router.navigate('/disposal-retention?projectId=p1');
-    expect(await screen.findByRole('link', { name: 'BKT-2026-000001' })).toBeVisible();
-    // B's check didn't follow the route to A.
-    const eligibleA = screen.getByRole('region', { name: 'Eligible for disposal' });
-    expect(within(eligibleA).getByRole('checkbox')).not.toBeChecked();
-    expect(within(eligibleA).getByRole('button', { name: /for disposal/ })).toBeDisabled();
-    await user.click(within(eligibleA).getByRole('checkbox'));
-    await router.navigate(-1);
-    expect(await screen.findByRole('link', { name: 'BKT-2026-000009' })).toBeVisible();
+    const row = await screen.findByRole('row', { name: /BKT-2026-000031/ });
+    expect(row).toHaveTextContent('2026-11-10');
+    expect(row).toHaveTextContent('Sam Sample');
     expect(
-      within(screen.getByRole('region', { name: 'Eligible for disposal' })).getByRole('checkbox'),
-    ).not.toBeChecked();
-    await approveOne(user);
-    expect(posts).toEqual([expect.objectContaining({ unitIds: ['9'] })]);
+      screen.getByText('Read-only. Each disposed unit keeps its ID and history.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Decide|Revoke|Approve/ })).toBeNull();
   });
 });

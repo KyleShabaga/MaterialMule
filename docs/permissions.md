@@ -1567,13 +1567,15 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Retention (MM-T29)
 
-| Route                                                                     | Policy                                             |
-| ------------------------------------------------------------------------- | -------------------------------------------------- |
-| `GET /api/storage-units/:id/retention`, `GET /api/projects/:id/retention` | `inventory.read` (LAB too; `canManage` false)      |
-| `POST /api/retention/holds`, `…/extensions`                               | `retention.manage` for that project (handler)      |
-| `POST /api/retention/holds/:id/release`, `…/extensions/:id/release`       | `retention.manage` for that project (handler)      |
-| `POST /api/retention/requests`                                            | `retention.request` (personal accounts; never LAB) |
-| `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)      |
+| Route                                                                     | Policy                                                                                                                                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/storage-units/:id/retention`, `GET /api/projects/:id/retention` | `inventory.read` (LAB too; `canManage` false)                                                                                           |
+| `POST /api/retention/holds`, `…/extensions`                               | `retention.manage` for that project (handler)                                                                                           |
+| `POST /api/retention/holds/:id/release`, `…/extensions/:id/release`       | `retention.manage` for that project (handler)                                                                                           |
+| `POST /api/retention/requests`                                            | `retention.request` (personal accounts; never LAB)                                                                                      |
+| `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)                                                                                           |
+| `GET /api/retention/pipeline`, `GET /api/retention/decision-units`        | `inventory.read` (STRATA-90/91; `canDecide`/`canRequest` per project)                                                                   |
+| `POST /api/retention/decisions`                                           | `retention.manage` (extend, hold) or `disposal.approve` (add to the disposal list) for each unit's project (handler); per-unit failures |
 
 - **Who decides:** the project's Lead Project Engineer or a Lab Manager (D05). Admin alone doesn't. Others get
   403 `forbidden` (the retention views report `canManage: false`, `canRequest: true`, so the
@@ -1592,13 +1594,16 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Standard disposal (MM-T30)
 
-| Route                                     | Policy                                                     |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| `GET /api/disposal/eligible?projectId=`   | `inventory.read` (`canApprove` says whether to offer it)   |
-| `GET /api/disposal/ready?page=`           | `inventory.read`, every project (`canApprove` per unit)    |
-| `POST /api/disposal/approvals`            | `disposal.approve` for each unit's project (handler)       |
-| `POST /api/disposal/approvals/:id/revoke` | `disposal.approve` for that project (handler)              |
-| `POST /api/disposal/remove`               | `storage_unit.dispose_scan` (personal accounts; never LAB) |
+| Route                                     | Policy                                                                                             |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET /api/disposal/eligible?projectId=`   | `inventory.read` (`canApprove` says whether to offer it)                                           |
+| `GET /api/disposal/ready?page=`           | `inventory.read`, every project (`canApprove` per unit)                                            |
+| `POST /api/disposal/approvals`            | `disposal.approve` for each unit's project (handler)                                               |
+| `POST /api/disposal/approvals/:id/revoke` | `disposal.approve` for that project (handler)                                                      |
+| `POST /api/disposal/list/remove`          | `disposal.approve` for that project (handler); reason required (STRATA-90)                         |
+| `POST /api/disposal/remove`               | `storage_unit.dispose_scan` (personal accounts; never LAB)                                         |
+| `POST /api/disposal/scan/check`           | `storage_unit.dispose_scan` (personal accounts; never LAB); read-only, changes nothing (STRATA-92) |
+| `POST /api/disposal/scan/record`          | `storage_unit.dispose_scan` (personal accounts; never LAB); idempotent per intent ID (STRATA-92)   |
 
 - **Eligibility** is the database's (`unit_disposal_eligible`): in stock, effective retain-until
   reached (MM-T29), no active hold, every covering program closed (including a program on the
@@ -1606,11 +1611,20 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   "On hold: …", "Program LP-… open").
 - **Approval** (Lead Project Engineer or Lab Manager, single or batch, all or nothing) marks units
   `approved_for_disposal`; it never disposes. Revoking needs a reason and returns the unit to stock.
-- **Removal** is the online-only Disposal scan. It locks the unit, needs a live approval and
-  rechecks eligibility and open location conflicts at that moment: 200 Disposed; 422 Not approved
-  or Blocked with reasons (audited `disposal.blocked`); 404 unknown ID. Offline the screen is
-  disabled and nothing is queued. Concurrent scans dispose once; a retry with the same key
-  returns the recorded result.
+- **Disposal list** (STRATA-90): the Lead Project Engineer or a Lab Manager adds eligible units
+  (through `POST /api/retention/decisions`) or removes them with a reason. Approving a listed
+  unit ends its entry; revoking an approval puts the unit back on the list. Being on the list never
+  disposes anything.
+- **Extensions** can't end before a unit's current effective retain-until (422
+  `retain_until_too_early`); the minimum is the received date plus one year (Kyle, STRATA-113).
+- **Removal** is the Disposal scan (STRATA-92). Each scan is an intent with its own UUID.
+  `scan/check` reports each unit's status and changes nothing. `scan/record` records each intent
+  in its own transaction under the unit lock, needs a live approval and rechecks eligibility and
+  open location conflicts at that moment; refusals are audited once (`disposal.blocked`). A retry
+  with the same intent ID returns the first outcome with no second history entry; reusing an ID
+  for another unit or account is refused (`intent_reused`). Offline the screen queues intents only:
+  on reconnect each is checked online and the person confirms the exact ID list again before
+  anything is recorded (Kyle, STRATA-112). `POST /api/disposal/remove` runs the same code.
 - **LAB:** 403 on approval, revocation and removal (and on MM-T36's post-testing removal),
   whoever its station selects. Ordinary move routes never change a unit's status; a disposed
   unit is refused by moves, queued-move replay and test linking, and never returns to stock.
