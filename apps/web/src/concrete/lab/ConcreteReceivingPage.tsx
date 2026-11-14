@@ -220,28 +220,45 @@ export function ConcreteReceivingPage() {
     label: number,
   }));
 
+  const reportCell = (g: ReportGroup) => (
+    <span className="flex min-w-0 flex-col">
+      <StageSrText
+        stage="due"
+        label={stage === 'awaiting_receiving' ? 'Due · Receiving' : 'Due · Pickup'}
+      />
+      <Button
+        variant="link"
+        asChild
+        className="h-auto justify-start p-0 font-semibold text-foreground"
+      >
+        <Link to={fieldReportPath(g.fieldReportId)}>Field report</Link>
+      </Button>
+      <span className="text-[12px] text-muted-foreground">{workflowLabel(g.reportState)}</span>
+    </span>
+  );
+  const castCell = (g: ReportGroup) =>
+    g.castAt ? (
+      <span className="flex flex-col">
+        <span className="font-mono text-[13px] whitespace-nowrap">{labDate(g.castAt)}</span>
+        <span className="font-mono text-[12px] text-muted-foreground">{labTime(g.castAt)}</span>
+      </span>
+    ) : (
+      <span className="flex flex-col">
+        <span className="text-[13px]">{UNCAST_NOTE}</span>
+        <span className="text-[12px] text-muted-foreground">{UNCAST_DETAIL}</span>
+      </span>
+    );
   const columns: DataTableColumn<ReportGroup>[] = [
     {
       id: 'report',
       header: 'Field report',
-      priority: 'identity',
+      // Phones: the report link and the casting time fold into the project cell, so the fixed
+      // columns never squeeze the project and its sets to nothing (column priority rule).
+      priority: 'attribute',
+      hideBelow: '48rem',
       width: '9rem',
-      cell: (g) => (
-        <span className="flex min-w-0 flex-col">
-          <StageSrText
-            stage="due"
-            label={stage === 'awaiting_receiving' ? 'Due · Receiving' : 'Due · Pickup'}
-          />
-          <Button
-            variant="link"
-            asChild
-            className="h-auto justify-start p-0 font-semibold text-foreground"
-          >
-            <Link to={fieldReportPath(g.fieldReportId)}>Field report</Link>
-          </Button>
-          <span className="text-[12px] text-muted-foreground">{workflowLabel(g.reportState)}</span>
-        </span>
-      ),
+      fold: (g) => <span className="mt-1 flex">{reportCell(g)}</span>,
+      cell: (g) => reportCell(g),
     },
     {
       id: 'technician',
@@ -306,21 +323,12 @@ export function ConcreteReceivingPage() {
     {
       id: 'cast',
       header: 'Casting time',
-      priority: 'state',
+      priority: 'attribute',
+      hideBelow: '48rem',
       width: '10rem',
       wrap: true,
-      cell: (g) =>
-        g.castAt ? (
-          <span className="flex flex-col">
-            <span className="font-mono text-[13px] whitespace-nowrap">{labDate(g.castAt)}</span>
-            <span className="font-mono text-[12px] text-muted-foreground">{labTime(g.castAt)}</span>
-          </span>
-        ) : (
-          <span className="flex flex-col">
-            <span className="text-[13px]">{UNCAST_NOTE}</span>
-            <span className="text-[12px] text-muted-foreground">{UNCAST_DETAIL}</span>
-          </span>
-        ),
+      fold: (g) => <span className="mt-1 flex">{castCell(g)}</span>,
+      cell: (g) => castCell(g),
     },
     {
       id: 'action',

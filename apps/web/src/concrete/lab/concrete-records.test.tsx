@@ -291,8 +291,9 @@ describe('Receiving', () => {
       return setApi(uncast, receivingOf(uncast, []))(url, init);
     });
     const others = await screen.findByRole('region', { name: 'Other reports' });
-    expect(within(others).getByText('Casting time not recorded')).toBeInTheDocument();
-    expect(within(others).getByText('No test dates until it is')).toBeInTheDocument();
+    // The casting cell, and its copy folded into the project cell for phones (CSS picks one).
+    expect(within(others).getAllByText('Casting time not recorded')).toHaveLength(2);
+    expect(within(others).getAllByText('No test dates until it is')).toHaveLength(2);
 
     await userEvent.click(within(others).getByRole('button', { name: 'Receive TMP-D07-004' }));
     const sheet = await screen.findByRole('dialog', { name: /Receive set TMP-D07-004/ });
