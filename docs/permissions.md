@@ -1705,3 +1705,7 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   never gains their roles or permissions anywhere, nothing is cached across people, no read state
   changes, and there is no station route that reads, dismisses or decides anything. Personal
   accounts get 403 (they read their own Inbox at `/api/inbox`). Item content is never logged.
+  The LAB picker is attribution only and the route accepts any active staff `personId`, so the
+  server can't limit reading to "while you're picked": off by default; when on, anyone at a shared
+  LAB station can open the person's requests and updates there by picking them. They can't act on
+  them, and the person can turn this off at any time (Settings › Preferences › Privacy).
