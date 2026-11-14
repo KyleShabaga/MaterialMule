@@ -5,15 +5,26 @@ import {
   type MovementEvent,
   type StorageLocation,
 } from '@materialmule/shared';
+import { CircleAlert, MapPin, RotateCw } from 'lucide-react';
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { BandedCard, ErrorState } from '../components/app-ui';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { formatEventTime } from '../inventory/unit-record';
+import { UnitSection } from '../inventory/UnitRecordParts';
+import { NATIVE_SELECT_CLASS } from '../receiving/LabeledField';
 import { fetchAllLocations, fetchConflict, resolveConflict } from './api';
 import { indexedDbMoveStore, type QueuedMove } from './store';
-import './moves.css';
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
-}
 
 function describe(event: MovementEvent): string {
   const who = formatPerson(event.actor.initials, event.actor.name);
@@ -24,23 +35,32 @@ function describe(event: MovementEvent): string {
   return `${who}${credited}${station}`;
 }
 
-function EventLine({ event, title }: { event: MovementEvent; title: string }) {
+function EventItem({ event, title }: { event: MovementEvent; title: string }) {
   return (
-    <li className="conflict-event">
-      <strong>{title}:</strong> {event.from.name} → {event.to.name}
-      <br />
-      <span className="muted">
-        {describe(event)}. {movementSourceLabel(event.source)}.{' '}
-        {event.scannedAt ? `Scanned ${formatTime(event.scannedAt)} (device clock), ` : ''}saved{' '}
-        {formatTime(event.savedAt)}.
-      </span>
-      {event.note ? (
-        <>
-          <br />
-          Note: {event.note}
-        </>
-      ) : null}
-    </li>
+    <Item size="sm" variant="outline" role="listitem">
+      <ItemMedia variant="icon">
+        <MapPin aria-hidden="true" />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="flex-wrap">
+          <span>{title}:</span>
+          <span>
+            {event.from.name} → {event.to.name}
+          </span>
+        </ItemTitle>
+        <ItemDescription className="line-clamp-none">
+          {describe(event)}. {movementSourceLabel(event.source)}.{' '}
+          {event.scannedAt ? `Scanned ${formatEventTime(event.scannedAt)} (device clock), ` : ''}
+          saved {formatEventTime(event.savedAt)}.
+          {event.note ? (
+            <>
+              <br />
+              Note: {event.note}
+            </>
+          ) : null}
+        </ItemDescription>
+      </ItemContent>
+    </Item>
   );
 }
 
@@ -48,7 +68,7 @@ function EventLine({ event, title }: { event: MovementEvent; title: string }) {
  * An open location conflict on a storage unit (MM-T28, D29): both stories with times and people,
  * and, for a personal account, the form to confirm where the unit actually is after checking.
  * LAB can read it but never resolve it, whoever is chosen at the station. Device scan times are
- * shown as reported; nothing is chosen for the person by time.
+ * shown as reported; nothing is chosen for the person by time. Strata record section (lane C).
  */
 export function LocationConflictSection({
   conflictId,
@@ -81,44 +101,62 @@ export function LocationConflictSection({
 
   if (error) {
     return (
-      <BandedCard id="location-conflict" title="Location conflict" tone="attention">
-        <ErrorState message={error} onRetry={() => setReloads((n) => n + 1)} />
-      </BandedCard>
+      <UnitSection id="location-conflict" title="Location conflict">
+        <Alert variant="destructive" role="alert">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle className="line-clamp-none">{error}</AlertTitle>
+          <AlertDescription>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-foreground pointer-coarse:h-11"
+              onClick={() => setReloads((n) => n + 1)}
+            >
+              <RotateCw aria-hidden="true" />
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </UnitSection>
     );
   }
   if (!conflict) return null;
 
   return (
-    <BandedCard id="location-conflict" title="Location conflict" tone="attention">
-      <p>
+    <UnitSection id="location-conflict" title="Location conflict">
+      <p className="m-0 text-sm">
         Moves of this unit disagree, so nothing was decided automatically. Its saved location is
         still <strong>{conflict.storageUnit.savedLocation.name}</strong>. Check where it actually
         is, then confirm.
       </p>
-      <ul className="conflict-events">
-        {conflict.savedEvent ? <EventLine event={conflict.savedEvent} title="Saved move" /> : null}
+      <ItemGroup role="list" className="gap-2">
+        {conflict.savedEvent ? <EventItem event={conflict.savedEvent} title="Saved move" /> : null}
         {conflict.events.map((event) => (
-          <EventLine
+          <EventItem
             key={event.id}
             event={event}
             title={event.kind === 'resolution' ? 'Confirmed' : 'Move not applied'}
           />
         ))}
-      </ul>
+      </ItemGroup>
       {!conflict.savedEvent ? (
-        <p className="field-hint">
+        <p className="m-0 text-sm text-muted-foreground">
           The unit’s details were changed after these scans were taken (for example a correction).
         </p>
       ) : null}
       {canResolve ? (
         <ResolveForm conflict={conflict} onResolved={onResolved} onStale={setConflict} />
       ) : (
-        <p className="notice notice-warning">
-          A personal account must check the unit and confirm its location. The shared LAB station
-          can’t, whoever is chosen there.
-        </p>
+        <Alert>
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription className="text-foreground">
+            A personal account must check the unit and confirm its location. The shared LAB station
+            can’t, whoever is chosen there.
+          </AlertDescription>
+        </Alert>
       )}
-    </BandedCard>
+    </UnitSection>
   );
 }
 
@@ -193,13 +231,19 @@ function ResolveForm({
     setMessage('Material Mule couldn’t be reached. Try again; it won’t be recorded twice.');
   }
 
+  const errorId = `${id}-error`;
   return (
-    <form className="conflict-form" onSubmit={(event) => void submit(event)}>
-      <div className="form-field">
-        <label htmlFor={`${id}-location`}>Actual location</label>
+    <form className="grid gap-4" noValidate onSubmit={(event) => void submit(event)}>
+      <Field className="max-w-md gap-1.5">
+        <FieldLabel htmlFor={`${id}-location`}>Actual location</FieldLabel>
+        {/* Native select, as lane B keeps for long location lists; data-slot keeps it Strata. */}
         <select
           id={`${id}-location`}
+          data-slot="native-select"
+          className={NATIVE_SELECT_CLASS}
           value={locationId}
+          aria-invalid={message !== null && !locationId ? true : undefined}
+          aria-describedby={message ? errorId : undefined}
           onChange={(event) => setLocationId(event.target.value)}
         >
           <option value="">Choose after checking…</option>
@@ -209,25 +253,23 @@ function ResolveForm({
             </option>
           ))}
         </select>
-      </div>
-      <div className="form-field">
-        <label htmlFor={`${id}-note`}>Note (optional)</label>
-        <textarea
+        <FieldDescription>Where you found it. The history keeps every scan.</FieldDescription>
+      </Field>
+      <Field className="max-w-md gap-1.5">
+        <FieldLabel htmlFor={`${id}-note`}>Note (optional)</FieldLabel>
+        <Textarea
           id={`${id}-note`}
           value={note}
           maxLength={500}
           onChange={(event) => setNote(event.target.value)}
         />
-      </div>
-      {message ? (
-        <p className="field-error" role="alert">
-          {message}
-        </p>
-      ) : null}
+      </Field>
+      {message ? <FieldError id={errorId}>{message}</FieldError> : null}
       <div>
-        <button type="submit" className="primary" disabled={busy}>
+        <Button type="submit" disabled={busy}>
+          {busy ? <Spinner aria-hidden="true" /> : null}
           Confirm location
-        </button>
+        </Button>
       </div>
     </form>
   );

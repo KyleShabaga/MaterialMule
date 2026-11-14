@@ -52,29 +52,39 @@ async function moveEvents(unit: TestUnit) {
   });
 }
 
-/** One simulated trigger pull into the Move screen's scan field. */
+/** One simulated trigger pull into the Move screen's scan field (labels in any order). */
 async function scan(page: Page, payload: string) {
-  await page.locator('.scan-field').focus();
+  await page.getByRole('textbox', { name: 'Scan or type a label' }).focus();
   await page.keyboard.type(payload);
   await page.keyboard.press('Enter');
 }
 
+const HEADING = 'Move storage units';
+
 /**
- * Opens Move units with `mover` as Moved by. On a LAB station Moved by starts as the Recording as
- * person (Alex Tester unless the station picked someone else; STRATA-125) and stays editable, so a
- * different mover is chosen by hand.
+ * Opens Move with `mover` as Moved by. On a LAB station Moved by starts as the Recording as
+ * person (Alex Tester unless the station picked someone else; STRATA-125) and stays changeable
+ * (Change: the station's people, then Someone else…), so a different mover is chosen by hand.
  */
 async function openMove(page: Page, mover?: RegExp) {
   await page.goto('/sample-storage/move');
-  await expect(page.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: HEADING })).toBeVisible();
   if (mover) {
-    const field = page.getByRole('combobox', { name: /Moved by/ });
-    await expect(field).not.toHaveValue('');
-    if (!mover.test(await field.inputValue())) {
-      await field.fill(mover.source.split(' ')[0]!);
-      await page.getByRole('option', { name: mover }).click();
+    const movedBy = page.getByTestId('moved-by');
+    await expect(movedBy).toContainText('Moved by');
+    if (!mover.test((await movedBy.textContent()) ?? '')) {
+      await page.getByRole('button', { name: 'Change who is moving these units' }).click();
+      await expect(page.getByRole('menuitem', { name: 'Someone else…' })).toBeVisible();
+      const listed = page.getByRole('menuitem', { name: mover });
+      if ((await listed.count()) > 0) {
+        await listed.first().click();
+      } else {
+        await page.getByRole('menuitem', { name: 'Someone else…' }).click();
+        await page.getByPlaceholder('Search by name or initials').fill(mover.source.split(' ')[0]!);
+        await page.getByRole('option', { name: mover }).click();
+      }
     }
-    await expect(field).toHaveValue(mover);
+    await expect(movedBy).toContainText(mover);
   }
 }
 
@@ -83,8 +93,18 @@ async function setDestination(page: Page, place: Place) {
   await expect(page.getByTestId('move-destination')).toContainText(place.name);
 }
 
+/** Save moves (STRATA-80): the scanned rows go to this computer's queue, then the server. */
+async function saveMoves(page: Page, count: number) {
+  await page
+    .getByRole('button', { name: count === 1 ? 'Save 1 move' : `Save ${count} moves` })
+    .click();
+}
+
 const row = (page: Page, unit: TestUnit) =>
   page.getByTestId('move-row').filter({ hasText: unit.readableId });
+
+/** A row's saved state: "Moved 10:42 AM" once the server acknowledged it. */
+const MOVED = /^Moved \d/;
 
 async function labStation(browser: Browser) {
   const context = await browser.newContext();
@@ -103,15 +123,17 @@ test('T4/AC1: LAB scans a destination, then two units; both save with actor, per
   await openMove(page, /Alex Tester/);
   await setDestination(page, c2);
   await scan(page, u1.readableId);
-  await expect(row(page, u1).getByText('Saved')).toBeVisible();
   await scan(page, u2.readableId);
-  await expect(row(page, u2).getByText('Saved')).toBeVisible();
-  // Scanning U1 again for the same destination in this batch is ignored (P20).
+  // Scanning U1 again in this batch is listed once (P20).
   await scan(page, u1.readableId);
-  await expect(
-    page.getByRole('status').getByText(`${u1.readableId} is already in this batch`),
-  ).toBeVisible();
+  await expect(page.getByTestId('move-announcement')).toContainText(
+    `${u1.readableId} is already in this batch`,
+  );
   await expect(page.getByTestId('move-row')).toHaveCount(2);
+  await saveMoves(page, 2);
+  await expect(row(page, u1).getByText(MOVED)).toBeVisible();
+  await expect(row(page, u2).getByText(MOVED)).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'All moves saved.' })).toBeVisible();
 
   expect(await savedLocation(u1)).toBe(c2.code);
   expect(await savedLocation(u2)).toBe(c2.code);
@@ -145,36 +167,41 @@ test('T5/AC2: offline scans stay Pending (saved location unchanged) and sync onc
   // Online first: the unit and the location list are now known on this computer.
   await setDestination(page, c1);
   await scan(page, u1.readableId);
-  await expect(row(page, u1).getByText('Saved')).toBeVisible();
+  await saveMoves(page, 1);
+  await expect(row(page, u1).getByText(MOVED)).toBeVisible();
   // A second tab of the same browser profile shares the queue (P21: one drains).
   const second = await context.newPage();
   await second.goto('/sample-storage/move');
-  await expect(second.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
+  await expect(second.getByRole('heading', { level: 1, name: HEADING })).toBeVisible();
 
   await context.setOffline(true);
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'This computer is offline.' }),
+  ).toBeVisible();
   await setDestination(page, c2);
   await scan(page, u1.readableId);
-  await expect(
-    row(page, u1).filter({ hasText: c2.name }).getByText(`Pending → ${c2.name}`),
-  ).toBeVisible();
-  await expect(page.getByText('Offline: 1 move waiting to sync.')).toBeVisible();
   // Never fabricated: a unit this computer hasn't seen needs online lookup and queues nothing.
   await scan(page, uncached.readableId);
   await expect(row(page, uncached).getByText('Needs online lookup')).toBeVisible();
+  await saveMoves(page, 1);
+  await expect(row(page, u1).filter({ hasText: c2.name }).getByText('Not moved yet')).toBeVisible();
+  await expect(page.getByTestId('move-bar')).toContainText('1 move waiting to send');
   // The saved location is still C1 on the server.
   expect(await savedLocation(u1)).toBe(c1.code);
 
   await context.setOffline(false);
-  await expect(row(page, u1).filter({ hasText: c2.name }).getByText('Saved')).toBeVisible();
+  await expect(row(page, u1).filter({ hasText: c2.name }).getByText(MOVED)).toBeVisible();
   expect(await savedLocation(u1)).toBe(c2.code);
   const events = await moveEvents(u1);
   expect(events.map((e) => [e.to_code, e.source])).toEqual([
     [c1.code, 'online'],
     [c2.code, 'queued'],
   ]);
-  // The uncached scan becomes a move only when a person confirms it after the lookup.
-  await row(page, uncached).getByRole('button', { name: 'Look up and move' }).click();
-  await expect(row(page, uncached).getByText('Saved')).toBeVisible();
+  // The uncached scan is looked up once online, and becomes a move only when a person saves it.
+  await expect(page.getByRole('button', { name: 'Save 1 move' })).toBeEnabled();
+  expect(await savedLocation(uncached)).not.toBe(c2.code);
+  await saveMoves(page, 1);
+  await expect(row(page, uncached).getByText(MOVED)).toBeVisible();
   expect(await savedLocation(uncached)).toBe(c2.code);
   await second.close();
 });
@@ -195,20 +222,23 @@ test('T7/T8/AC3/AC4/AC7/AC8: two LAB stations keep their own state; a competing 
     // A sees U1 online once (so it is cached), then loses the network and queues a C2 move.
     await setDestination(a.page, staging);
     await scan(a.page, u1.readableId);
-    await expect(row(a.page, u1).getByText('Saved')).toBeVisible();
+    await saveMoves(a.page, 1);
+    await expect(row(a.page, u1).getByText(MOVED)).toBeVisible();
     await a.context.setOffline(true);
     await setDestination(a.page, c2);
     await scan(a.page, u1.readableId);
+    await saveMoves(a.page, 1);
     await expect(
-      row(a.page, u1).filter({ hasText: c2.name }).getByText(`Pending → ${c2.name}`),
+      row(a.page, u1).filter({ hasText: c2.name }).getByText('Not moved yet'),
     ).toBeVisible();
 
     // B, same LAB account, moves U1 to C1 and an unrelated unit too.
     await setDestination(b.page, c1);
     await scan(b.page, u1.readableId);
     await scan(b.page, u2.readableId);
-    await expect(row(b.page, u1).getByText('Saved')).toBeVisible();
-    await expect(row(b.page, u2).getByText('Saved')).toBeVisible();
+    await saveMoves(b.page, 2);
+    await expect(row(b.page, u1).getByText(MOVED)).toBeVisible();
+    await expect(row(b.page, u2).getByText(MOVED)).toBeVisible();
 
     await a.context.setOffline(false);
     await expect(
@@ -224,7 +254,7 @@ test('T7/T8/AC3/AC4/AC7/AC8: two LAB stations keep their own state; a competing 
     await b.page.request.post('/api/auth/sign-out', { headers: { 'x-materialmule-csrf': '1' } });
     await a.page.reload();
     await expect(a.page.getByTestId('move-destination')).toContainText(c2.name);
-    await expect(a.page.getByRole('combobox', { name: /Moved by/ })).toHaveValue(/Alex Tester/);
+    await expect(a.page.getByTestId('moved-by')).toContainText('Alex Tester');
 
     // LAB sees the conflict but can't resolve it.
     await a.page.goto(`/sample-storage/${u1.readableId}`);
@@ -274,13 +304,18 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
   await setDestination(page, staging);
   await scan(page, kept.readableId);
   await scan(page, removed.readableId);
-  await expect(row(page, removed).getByText('Saved')).toBeVisible();
+  await saveMoves(page, 2);
+  await expect(row(page, removed).getByText(MOVED)).toBeVisible();
 
   await context.setOffline(true);
   await setDestination(page, c2);
   await scan(page, kept.readableId);
   await scan(page, removed.readableId);
-  await expect(page.getByText('Offline: 2 moves waiting to sync.')).toBeVisible();
+  await saveMoves(page, 2);
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'This computer is offline.' }),
+  ).toBeVisible();
+  await expect(page.getByTestId('move-bar')).toContainText('2 moves waiting to send');
   // Meanwhile the tube/bucket is removed and disposed, and the LAB session runs out. (Set
   // directly here; MM-T80 T2 below runs the same queue against a real removal after testing.)
   await withDatabase((client) =>
@@ -291,7 +326,10 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
   );
   await expireSession(sessionId);
   await context.setOffline(false);
-  await expect(page.getByText(/Signed out: 2 moves waiting to sync/)).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Your session has ended.' }),
+  ).toBeVisible();
+  await expect(page.getByTestId('move-bar')).toContainText('2 moves waiting to send');
 
   // A different account on this computer never sends LAB's queue.
   await signInAs(page, 'at');
@@ -302,7 +340,7 @@ test('T9/AC9: a queued LAB move waits through an account change and expiry, keep
   // LAB signs back in: the same actions go, with their original person.
   await signInAsLabStation(page);
   await page.goto('/sample-storage/move');
-  await expect(row(page, kept).filter({ hasText: c2.name }).getByText('Saved')).toBeVisible();
+  await expect(row(page, kept).filter({ hasText: c2.name }).getByText(MOVED)).toBeVisible();
   await expect(
     row(page, removed).filter({ hasText: c2.name }).getByText('Needs attention'),
   ).toBeVisible();
@@ -334,12 +372,14 @@ test('MM-T80 T2: a queued LAB move of a tube removed after testing (real MM-T36 
     await openMove(page, /Alex Tester/);
     await setDestination(page, staging);
     await scan(page, tube.readableId);
-    await expect(row(page, tube).getByText('Saved')).toBeVisible();
+    await saveMoves(page, 1);
+    await expect(row(page, tube).getByText(MOVED)).toBeVisible();
 
     await context.setOffline(true);
     await setDestination(page, c2);
     await scan(page, tube.readableId);
-    await expect(page.getByText(/Offline: 1 move waiting to sync/)).toBeVisible();
+    await saveMoves(page, 1);
+    await expect(page.getByTestId('move-bar')).toContainText('1 move waiting to send');
     // Meanwhile Alex confirms the tube has left the lab.
     await removeTestedTube(officePage, tube);
     await context.setOffline(false);

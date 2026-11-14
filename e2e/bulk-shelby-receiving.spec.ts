@@ -167,7 +167,8 @@ test('T6/T8/T14/T15: bulk buckets, both Shelby sources, a later join, inventory 
   await expect(page.getByText('1 storage unit', { exact: true })).toBeVisible();
   await page.goto(`/sample-storage?search=${encodeURIComponent(`Pit ${tag}: B1 at 1.5-2 m`)}`);
   await expect(page.getByText('3 storage units', { exact: true })).toBeVisible();
-  await expect(page.getByText('Bulk sample · B1 · bucket 1 of 3')).toBeVisible();
+  // STRATA-79: the Test hole cell's second line (hidden with its column on narrow lists).
+  await expect(page.getByText('Bulk sample · B1 · bucket 1 of 3')).toBeAttached();
 });
 
 test.describe('wide screens (> 1280px)', () => {
@@ -199,11 +200,11 @@ test.describe('wide screens (> 1280px)', () => {
     // The tag is in the two bulk buckets' and the standalone tube's sources (not the TH26-01 tube).
     await page.goto(`/sample-storage?search=${encodeURIComponent(tag)}`);
     await expect(page.getByText('3 storage units', { exact: true })).toBeVisible();
-    await page
-      .getByRole('group', { name: 'Table view' })
-      .getByRole('button', { name: 'Compact rows' })
-      .click();
-    const compact = page.locator('.inventory-table-compact');
+    const tools = page.getByRole('toolbar', { name: 'Storage unit tools' });
+    await tools.getByRole('button', { name: /^View, / }).click();
+    await page.getByRole('menuitemradio', { name: 'Compact' }).click();
+    await page.keyboard.press('Escape');
+    const compact = page.locator('[data-slot="data-table"][data-density="compact"]');
     await expect(compact).toBeVisible();
     // One line per record: each row is no taller than a single line of text plus padding.
     for (const id of [ids[0]!, ids[1]!, ids[3]!]) {
@@ -211,10 +212,10 @@ test.describe('wide screens (> 1280px)', () => {
       const box = (await row.boundingBox())!;
       expect(box.height).toBeLessThan(48);
     }
+    // The Test hole cell carries the full contents text in its title.
     await expect(compact.getByTitle(`Pit ${tag}: B1 at 1.5–2 m · bucket 2 of 2`)).toBeVisible();
-    await page
-      .getByRole('group', { name: 'Table view' })
-      .getByRole('button', { name: 'Comfortable rows' })
-      .click();
+    await tools.getByRole('button', { name: /^View, / }).click();
+    await page.getByRole('menuitemradio', { name: 'Comfortable' }).click();
+    await page.keyboard.press('Escape');
   });
 });

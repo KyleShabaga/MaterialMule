@@ -2,8 +2,9 @@ import { expect, test, type Locator } from '@playwright/test';
 import { signInAs } from './support/auth';
 
 // MTR-131: under a Windows contrast theme (Chromium's forced-colors emulation) the selected
-// dashboard filter, Standard/Compact segment, Settings tab, sidebar row, sidebar sub-page and the
-// account menu's theme choice still look different from the unselected ones. Desktop only.
+// dashboard filter, Inventory stage tab (STRATA-79; was the Standard/Compact segment), Settings
+// tab, sidebar row, sidebar sub-page and the account menu's theme choice still look different
+// from the unselected ones. Desktop only.
 
 test.skip(({ isMobile }) => isMobile, 'Desktop layout');
 test.use({ forcedColors: 'active' });
@@ -61,14 +62,15 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
     'sidebar sub-page',
   );
 
-  await page.goto('/sample-storage?status=all');
-  const standard = page.getByRole('button', { name: 'Comfortable rows', exact: true });
-  await standard.click();
-  await expect(standard).toHaveAttribute('aria-pressed', 'true');
+  // STRATA-79: Inventory's stage tabs (the old Standard/Compact segment is now a View menu).
+  await page.goto('/sample-storage');
+  const stages = page.getByRole('tablist', { name: 'Stage' });
+  const all = stages.getByRole('tab', { name: /^All [\d,]+$/ });
+  await expect(all).toHaveAttribute('aria-selected', 'true');
   await expectDifferent(
-    standard,
-    page.getByRole('button', { name: 'Compact rows', exact: true }),
-    'Standard/Compact segment',
+    all,
+    stages.getByRole('tab', { name: /^In lab [\d,]+$/ }),
+    'Inventory stage tab',
   );
 
   await page.goto('/settings/profile');

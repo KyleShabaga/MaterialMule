@@ -347,3 +347,79 @@ describe('TableToolbar with useTableQuery and a sortable heading', () => {
     expect(url().get('search')).toBe('TH26');
   });
 });
+
+describe('TableToolbar filterChips and View › Columns (STRATA-79)', () => {
+  const columns = [
+    { id: 'id', label: 'ID', locked: true },
+    { id: 'type', label: 'Type' },
+    { id: 'received', label: 'Received' },
+  ];
+
+  it('shows only the sort chip when the page draws its own filter chips', () => {
+    render(
+      <Harness
+        filterChips={false}
+        initial={{ filters: ['unread'], sort: { key: 'received', dir: 'asc' } }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Clear Oldest first' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear Unread' })).toBeNull();
+    // The Filter button still counts the active filters.
+    expect(screen.getByRole('button', { name: 'Filter, 1 on' })).toBeInTheDocument();
+  });
+
+  it('shows a View button for columns alone, a locked column checked and disabled', async () => {
+    const user = userEvent.setup();
+    render(
+      <TableToolbar
+        label="Inbox tools"
+        query={EMPTY_TABLE_QUERY}
+        onQueryChange={() => {}}
+        columns={columns}
+        hiddenColumns={['received']}
+        onHiddenColumnsChange={() => {}}
+      />,
+    );
+    expect(toolNames()).toEqual(['View', 'Search']);
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    const menu = await screen.findByRole('menu');
+    const id = within(menu).getByRole('menuitemcheckbox', { name: 'ID' });
+    expect(id).toHaveAttribute('aria-checked', 'true');
+    expect(id).toHaveAttribute('data-disabled');
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'Received' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
+  it('toggles a column through onHiddenColumnsChange and keeps the menu open', async () => {
+    const user = userEvent.setup();
+    const onHidden = vi.fn();
+    function ColumnsHarness() {
+      const [hidden, setHidden] = React.useState<string[]>([]);
+      return (
+        <Harness
+          columns={columns}
+          hiddenColumns={hidden}
+          onHiddenColumnsChange={(ids) => {
+            onHidden(ids);
+            setHidden(ids);
+          }}
+        />
+      );
+    }
+    render(<ColumnsHarness />);
+    await user.click(screen.getByRole('button', { name: 'View, List' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitemradio', { name: 'List' })).toBeInTheDocument();
+    await user.click(within(menu).getByRole('menuitemcheckbox', { name: 'Type' }));
+    expect(onHidden).toHaveBeenLastCalledWith(['type']);
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Type' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Type' }));
+    expect(onHidden).toHaveBeenLastCalledWith([]);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+});

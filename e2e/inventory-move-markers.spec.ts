@@ -8,9 +8,10 @@ import {
   type TestUnit,
 } from './support/db';
 
-// MM-T81 test plan T2 and T3: Sample Storage shows an open location conflict and a move still
-// queued on this device. A move scanned offline stays in this browser's queue (IndexedDB); the
-// list shows "Pending" beside the saved location, which it never replaces. Fictional data only.
+// MM-T81 test plan T2 and T3: Sample Storage shows an open location conflict (STRATA-79: the
+// Conflicts tab and the Location conflict tag) and a move still queued on this device. A move
+// scanned offline stays in this browser's queue (IndexedDB); the list shows "Pending" beside the
+// saved location, which it never replaces. Fictional data only.
 
 type Place = TestLocation;
 
@@ -30,13 +31,26 @@ async function openConflict(unit: TestUnit): Promise<void> {
 }
 
 async function scan(page: Page, payload: string) {
-  await page.locator('.scan-field').focus();
+  await page.getByRole('textbox', { name: 'Scan or type a label' }).focus();
   await page.keyboard.type(payload);
   await page.keyboard.press('Enter');
 }
 
-/** The phone project (390 px): no table view selector there (PHONE_QUERY, max-width 640px). */
+/** The phone project (390 px): rows are always comfortable there (DENSITY_PHONE_QUERY). */
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) <= 640;
+
+/** Chooses a row density from the table tools' View menu. */
+async function chooseDensity(page: Page, density: 'Comfortable' | 'Compact') {
+  await page
+    .getByRole('toolbar', { name: 'Storage unit tools' })
+    .getByRole('button', { name: /^View, / })
+    .click();
+  await page.getByRole('menuitemradio', { name: density }).click();
+  await page.keyboard.press('Escape');
+}
+
+const compactRows = (page: Page) =>
+  page.locator('[data-slot="data-table"][data-density="compact"] tbody tr');
 
 const inventoryRow = (page: Page, unit: TestUnit) =>
   page.getByRole('row').filter({ has: page.getByRole('link', { name: unit.readableId }) });
@@ -52,18 +66,20 @@ test('T2/AC2/AC3: an offline move shows Pending beside the saved location on thi
   await signInAs(page, 'at');
   // Online once, so this computer knows the unit and the locations.
   await page.goto('/sample-storage/move');
-  await expect(page.getByRole('heading', { level: 1, name: 'Move units' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Move storage units' })).toBeVisible();
   await scan(page, `LOC-${staging.code}`);
   await expect(page.getByTestId('move-destination')).toContainText(staging.name);
   await scan(page, u1.readableId);
-  await expect(page.getByTestId('move-row').getByText('Saved')).toBeVisible();
+  await page.getByRole('button', { name: 'Save 1 move' }).click();
+  await expect(page.getByTestId('move-row').getByText(/^Moved \d/)).toBeVisible();
   await scan(page, `LOC-${c1.code}`);
   await expect(page.getByTestId('move-destination')).toContainText(c1.name);
 
   await context.setOffline(true);
   await scan(page, u1.readableId);
+  await page.getByRole('button', { name: 'Save 1 move' }).click();
   await expect(
-    page.getByTestId('move-row').filter({ hasText: c1.name }).getByText(`Pending → ${c1.name}`),
+    page.getByTestId('move-row').filter({ hasText: c1.name }).getByText('Not moved yet'),
   ).toBeVisible();
   // Back online for the page loads, but the move still can't reach the server.
   await context.route('**/api/moves', (route) => route.abort('internetdisconnected'));
@@ -77,22 +93,14 @@ test('T2/AC2/AC3: an offline move shows Pending beside the saved location on thi
   await expect(marker).toHaveText('Pending');
   await expect(marker).toHaveAttribute('title', new RegExp(c1.name));
 
-  // T3: the compact row keeps the marker and stays on one line. Field Ledger: compact is a
-  // desktop (mouse) view; phones always use comfortable rows and have no view selector.
+  // T3: the compact row keeps the marker and stays short. Compact is a desktop (mouse) density;
+  // phones always get comfortable rows.
   if (!isPhone(page)) {
-    await page
-      .getByRole('group', { name: 'Table view' })
-      .getByRole('button', { name: 'Compact rows' })
-      .click();
-    const compactRow = inventoryRow(page, u1).and(page.locator('.inventory-table-compact tr'));
+    await chooseDensity(page, 'Compact');
+    const compactRow = inventoryRow(page, u1).and(compactRows(page));
     await expect(compactRow.getByTestId('pending-move')).toBeVisible();
     expect((await compactRow.boundingBox())!.height).toBeLessThan(48);
-    await page
-      .getByRole('group', { name: 'Table view' })
-      .getByRole('button', { name: 'Comfortable rows' })
-      .click();
-  } else {
-    await expect(page.getByRole('group', { name: 'Table view' })).toHaveCount(0);
+    await chooseDensity(page, 'Comfortable');
   }
 
   // Another device (its own browser profile) signed in as the same person sees no marker.
@@ -108,7 +116,7 @@ test('T2/AC2/AC3: an offline move shows Pending beside the saved location on thi
   }
 });
 
-test('T1/AC1/T3: a unit with an open conflict shows Conflict, appears under the filter, and its compact row stays on one line', async ({
+test('T1/AC1/T3: a unit with an open conflict shows Location conflict on the Conflicts tab, and its compact row stays short', async ({
   page,
 }) => {
   const conflicted = await insertConfirmedBucket();
@@ -116,30 +124,25 @@ test('T1/AC1/T3: a unit with an open conflict shows Conflict, appears under the 
   await signInAs(page, 'at');
 
   await page.goto('/sample-storage');
-  await page
-    .getByRole('combobox', { name: 'Conflict' })
-    .selectOption({ label: 'Open location conflict' });
-  await expect(page).toHaveURL(/conflict=open/);
-  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Conflict: Open');
+  // STRATA-79: the Conflicts tab (a Stage select when the list is narrow) replaces the filter.
+  const tabs = page.getByRole('tablist', { name: 'Stage' });
+  if (await tabs.isVisible()) {
+    await tabs.getByRole('tab', { name: /^Conflicts [\d,]+$/ }).click();
+  } else {
+    await page.getByRole('combobox', { name: 'Stage' }).click();
+    await page.getByRole('option', { name: /^Conflicts [\d,]+$/ }).click();
+  }
+  await expect(page).toHaveURL(/stage=conflicts/);
   const row = inventoryRow(page, conflicted);
-  await expect(row.getByText('Conflict', { exact: true })).toBeVisible();
-  // Compact rows are desktop only (Field Ledger); phones keep comfortable rows.
+  await expect(row.getByText('Location conflict', { exact: true })).toBeVisible();
+  // Compact rows are desktop only; phones keep comfortable rows.
   if (isPhone(page)) return;
 
-  await page
-    .getByRole('group', { name: 'Table view' })
-    .getByRole('button', { name: 'Compact rows' })
-    .click();
-  const compact = page.locator('.inventory-table-compact');
-  await expect(compact).toBeVisible();
-  const compactRow = compact
-    .getByRole('row')
-    .filter({ has: page.getByRole('link', { name: conflicted.readableId }) });
-  await expect(compactRow.getByText('Conflict', { exact: true })).toBeVisible();
-  // One line per record, on the phone viewport too.
+  await chooseDensity(page, 'Compact');
+  const compactRow = compactRows(page).filter({
+    has: page.getByRole('link', { name: conflicted.readableId }),
+  });
+  await expect(compactRow.getByText('Location conflict', { exact: true })).toBeVisible();
   expect((await compactRow.boundingBox())!.height).toBeLessThan(48);
-  await page
-    .getByRole('group', { name: 'Table view' })
-    .getByRole('button', { name: 'Comfortable rows' })
-    .click();
+  await chooseDensity(page, 'Comfortable');
 });

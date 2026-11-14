@@ -274,6 +274,23 @@ describe.runIf(testDatabaseUrl)('storage moves and location conflicts (MM-T28)',
     });
   });
 
+  it('STRATA-80: one Save with rows for two shelves keeps each row’s destination; a refused row blocks nothing', async () => {
+    // Shelf and unit labels in any order: the screen sends one intent per row, each with the
+    // destination it had when scanned. The server rechecks each one on its own.
+    const early = await addUnit();
+    const disposed = await addUnit('disposed');
+    const late = await addUnit();
+    const responses = [];
+    for (const body of [intent(early, 'WH-C1'), intent(disposed, 'WH-C1'), intent(late, 'WH-C2')]) {
+      responses.push(await send(body));
+    }
+    expect(responses.map((response) => response.status)).toEqual([201, 422, 201]);
+    expect(responses[1]!.body.code).toBe('storage_unit_disposed');
+    expect((await unitRow(early)).current_location_id).toBe(locations['WH-C1']);
+    expect((await unitRow(late)).current_location_id).toBe(locations['WH-C2']);
+    expect((await unitRow(disposed)).current_location_id).toBe(locations.RECEIVING);
+  });
+
   it('P08/AC6: a retry after a lost response replays once, even after another station moved it', async () => {
     const unit = await addUnit();
     const move = intent(unit, 'WH-C2', { offline: true });

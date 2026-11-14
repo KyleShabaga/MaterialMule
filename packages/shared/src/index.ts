@@ -61,3 +61,4 @@ export * from './undo';
 export * from './people';
 export * from './receipt-drafts';
 export * from './today';
+export * from './inventory-list';

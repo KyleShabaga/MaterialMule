@@ -1,4 +1,4 @@
-import type { MoveRequest } from '@materialmule/shared';
+import type { MoveRequest, StorageUnitRecordStatus } from '@materialmule/shared';
 import { toStorageError, type DraftStorageError } from '../receiving/drafts/store';
 
 // The move queue of this browser profile (MM-T28), in IndexedDB so it survives closing the tab
@@ -68,11 +68,20 @@ export interface CachedUnit {
   status: 'in_stock' | 'approved_for_disposal' | 'disposed';
   location: PlaceRef;
   cachedAt: string;
+  /** STRATA-80: the row's words offline (optional: older records). */
+  recordStatus?: StorageUnitRecordStatus | null;
+  description?: string | null;
 }
 
 export interface CachedLocation extends PlaceRef {
   active: boolean;
   cachedAt: string;
+  /** STRATA-80: what the Move screen's shelf preview needs offline (optional: older records). */
+  parentId?: string | null;
+  capacity?: number | null;
+  inStockCount?: number;
+  /** The effective storage term's words ("Short-term storage"), or null when not set. */
+  termLabel?: string | null;
 }
 
 const ACTIONS = 'actions';
@@ -175,6 +184,8 @@ export interface MoveStore {
   putUnit(unit: CachedUnit): Promise<void>;
   getLocation(code: string): Promise<CachedLocation | null>;
   putLocations(locations: CachedLocation[]): Promise<void>;
+  /** Every cached location (offline shelf paths and counts). Optional for test stores. */
+  listLocations?(): Promise<CachedLocation[]>;
 }
 
 export const indexedDbMoveStore: MoveStore = {
@@ -254,6 +265,13 @@ export const indexedDbMoveStore: MoveStore = {
       const store = transaction.objectStore(LOCATIONS);
       for (const location of locations) store.put(location);
     });
+  },
+
+  async listLocations() {
+    const values = await run<CachedLocation[]>([LOCATIONS], 'readonly', (transaction, done) =>
+      getAll(transaction, LOCATIONS, done),
+    );
+    return values ?? [];
   },
 };
 

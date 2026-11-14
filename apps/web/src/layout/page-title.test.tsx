@@ -19,7 +19,7 @@ describe('pageTitle', () => {
       'BKT-2026-000014 · Inventory · Material Mule',
     ],
     ['/sample-storage', null, 'Inventory · Material Mule'],
-    ['/sample-storage/move', null, 'Move units · Inventory · Material Mule'],
+    ['/sample-storage/move', null, 'Move storage units · Inventory · Material Mule'],
     ['/lab-testing', null, 'Workboard · Lab programs · Material Mule'],
     ['/lab-testing/programs', null, 'Programs · Lab programs · Material Mule'],
     ['/lab-testing/programs/p1', 'LP-2026-0001', 'LP-2026-0001 · Lab programs · Material Mule'],

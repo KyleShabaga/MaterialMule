@@ -4,10 +4,11 @@ import { signInAs } from './support/auth';
 import { DEMO, receiptsDescribed, receiveThroughApi, uniqueTag } from './support/receiving';
 import { removeTestedTube, testedTube } from './support/tested-tube';
 
-// MTR-58: Sample Storage's Standard view never clips a column, card or badge. Where the table is
-// wider than its card it scrolls inside the card (a focusable region), and stacked cards wrap long
-// badges instead of running past the card. MTR-93: no page scrolls sideways at any width; wide
-// tables scroll inside their own region. Desktop only: the widths are set here.
+// MTR-58: Sample Storage never hides a column's content from the person. STRATA-79 rebuilt it on
+// the Strata DataTable, which never scrolls sideways: attribute columns hide by the list's width
+// (DESIGN.md › Tables: column priority), identity and state columns (ID, project, stage) always
+// show, IDs are never cut, and a cell that clips its text keeps the full text in a title.
+// MTR-93: no page scrolls sideways at any width. Desktop only: the widths are set here.
 
 test.skip(({ isMobile }) => isMobile, 'Sets its own widths');
 
@@ -20,26 +21,33 @@ async function pageOverflow(page: Page): Promise<number> {
 }
 
 /**
- * Scrolled to its far end, nothing in the table card reaches past the card's right edge, so every
- * column can be seen. Returns how far the table scrolls sideways.
+ * The table card holds every visible cell (no sideways scroll needed), each ID shows in full, and
+ * every clipped piece of text carries its full text in a title. Returns the problems found.
  */
-async function expectNothingPastCard(page: Page, what: string): Promise<number> {
-  const { scrolls, past } = await page.locator('.inventory-results').evaluate((card) => {
-    const scroller = card.querySelector<HTMLElement>('.table-scroll')!;
-    scroller.scrollLeft = scroller.scrollWidth;
+async function tableProblems(page: Page): Promise<string[]> {
+  return page.locator('[data-slot="data-table"]').evaluate((card) => {
+    const problems: string[] = [];
     const right = card.getBoundingClientRect().right;
-    const past = [...card.querySelectorAll('th, td, td *')]
-      .filter((element) => {
-        const box = element.getBoundingClientRect();
-        return box.width > 0 && box.right > right + 0.5;
-      })
-      .map((element) => `${element.tagName} "${(element.textContent ?? '').slice(0, 40)}"`);
-    const scrolls = scroller.scrollWidth - scroller.clientWidth;
-    scroller.scrollLeft = 0;
-    return { scrolls, past };
+    if (card.scrollWidth > card.clientWidth + 1) problems.push('the table card scrolls sideways');
+    const visible = (el: Element) => {
+      const box = el.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    };
+    for (const cell of card.querySelectorAll('th, td')) {
+      if (!visible(cell)) continue;
+      const box = cell.getBoundingClientRect();
+      const text = (cell.textContent ?? '').slice(0, 40);
+      if (box.right > right + 0.5) problems.push(`${cell.tagName} "${text}" past the card`);
+      for (const el of [cell, ...cell.querySelectorAll<HTMLElement>('*')]) {
+        if (!visible(el) || el.scrollWidth <= el.clientWidth + 1) continue;
+        // Controls aren't clipped text; a title (on it or around it in the cell) holds the rest.
+        if (el.closest('button, [role="checkbox"]')) continue;
+        if (el.closest('[title]') && cell.contains(el.closest('[title]'))) continue;
+        problems.push(`${cell.tagName} "${text}" clipped without its full text`);
+      }
+    }
+    return problems;
   });
-  expect(past, `${what}: past the card's right edge`).toEqual([]);
-  return scrolls;
 }
 
 test('MTR-58: Standard view scrolls inside its card or wraps; nothing is clipped', async ({
@@ -87,27 +95,33 @@ test('MTR-58: Standard view scrolls inside its card or wraps; nothing is clipped
         `/sample-storage?status=all&pageSize=50&search=${encodeURIComponent(search)}`,
       );
       const units = page.getByRole('table', { name: 'Storage units' });
-      await expect(units.getByText(shows).first()).toBeVisible();
-      // Phones have no view selector: they always use comfortable rows.
-      if (width > 640) await page.getByRole('button', { name: 'Comfortable rows' }).click();
+      // The tube's stage tag always shows; a bulk bucket's position is in its Test hole cell
+      // (and that cell's title), which hides with its column on narrow lists.
+      if (search === tube.readableId) await expect(units.getByText(shows).first()).toBeVisible();
+      else await expect(units.getByTitle(shows).first()).toBeAttached();
       const what = `${search} at ${width}px`;
 
       expect(await pageOverflow(page), what).toBeLessThanOrEqual(0);
-      const scrolls = await expectNothingPastCard(page, what);
-      if (await units.locator('thead').isVisible()) {
-        await expect(units.getByRole('columnheader', { name: 'Retain until' })).toBeAttached();
-      } else {
-        // Stacked cards fit their box: long badges wrap rather than needing a sideways scroll.
-        expect(scrolls, `${what}: stacked cards scroll sideways`).toBeLessThanOrEqual(0);
+      expect(await tableProblems(page), what).toEqual([]);
+      // ID and Stage columns never hide; the IDs show in full. Project is always shown: as a
+      // column, or on a phone-width list folded under each ID.
+      for (const heading of ['ID', 'Stage']) {
+        await expect(units.getByRole('columnheader', { name: heading }), what).toBeVisible();
       }
-      if (scrolls > 0) {
-        // Keyboard users reach the hidden columns: the region takes focus and scrolls with arrows.
-        const region = page.getByRole('region', { name: 'Storage unit table' });
-        await region.focus();
-        await page.keyboard.press('ArrowRight');
-        await expect
-          .poll(() => region.evaluate((element) => element.scrollLeft), { message: what })
-          .toBeGreaterThan(0);
+      if (width >= 820) {
+        await expect(units.getByRole('columnheader', { name: 'Project' }), what).toBeVisible();
+      } else {
+        await expect(units.getByTestId('unit-project-fold').first(), what).toBeVisible();
+      }
+      for (const link of await units.locator('tbody tr a[href^="/sample-storage/"]').all()) {
+        await expect(link, what).toBeVisible();
+        expect(
+          await link.evaluate((el) => {
+            const cell = el.closest('td')!.getBoundingClientRect();
+            return el.getBoundingClientRect().right <= cell.right + 0.5;
+          }),
+          `${what}: an ID is cut`,
+        ).toBe(true);
       }
     }
   }
@@ -126,6 +140,7 @@ test('MTR-93: table pages never scroll sideways from 320 to 1440 px', async ({ p
   // (STRATA-78 rebuilt the receiving log and receipt page on DataTable, which clips per cell
   // instead of scrolling); the page overflow is swept at every width as before.
   const routes: [Parameters<typeof signInAs>[1], string, string | { table: string } | null][] = [
+    ['at', '/sample-storage', { table: 'Storage units' }],
     ['at', '/receiving-log', { table: 'Confirmed receipts' }],
     ['at', `/receiving-log/${receipt!.receipt_id}`, { table: 'Storage units in this receipt' }],
     ['at', '/lab-testing?view=list', 'Workboard table'],

@@ -2,6 +2,8 @@ import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 
 type Updater = (prev: URLSearchParams) => URLSearchParams;
+/** `replace`: replace the history entry instead of pushing one (typing in search). */
+type Update = (update: Updater, options?: { replace?: boolean }) => void;
 
 /**
  * `useSearchParams` whose setter always builds on the latest params (MM-T46).
@@ -12,7 +14,7 @@ type Updater = (prev: URLSearchParams) => URLSearchParams;
  * drop the first. Here each update starts from the newest URL this page asked for, until a
  * navigation the page did not ask for (Back, a link) arrives.
  */
-export function useLatestSearchParams(): [URLSearchParams, (update: Updater) => void] {
+export function useLatestSearchParams(): [URLSearchParams, Update] {
   const [params, setParams] = useSearchParams();
   const rendered = params.toString();
   const renderedRef = useRef(rendered);
@@ -26,11 +28,11 @@ export function useLatestSearchParams(): [URLSearchParams, (update: Updater) => 
   }, [rendered]);
 
   const update = useCallback(
-    (fn: Updater) => {
+    (fn: Updater, options?: { replace?: boolean }) => {
       const base = pending.current.at(-1) ?? renderedRef.current;
       const next = fn(new URLSearchParams(base)).toString();
       pending.current = [...pending.current, next];
-      setParams(new URLSearchParams(next));
+      setParams(new URLSearchParams(next), { replace: options?.replace ?? false });
     },
     [setParams],
   );

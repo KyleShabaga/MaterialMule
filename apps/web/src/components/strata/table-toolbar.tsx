@@ -60,7 +60,27 @@ export interface TableToolbarProps {
   /** View menu entries; omit for no View button. `query.view === null` is the first. */
   views?: readonly { id: string; label: string }[];
   searchPlaceholder?: string;
+  /**
+   * Show the active filters as chips before the tools (default). A page that draws its own chip
+   * row with values and pickers (Inventory) passes false; the sort chip still shows here.
+   */
+  filterChips?: boolean;
+  /**
+   * View › Columns: one checkbox per column, checked while shown. `locked` columns (identity and
+   * state) stay checked and disabled. Given alone, it still shows the View button.
+   */
+  columns?: readonly TableToolbarColumn[];
+  /** Ids of the hidden columns (with `columns`). */
+  hiddenColumns?: readonly string[];
+  onHiddenColumnsChange?: (ids: string[]) => void;
   className?: string;
+}
+
+export interface TableToolbarColumn {
+  id: string;
+  label: string;
+  /** Always shown (identity and state columns): checked and disabled. */
+  locked?: boolean;
 }
 
 const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
@@ -104,6 +124,10 @@ export function TableToolbar({
   sortLabels,
   views,
   searchPlaceholder = 'Search…',
+  filterChips = true,
+  columns,
+  hiddenColumns = [],
+  onHiddenColumnsChange,
   className,
 }: TableToolbarProps) {
   const [boxOpen, setBoxOpen] = React.useState(query.search !== '');
@@ -175,6 +199,7 @@ export function TableToolbar({
     : '-1';
   const viewValue = query.view ?? views?.[0]?.id ?? '';
   const viewLabel = views?.find((v) => v.id === viewValue)?.label ?? views?.[0]?.label ?? '';
+  const viewName = viewLabel ? `View, ${viewLabel}` : 'View';
   const searchName = searchPlaceholder.replace(/…$|\.\.\.$/, '').trim() || 'Search';
 
   const toggleFilter = (id: string, on: boolean) =>
@@ -199,7 +224,7 @@ export function TableToolbar({
         <ActiveQueryChips
           {...flip}
           className="mr-1"
-          query={query}
+          query={filterChips ? query : { ...query, filters: [] }}
           onQueryChange={onQueryChange}
           filters={filters}
           sortOptions={sortOptions}
@@ -313,16 +338,16 @@ export function TableToolbar({
           </DropdownMenu>
         ) : null}
 
-        {views && views.length > 0 ? (
+        {(views && views.length > 0) || (columns && columns.length > 0) ? (
           <DropdownMenu>
-            <ToolTip label={`View, ${viewLabel}`}>
+            <ToolTip label={viewName}>
               <DropdownMenuTrigger asChild>
                 <Button
                   {...flip}
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`View, ${viewLabel}`}
+                  aria-label={viewName}
                   className={iconButtonClass}
                 >
                   <SlidersHorizontal aria-hidden="true" />
@@ -330,17 +355,45 @@ export function TableToolbar({
               </DropdownMenuTrigger>
             </ToolTip>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>View</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={viewValue}
-                onValueChange={(id) => onQueryChange({ view: id === views[0]?.id ? null : id })}
-              >
-                {views.map((v) => (
-                  <DropdownMenuRadioItem key={v.id} value={v.id}>
-                    {v.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
+              {views && views.length > 0 ? (
+                <>
+                  <DropdownMenuLabel>View</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={viewValue}
+                    onValueChange={(id) => onQueryChange({ view: id === views[0]?.id ? null : id })}
+                  >
+                    {views.map((v) => (
+                      <DropdownMenuRadioItem key={v.id} value={v.id}>
+                        {v.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </>
+              ) : null}
+              {columns && columns.length > 0 ? (
+                <>
+                  {views && views.length > 0 ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuLabel>Columns</DropdownMenuLabel>
+                  {columns.map((c) => (
+                    <DropdownMenuCheckboxItem
+                      key={c.id}
+                      checked={c.locked || !hiddenColumns.includes(c.id)}
+                      disabled={c.locked}
+                      // Keep the menu open so several columns can be toggled in one go.
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={(on) =>
+                        onHiddenColumnsChange?.(
+                          on === true
+                            ? hiddenColumns.filter((id) => id !== c.id)
+                            : [...hiddenColumns.filter((id) => id !== c.id), c.id],
+                        )
+                      }
+                    >
+                      {c.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}

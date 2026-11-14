@@ -217,6 +217,9 @@ test('scan-anywhere: a label scanned with no field focused opens it, read-only',
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await scan(page, ` ${data.b1.toLowerCase()} `);
   await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.b1}$`));
+  // Wait for the unit page to finish loading (as for A1), so the next scan isn't typed into a
+  // page that is still mounting and moving focus.
+  await expect(page.getByRole('heading', { level: 1, name: data.b1 })).toBeVisible();
   expect(resolves).toEqual([data.a1, data.b1.toLowerCase()]);
 
   // A code that matches nothing exactly lands on the results page.
@@ -235,7 +238,14 @@ test('scan-anywhere leaves a focused field alone', async ({ page }) => {
   const data = await insertInventoryFixture();
   await signInAs(page, 'at');
   await page.goto('/sample-storage');
-  const search = page.getByRole('searchbox', { name: 'Search' });
+  // The toolbar's search opens from its Search button (STRATA-79).
+  const search = page.getByRole('searchbox', { name: 'Search storage units' });
+  if (!(await search.isVisible())) {
+    await page
+      .getByRole('toolbar', { name: 'Storage unit tools' })
+      .getByRole('button', { name: 'Search', exact: true })
+      .click();
+  }
   await search.click();
   const resolves = recordResolves(page);
   await page.keyboard.type(data.a1);

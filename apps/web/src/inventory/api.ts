@@ -2,6 +2,7 @@ import {
   bulkGroupSummarySchema,
   confirmTestedRemovalResponseSchema,
   inventoryLocationListSchema,
+  inventoryListPageSchema,
   inventoryPageSchema,
   locationActivitySchema,
   locationDetailSchema,
@@ -21,6 +22,7 @@ import {
   type CorrectBulkGroupRequestInput,
   type FieldError,
   type InventoryLocation,
+  type InventoryListPage,
   type InventoryPage,
   type LabRequestLink,
   type LocationActivity,
@@ -75,6 +77,14 @@ async function get<T>(path: string, schema: Schema<T>): Promise<InventoryResult<
 export function fetchInventory(params: URLSearchParams): Promise<InventoryResult<InventoryPage>> {
   const query = params.toString();
   return get(`/api/inventory${query ? `?${query}` : ''}`, inventoryPageSchema);
+}
+
+/** STRATA-79: Inventory's list request (stage tab, counts=1); the response may carry stageCounts. */
+export function fetchInventoryList(
+  params: URLSearchParams,
+): Promise<InventoryResult<InventoryListPage>> {
+  const query = params.toString();
+  return get(`/api/inventory${query ? `?${query}` : ''}`, inventoryListPageSchema);
 }
 
 /** The selected project filter's label (number, name, client). */

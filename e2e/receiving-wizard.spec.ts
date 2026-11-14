@@ -149,10 +149,14 @@ test('T3/AC1: two buckets for TH26-01, confirmed with two BKT IDs', async ({ pag
     'href',
     `/sample-storage/${ids[1]}`,
   );
-  // Put away opens Move units with both units waiting for their shelf.
+  // Put away (STRATA-80) opens the Move screen as Put away with both units waiting for their label.
   await putAway.getByRole('link', { name: 'Put away', exact: true }).click();
-  const chosen = page.getByRole('region', { name: 'Chosen to move' });
-  for (const id of ids) await expect(chosen.getByText(id)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Put away' })).toBeVisible();
+  for (const id of ids) {
+    await expect(page.getByTestId('move-waiting-row').filter({ hasText: id })).toContainText(
+      'Waiting for its label',
+    );
+  }
 });
 
 test('T4/AC2/AC8: a mixed-hole bucket is one unit with two summaries; blank description', async ({

@@ -1,5 +1,6 @@
 import type {
   InventoryItem,
+  InventoryListPage,
   InventoryPage,
   MeResponse,
   StorageUnitDetail,
@@ -9,11 +10,11 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { pickStationPerson } from '../session/station-test-person';
-import { inventorySearchParams, readInventoryQuery } from './url-state';
+import { clearedParams, inventoryRequest, inventoryRequestParams, readStage } from './url-state';
 
 // Fictional data only (MM-T12): DEMO-2601, TH26-01, receiver AT.
 
@@ -172,101 +173,102 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('inventory URL state', () => {
-  it('round-trips filters and leaves defaults out of the URL', () => {
-    const query = readInventoryQuery(
-      new URLSearchParams('search=TH26-01&status=all&page=2&sort=received&pageSize=25'),
-    );
-    expect(inventorySearchParams(query).toString()).toBe('search=TH26-01&status=all&page=2');
+const COUNTS = {
+  all: 42,
+  in_lab: 3,
+  short_term: 20,
+  long_term: 12,
+  retention_due: 4,
+  disposed: 2,
+  conflicts: 1,
+};
+
+const listPage = (
+  items: InventoryItem[],
+  total = items.length,
+  pageNumber = 1,
+  stageCounts = COUNTS,
+): InventoryListPage => ({ ...page(items, total, pageNumber), stageCounts });
+
+const lastRequest = (fetchMock: ReturnType<typeof stubApi>) =>
+  Object.fromEntries(inventoryCalls(fetchMock).at(-1)!.searchParams);
+
+const query = (location: { search: string }) =>
+  Object.fromEntries(new URLSearchParams(location.search));
+
+describe('inventory URL state (STRATA-79)', () => {
+  it('reads the tab, opening older conflict and disposed links on their tabs', () => {
+    expect(readStage(new URLSearchParams(''))).toBe('all');
+    expect(readStage(new URLSearchParams('stage=long_term'))).toBe('long_term');
+    expect(readStage(new URLSearchParams('conflict=open'))).toBe('conflicts');
+    expect(readStage(new URLSearchParams('status=disposed'))).toBe('disposed');
+    expect(readStage(new URLSearchParams('stage=in_storage'))).toBe('all');
   });
 
-  it('ignores invalid values from a hand-edited link', () => {
-    const query = readInventoryQuery(new URLSearchParams('status=lost&page=-1&search=bkt'));
-    expect(query).toMatchObject({ status: 'current', page: 1, search: 'bkt' });
+  it('builds the request with the tab and counts, and drops invalid values from a hand-edited link', () => {
+    const ok = inventoryRequest(
+      new URLSearchParams('stage=in_lab&type=bucket&sort=id&dir=desc&page=2&filter=project'),
+      'TH26-01',
+    );
+    expect(ok.ignored).toBe(false);
+    expect(Object.fromEntries(inventoryRequestParams(ok.query))).toEqual({
+      stage: 'in_lab',
+      counts: '1',
+      search: 'TH26-01',
+      type: 'bucket',
+      sort: 'id',
+      dir: 'desc',
+      page: '2',
+    });
+    const bad = inventoryRequest(new URLSearchParams('type=crate&page=-1'), '');
+    expect(bad.ignored).toBe(true);
+    expect(Object.fromEntries(inventoryRequestParams(bad.query))).toEqual({
+      stage: 'all',
+      counts: '1',
+    });
+  });
+
+  it('Clear filters keeps the tab, sort and an open drawer', () => {
+    const cleared = clearedParams(
+      new URLSearchParams(
+        'stage=long_term&search=x&projectId=p&type=bucket&filter=location&sort=id&dir=asc&open=BKT-2026-000014&page=3',
+      ),
+    );
+    expect(cleared.toString()).toBe('stage=long_term&sort=id&dir=asc&open=BKT-2026-000014');
   });
 });
 
-describe('Sample Storage inventory (MM-T12)', () => {
-  it('shows the count and rows, and sends search and filters to the server via the URL', async () => {
-    const fetchMock = stubApi((url) => {
-      if (url.pathname === '/api/inventory') {
-        return json(
-          200,
-          url.searchParams.get('search')
-            ? page([item('BKT-2026-000014')], 1)
-            : page([item('BKT-2026-000014'), item('BKT-2026-000015')], 42),
-        );
-      }
-      return undefined;
-    });
+describe('Sample Storage inventory (STRATA-79)', () => {
+  const twoRows = () => listPage([item('BKT-2026-000014'), item('BKT-2026-000015')], 42);
+
+  it('shows the stage tabs with server counts, the rows, and asks the server for each tab', async () => {
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined,
+    );
     const router = renderAt('/sample-storage');
 
     expect(await screen.findByText('42 storage units')).toBeInTheDocument();
-    const table = screen.getByRole('table');
-    expect(within(table).getAllByRole('row')).toHaveLength(3);
-    expect(within(table).getAllByText('TH26-01: G1–S12')).toHaveLength(2);
-    expect(within(table).getAllByText('Warehouse C2')).toHaveLength(2);
-    // MM-T50: the storage unit ID is the link; there is no View column.
-    expect(within(table).queryByRole('columnheader', { name: 'View' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'BKT-2026-000014' })).toHaveAttribute(
-      'href',
-      '/sample-storage/BKT-2026-000014',
+    expect(lastRequest(fetchMock)).toEqual({ stage: 'all', counts: '1' });
+    const tabs = screen.getByRole('tablist', { name: 'Stage' });
+    expect(
+      within(tabs)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual([
+      'All 42',
+      'In lab 3',
+      'Short-term 20',
+      'Long-term 12',
+      'Retention due 4',
+      'Disposed 2',
+      'Conflicts 1',
+    ]);
+    expect(within(tabs).getByRole('tab', { name: 'All 42' })).toHaveAttribute(
+      'aria-selected',
+      'true',
     );
-    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument();
 
-    await userEvent.type(
-      screen.getByRole('searchbox', { name: 'Search inventory' }),
-      'TH26-01 warehouse',
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
-    expect(router.state.location.search).toBe('?search=TH26-01+warehouse');
-
-    await userEvent.click(
-      within(screen.getByRole('group', { name: 'Status' })).getByRole('button', {
-        name: 'Disposed',
-      }),
-    );
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Location' }), WAREHOUSE.id);
-    const last = inventoryCalls(fetchMock).at(-1)!;
-    expect(Object.fromEntries(last.searchParams)).toEqual({
-      search: 'TH26-01 warehouse',
-      status: 'disposed',
-      locationId: WAREHOUSE.id,
-    });
-
-    const chips = screen.getByRole('list', { name: 'Active filters' });
-    expect(within(chips).getByText('Status: Disposed')).toBeInTheDocument();
-    expect(within(chips).getByText('Location: Warehouse C2')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove filter Status: Disposed' }));
-    expect(router.state.location.search).not.toContain('status');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-    expect(router.state.location.search).toBe('');
-    expect(await screen.findByText('42 storage units')).toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('');
-  });
-
-  it('MM-T66 UI-10: switches between comfortable and compact with the same rows, and remembers it', async () => {
-    window.localStorage.removeItem('materialmule:table-view:inventory');
-    stubApi((url) =>
-      url.pathname === '/api/inventory'
-        ? json(200, page([item('BKT-2026-000014'), item('BKT-2026-000015')], 2))
-        : undefined,
-    );
-    renderAt('/sample-storage');
-    expect(await screen.findByText('2 storage units')).toBeInTheDocument();
-    const views = screen.getByRole('group', { name: 'Table view' });
-    const standard = within(views).getByRole('button', { name: 'Comfortable rows' });
-    const compact = within(views).getByRole('button', { name: 'Compact rows' });
-    expect(standard).toHaveAttribute('aria-pressed', 'true');
-    expect(compact).toHaveAttribute('aria-pressed', 'false');
-    expect(document.querySelector('.inventory-table-compact')).toBeNull();
-
-    await userEvent.click(compact);
-    expect(compact).toHaveAttribute('aria-pressed', 'true');
-    expect(document.querySelector('.inventory-table-compact')).not.toBeNull();
-    const table = screen.getByRole('table');
+    const table = screen.getByRole('table', { name: 'Storage units' });
     expect(within(table).getAllByRole('row')).toHaveLength(3);
     expect(
       within(table)
@@ -274,48 +276,303 @@ describe('Sample Storage inventory (MM-T12)', () => {
         .map((th) => th.textContent),
     ).toEqual([
       '',
-      'Unit ID',
+      'ID',
       'Project',
-      'Test holes · samples · depth',
-      'Location',
-      'Status',
+      'Test hole',
+      'Type',
+      'Where',
+      'Stage',
       'Received',
       'Retain until',
     ]);
-    // Same links and full values (long ones are only cut short visually; the title has them).
-    expect(screen.getByRole('link', { name: 'BKT-2026-000015' })).toHaveAttribute(
-      'href',
-      '/sample-storage/BKT-2026-000015',
-    );
     expect(within(table).getAllByTitle('TH26-01: G1–S12')).toHaveLength(2);
-    expect(window.localStorage.getItem('materialmule:table-view:inventory')).toBe('compact');
+    expect(within(table).getAllByText('Warehouse C2')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'BKT-2026-000014' })).toHaveAttribute(
+      'href',
+      '/sample-storage/BKT-2026-000014',
+    );
+    // The chip row is always there, with + Add filter and no Clear filters yet.
+    const chips = screen.getByRole('group', { name: 'Filters' });
+    expect(within(chips).getByRole('button', { name: 'Add filter' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
 
-    await userEvent.click(standard);
-    expect(document.querySelector('.inventory-table-compact')).toBeNull();
-    expect(window.localStorage.getItem('materialmule:table-view:inventory')).toBe('comfortable');
-    window.localStorage.removeItem('materialmule:table-view:inventory');
+    await userEvent.click(within(tabs).getByRole('tab', { name: 'Long-term 12' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?stage=long_term'));
+    await waitFor(() =>
+      expect(lastRequest(fetchMock)).toEqual({ stage: 'long_term', counts: '1' }),
+    );
   });
 
-  it('Field Ledger: selecting rows shows the selection bar, and Move carries the units', async () => {
-    stubApi((url) =>
+  it('searches on the server from the toolbar, debounced, kept in the URL', async () => {
+    const fetchMock = stubApi((url) =>
       url.pathname === '/api/inventory'
-        ? json(200, page([item('BKT-2026-000014'), item('BKT-2026-000015')], 2))
+        ? json(
+            200,
+            url.searchParams.get('search') ? listPage([item('BKT-2026-000014')], 1) : twoRows(),
+          )
         : undefined,
     );
     const router = renderAt('/sample-storage');
-    expect(await screen.findByText('2 storage units')).toBeInTheDocument();
+    await screen.findByText('42 storage units');
+    const tools = screen.getByRole('toolbar', { name: 'Storage unit tools' });
+    await userEvent.click(within(tools).getByRole('button', { name: 'Search' }));
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Search storage units' }),
+      'TH26-01 warehouse',
+    );
+    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
+    expect(query(router.state.location)).toEqual({ search: 'TH26-01 warehouse' });
+    expect(lastRequest(fetchMock)).toEqual({
+      stage: 'all',
+      counts: '1',
+      search: 'TH26-01 warehouse',
+    });
+  });
+
+  it('keeps every character of fast, key-by-key typing (a wedge scanner) in the search box', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    const router = renderAt('/sample-storage');
+    await screen.findByText('42 storage units');
+    const user = userEvent.setup({ delay: null });
+    await user.click(
+      within(screen.getByRole('toolbar', { name: 'Storage unit tools' })).getByRole('button', {
+        name: 'Search',
+      }),
+    );
+    const box = screen.getByRole('searchbox', { name: 'Search storage units' });
+    await user.type(box, 'BKT-2024-309942');
+    expect(box).toHaveValue('BKT-2024-309942');
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({ search: 'BKT-2024-309942' }),
+    );
+    expect(box).toHaveValue('BKT-2024-309942');
+  });
+
+  it('adds filter chips with their own pickers, removes them with ×, and clears them all', async () => {
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined,
+    );
+    const router = renderAt('/sample-storage');
+    await screen.findByText('42 storage units');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Type' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Bucket' }));
+    await waitFor(() => expect(query(router.state.location)).toEqual({ type: 'bucket' }));
+    expect(screen.getByRole('group', { name: 'Filter Type' })).toHaveTextContent('TypeBucket');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Location' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Warehouse C2' }));
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({ type: 'bucket', locationId: WAREHOUSE.id }),
+    );
+    expect(screen.getByRole('group', { name: 'Filter Location' })).toHaveTextContent(
+      'Warehouse C2',
+    );
+    await waitFor(() =>
+      expect(lastRequest(fetchMock)).toEqual({
+        stage: 'all',
+        counts: '1',
+        type: 'bucket',
+        locationId: WAREHOUSE.id,
+      }),
+    );
+    // The toolbar's Filter button counts them.
+    expect(screen.getByRole('button', { name: 'Filter, 2 on' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter Type' }));
+    await waitFor(() => expect(query(router.state.location)).toEqual({ locationId: WAREHOUSE.id }));
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+
+  it('a picker that just opened stays open when an earlier chip gets its focus back late', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    renderAt(`/sample-storage?locationId=${WAREHOUSE.id}`);
+    await screen.findByText('42 storage units');
+    const location = within(screen.getByRole('group', { name: 'Filter Location' })).getAllByRole(
+      'button',
+    )[0]!;
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Type' }));
+    expect(await screen.findByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    // The Location picker's delayed focus return (after its exit animation) lands on its chip.
+    act(() => location.focus());
+    expect(screen.getByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Bucket' }));
+    await waitFor(() =>
+      expect(screen.getByRole('group', { name: 'Filter Type' })).toHaveTextContent('Bucket'),
+    );
+  });
+
+  it('a picker opened from "+ Add filter" opens once the menu has finished closing, and stays open', async () => {
+    // Radix keeps a closing menu (with its focus trap) and popover mounted until the exit
+    // animation ends. jsdom has no animations, so give menus and popovers an enter and an exit
+    // animation, read live: Radix keeps the style object from mount and reads it on each change.
+    const realStyle = window.getComputedStyle.bind(window);
+    const animated = new Set(['popover-content', 'dropdown-menu-content']);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      if (!(element instanceof HTMLElement) || !animated.has(element.dataset.slot ?? '')) {
+        return style;
+      }
+      return new Proxy(style, {
+        get: (target, key) =>
+          key === 'animationName'
+            ? element.dataset.state === 'closed'
+              ? 'exit'
+              : 'enter'
+            : Reflect.get(target, key, target),
+      });
+    });
+    const finishAnimations = () =>
+      act(() => {
+        for (const closing of document.querySelectorAll(
+          '[data-state="closed"][data-slot$="-content"]',
+        )) {
+          // jsdom's events carry no animationName; Radix matches it to the running animation.
+          const end = new Event('animationend', { bubbles: true });
+          Object.defineProperty(end, 'animationName', { value: 'exit' });
+          closing.dispatchEvent(end);
+        }
+      });
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    const router = renderAt(`/sample-storage?locationId=${WAREHOUSE.id}`);
+    await screen.findByText('42 storage units');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Type' }));
+    // The menu is still closing; then its animation ends.
+    finishAnimations();
+    expect(await screen.findByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    finishAnimations();
+    expect(screen.getByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Bucket' }));
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({ locationId: WAREHOUSE.id, type: 'bucket' }),
+    );
+  });
+
+  it('filters by received dates as you type', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    const router = renderAt('/sample-storage');
+    await screen.findByText('42 storage units');
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Received' }));
+    const picker = await screen.findByRole('group', { name: 'Received between' });
+    fireEvent.change(within(picker).getByLabelText('Received from'), {
+      target: { value: '2026-10-01' },
+    });
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({ receivedFrom: '2026-10-01' }),
+    );
+    fireEvent.change(
+      within(await screen.findByRole('group', { name: 'Received between' })).getByLabelText(
+        'Received through',
+      ),
+      { target: { value: '2026-10-23' } },
+    );
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({
+        receivedFrom: '2026-10-01',
+        receivedTo: '2026-10-23',
+      }),
+    );
+    expect(screen.getByRole('group', { name: 'Filter Received' })).toHaveTextContent(
+      '2026-10-01 – 2026-10-23',
+    );
+  });
+
+  it('selection bar: Move takes the exact ticked units, kept across pages, without disposed ones', async () => {
+    stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(
+            200,
+            url.searchParams.get('page') === '2'
+              ? listPage([item('BKT-2026-000031')], 42, 2)
+              : listPage(
+                  [
+                    item('BKT-2026-000014'),
+                    item('BKT-2026-000015'),
+                    item('BKT-2026-000016', { status: 'disposed' }),
+                  ],
+                  42,
+                ),
+          )
+        : undefined,
+    );
+    const user = me({ permissions: ['inventory.read', 'label.print', 'storage_unit.move'] });
+    const router = renderAt('/sample-storage', user);
+    await screen.findByText('42 storage units');
     expect(screen.queryByRole('group', { name: 'Selection' })).toBeNull();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select BKT-2026-000015' }));
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('1 selected');
+
+    // Page 2 keeps the selection; tick one there too.
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await screen.findByRole('link', { name: 'BKT-2026-000031' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select BKT-2026-000031' }));
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('2 selected');
+    await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    await screen.findByRole('link', { name: 'BKT-2026-000014' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select BKT-2026-000016' }));
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('3 selected');
+
+    // Disposed units are left out of Move. The Move screen takes the units out of its URL once
+    // applied, so the link it was opened with is read from the navigation itself.
+    const opened: { pathname: string; search: string; state: unknown }[] = [];
+    const unsubscribe = router.subscribe((state) => opened.push(state.location));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Selection' })).getByRole('button', {
+        name: 'Move',
+      }),
+    );
+    unsubscribe();
+    const move = opened.find((location) => location.pathname === '/sample-storage/move')!;
+    expect(new URLSearchParams(move.search).get('units')).toBe('BKT-2026-000015,BKT-2026-000031');
+    expect(move.state).toEqual({ units: ['BKT-2026-000015', 'BKT-2026-000031'] });
+  });
+
+  it('Print labels goes to the chosen-units print view; a tab change clears the selection', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    const router = renderAt('/sample-storage');
+    await screen.findByText('42 storage units');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
     const bar = screen.getByRole('group', { name: 'Selection' });
-    expect(bar).toHaveTextContent('1 selected');
-    expect(within(bar).getByRole('button', { name: 'Add to lab request' })).toBeEnabled();
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Select every unit on this page' }));
     expect(bar).toHaveTextContent('2 selected');
-    await userEvent.click(within(bar).getByRole('button', { name: 'Print labels' }));
+    // Without storage_unit.move there is no Move.
+    expect(within(bar).queryByRole('button', { name: 'Move' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'In lab 3' }));
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Selection' })).toBeNull());
+    await userEvent.click(screen.getByRole('tab', { name: 'All 42' }));
+    await screen.findByRole('link', { name: 'BKT-2026-000014' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Selection' })).getByRole('button', {
+        name: 'Print labels',
+      }),
+    );
     expect(router.state.location.pathname).toBe('/labels/print/units');
     expect(new URLSearchParams(router.state.location.search).get('ids')).toBe(
-      'BKT-2026-000015,BKT-2026-000014',
+      'BKT-2026-000014,BKT-2026-000015',
     );
+  });
+
+  it('Clear in the selection bar and Esc both clear the selection', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    renderAt('/sample-storage');
+    await screen.findByText('42 storage units');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select BKT-2026-000014' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByRole('group', { name: 'Selection' })).toBeNull();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select BKT-2026-000014' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('group', { name: 'Selection' })).toBeNull();
   });
 
   it('filters to one receipt (dashboard link) with a removable chip that Clear filters clears', async () => {
@@ -324,21 +581,14 @@ describe('Sample Storage inventory (MM-T12)', () => {
       url.pathname === '/api/inventory'
         ? json(
             200,
-            url.searchParams.get('receiptId')
-              ? page([item('BKT-2026-000014')], 1)
-              : page([item('BKT-2026-000014'), item('BKT-2026-000015')], 42),
+            url.searchParams.get('receiptId') ? listPage([item('BKT-2026-000014')], 1) : twoRows(),
           )
         : undefined,
     );
     const router = renderAt(`/sample-storage?receiptId=${receiptId}&status=all`);
     expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
-    expect(Object.fromEntries(inventoryCalls(fetchMock).at(-1)!.searchParams)).toEqual({
-      receiptId,
-      status: 'all',
-    });
-    const chips = screen.getByRole('list', { name: 'Active filters' });
-    expect(within(chips).getByText('One receipt')).toBeInTheDocument();
-    expect(within(chips).getByText('Status: All statuses')).toBeInTheDocument();
+    expect(lastRequest(fetchMock)).toEqual({ stage: 'all', counts: '1', receiptId });
+    expect(screen.getByRole('group', { name: 'Filter Receipt' })).toHaveTextContent('One receipt');
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove filter One receipt' }));
     expect(router.state.location.search).toBe('?status=all');
@@ -350,154 +600,135 @@ describe('Sample Storage inventory (MM-T12)', () => {
     expect(router.state.location.search).toBe('');
   });
 
-  it('MM-T81: filters to open location conflicts with a removable chip', async () => {
+  it('MM-T81: an older conflict=open link opens the Conflicts tab, which replaces the Conflict filter', async () => {
     const fetchMock = stubApi((url) =>
       url.pathname === '/api/inventory'
         ? json(
             200,
-            url.searchParams.get('conflict')
-              ? page([{ ...item('BKT-2026-000014'), openConflict: true }], 1)
-              : page([item('BKT-2026-000014'), item('BKT-2026-000015')], 42),
+            url.searchParams.get('stage') === 'conflicts'
+              ? listPage([item('BKT-2026-000014', { openConflict: true })], 1)
+              : twoRows(),
+          )
+        : undefined,
+    );
+    const router = renderAt('/sample-storage?conflict=open');
+    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
+    expect(lastRequest(fetchMock)).toEqual({ stage: 'conflicts', counts: '1' });
+    expect(screen.getByRole('tab', { name: 'Conflicts 1' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(
+      screen.getByText('Each unit has two places recorded. Scan it where it really is to fix it.'),
+    ).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText('Location conflict')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'All 42' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+
+  it('shows a no-match state with Clear filters, and the empty state with Receive', async () => {
+    stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(200, listPage([], 0, 1, { ...COUNTS, all: 0, short_term: 0, in_lab: 0 }))
+        : undefined,
+    );
+    const router = renderAt('/sample-storage?search=nothing');
+    const noMatch = await screen.findByText(
+      'No storage units match this search and these filters.',
+    );
+    const empty = noMatch.closest<HTMLElement>('[data-slot=empty]')!;
+    await userEvent.click(within(empty).getByRole('button', { name: 'Clear filters' }));
+    expect(await screen.findByText('No storage units yet.')).toBeInTheDocument();
+    expect(router.state.location.search).toBe('');
+    expect(screen.getByText(/Receive samples to add the first\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Receive samples' })).toHaveAttribute(
+      'href',
+      '/receiving-log/new?new=1',
+    );
+  });
+
+  it('says when storage units could not load, with Try again', async () => {
+    let fail = true;
+    stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? fail
+          ? json(500, { code: 'internal' })
+          : json(200, twoRows())
+        : undefined,
+    );
+    renderAt('/sample-storage');
+    expect(await screen.findByText('Storage units couldn’t load.')).toBeInTheDocument();
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('42 storage units')).toBeInTheDocument();
+  });
+
+  it('pages with Previous and Next, sorts from a heading, and hides a column from View', async () => {
+    window.localStorage.removeItem('materialmule:inventory-hidden-columns');
+    const fetchMock = stubApi((url) =>
+      url.pathname === '/api/inventory'
+        ? json(
+            200,
+            listPage([item('BKT-2026-000014')], 120, Number(url.searchParams.get('page') ?? 1)),
           )
         : undefined,
     );
     const router = renderAt('/sample-storage');
-    expect(await screen.findByText('42 storage units')).toBeInTheDocument();
-
-    await userEvent.selectOptions(screen.getByLabelText('Conflict'), 'Open location conflict');
-    expect(await screen.findByText('1 storage unit')).toBeInTheDocument();
-    expect(router.state.location.search).toBe('?conflict=open');
-    expect(inventoryCalls(fetchMock).at(-1)!.searchParams.get('conflict')).toBe('open');
-    expect(within(screen.getByRole('table')).getByText('Conflict')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Remove filter Conflict: Open' }));
-    expect(router.state.location.search).toBe('');
-  });
-
-  it('shows a no-match state', async () => {
-    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, page([], 0)) : undefined));
-    renderAt('/sample-storage?search=nothing');
-    expect(await screen.findByText('0 storage units')).toBeInTheDocument();
-    expect(
-      screen.getByText('No storage units match this search and these filters.'),
-    ).toBeInTheDocument();
-  });
-
-  it('pages with Previous and Next', async () => {
-    const fetchMock = stubApi((url) =>
-      url.pathname === '/api/inventory'
-        ? json(200, page([item('BKT-2026-000014')], 120, Number(url.searchParams.get('page') ?? 1)))
-        : undefined,
-    );
-    const router = renderAt('/sample-storage');
     expect(await screen.findByText('Page 1 of 5')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
     expect(await screen.findByText('Page 2 of 5')).toBeInTheDocument();
     expect(router.state.location.search).toBe('?page=2');
-    expect(inventoryCalls(fetchMock).at(-1)!.searchParams.get('page')).toBe('2');
-  });
+    expect(lastRequest(fetchMock).page).toBe('2');
 
-  it('AC4: Look up ID opens the unit; an unknown ID says No storage unit found', async () => {
-    const fetchMock = stubApi((url) => {
-      if (url.pathname === '/api/inventory') return json(200, page([]));
-      if (url.pathname === '/api/storage-units/lookup') {
-        return url.searchParams.get('code') === 'bkt-2026-000014 '
-          ? json(200, { id: DETAIL.id, readableId: DETAIL.readableId })
-          : json(404, { code: 'storage_unit_not_found' });
-      }
-      if (url.pathname === `/api/storage-units/${DETAIL.readableId}`) return json(200, DETAIL);
-      if (url.pathname === `/api/storage-units/${DETAIL.id}/history`) return json(200, HISTORY);
-      if (url.pathname.endsWith('/print-history')) {
-        return json(200, {
-          storageUnit: { id: DETAIL.id, readableId: DETAIL.readableId },
-          jobs: [],
-        });
-      }
-      return undefined;
-    });
-    const router = renderAt('/sample-storage');
-    const lookUp = await screen.findByRole('textbox', { name: 'Look up ID' });
+    const idHeading = screen.getByRole('columnheader', { name: 'ID' });
+    await userEvent.click(within(idHeading).getByRole('button'));
+    await waitFor(() => expect(query(router.state.location)).toEqual({ sort: 'id', dir: 'asc' }));
+    expect(lastRequest(fetchMock)).toMatchObject({ sort: 'id', dir: 'asc' });
 
-    await userEvent.type(lookUp, 'BKT-2026-999999');
-    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('No storage unit found');
-
-    await userEvent.clear(lookUp);
-    await userEvent.type(lookUp, 'bkt-2026-000014 ');
-    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'BKT-2026-000014' }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/sample-storage/BKT-2026-000014');
-    expect(fetchMock).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'View, Comfortable' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'ID' })).toHaveAttribute(
+      'data-disabled',
+    );
+    await userEvent.click(within(menu).getByRole('menuitemcheckbox', { name: 'Type' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('columnheader', { name: 'Type' })).toBeNull();
+    expect(window.localStorage.getItem('materialmule:inventory-hidden-columns')).toBe('["type"]');
+    window.localStorage.removeItem('materialmule:inventory-hidden-columns');
   });
 });
 
-describe('Sample Storage rapid filter changes (MM-T46)', () => {
+describe('Sample Storage rapid changes (MM-T46)', () => {
   const stubInventory = () =>
     stubApi((url) =>
-      url.pathname === '/api/inventory' ? json(200, page([item('BKT-2026-000014')], 1)) : undefined,
-    );
-
-  it('T1/AC1: two filters chosen in quick succession during a search are both kept', async () => {
-    stubInventory();
-    const router = renderAt('/sample-storage?search=TH26-01');
-    await screen.findByRole('option', { name: WAREHOUSE.name });
-    await screen.findByText('1 storage unit');
-
-    // Both picks land before the first navigation has rendered.
-    act(() => {
-      fireEvent.change(screen.getByRole('combobox', { name: 'Type' }), {
-        target: { value: 'bucket' },
-      });
-      fireEvent.change(screen.getByRole('combobox', { name: 'Location' }), {
-        target: { value: WAREHOUSE.id },
-      });
-    });
-
-    await waitFor(() =>
-      expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
-        search: 'TH26-01',
-        type: 'bucket',
-        locationId: WAREHOUSE.id,
-      }),
-    );
-    const chips = screen.getByRole('list', { name: 'Active filters' });
-    expect(within(chips).getByText('Search: TH26-01')).toBeInTheDocument();
-    expect(within(chips).getByText('Type: Bucket')).toBeInTheDocument();
-    expect(within(chips).getByText('Location: Warehouse C2')).toBeInTheDocument();
-  });
-
-  it('T1: rapid page turns and a sort change all build on each other', async () => {
-    stubApi((url) =>
       url.pathname === '/api/inventory'
-        ? json(200, page([item('BKT-2026-000014')], 120))
+        ? json(200, listPage([item('BKT-2026-000014')], 120))
         : undefined,
     );
+
+  it('T1: rapid page turns, then a sort and a tab change, all build on each other', async () => {
+    stubInventory();
     const router = renderAt('/sample-storage?type=bucket');
     await screen.findByText('Page 1 of 5');
 
     act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     });
     await waitFor(() => expect(router.state.location.search).toBe('?type=bucket&page=3'));
 
     act(() => {
-      fireEvent.change(screen.getByRole('combobox', { name: 'Sort by' }), {
-        target: { value: 'id:asc' },
-      });
-      fireEvent.click(
-        within(screen.getByRole('group', { name: 'Status' })).getByRole('button', { name: 'All' }),
-      );
+      fireEvent.click(within(screen.getByRole('columnheader', { name: 'ID' })).getByRole('button'));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Short-term 20' }));
     });
     await waitFor(() =>
-      expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({
+      expect(query(router.state.location)).toEqual({
         type: 'bucket',
         sort: 'id',
         dir: 'asc',
-        status: 'all',
+        stage: 'short_term',
       }),
     );
   });
@@ -505,35 +736,21 @@ describe('Sample Storage rapid filter changes (MM-T46)', () => {
   it('AC2: a search typed right after Clear filters is kept', async () => {
     stubInventory();
     const router = renderAt('/sample-storage?search=TH26-01&type=bucket');
-    await screen.findByText('1 storage unit');
-    const box = screen.getByRole('searchbox', { name: 'Search inventory' });
+    await screen.findByText('Page 1 of 5');
+    const box = screen.getByRole('searchbox', { name: 'Search storage units' });
 
     act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+      fireEvent.click(
+        within(screen.getByRole('group', { name: 'Filters' })).getByRole('button', {
+          name: 'Clear filters',
+        }),
+      );
       fireEvent.change(box, { target: { value: 'TH26-02' } });
-      fireEvent.submit(screen.getByRole('search', { name: 'Search inventory' }));
     });
 
     await waitFor(() => expect(router.state.location.search).toBe('?search=TH26-02'));
-    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('TH26-02');
-    const chips = screen.getByRole('list', { name: 'Active filters' });
-    expect(within(chips).getAllByRole('listitem')).toHaveLength(1);
-  });
-
-  it('AC2: text typed into Search before Clear filters has rendered is not wiped', async () => {
-    stubInventory();
-    const router = renderAt('/sample-storage?search=TH26-01');
-    await screen.findByText('1 storage unit');
-
-    act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-      fireEvent.change(screen.getByRole('searchbox', { name: 'Search inventory' }), {
-        target: { value: 'TH26-02' },
-      });
-    });
-
-    await waitFor(() => expect(router.state.location.search).toBe(''));
-    expect(screen.getByRole('searchbox', { name: 'Search inventory' })).toHaveValue('TH26-02');
+    expect(screen.getByRole('searchbox', { name: 'Search storage units' })).toHaveValue('TH26-02');
+    expect(screen.queryByRole('group', { name: 'Filter Type' })).toBeNull();
   });
 });
 

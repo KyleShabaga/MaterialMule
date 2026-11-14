@@ -1,7 +1,26 @@
 import type { MoveRequest } from '@materialmule/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { inBatch, type BatchItem } from './batch';
-import { isoWithOffset } from './format';
+import {
+  addShelfItem,
+  addUnitItem,
+  comingTo,
+  EMPTY_BATCH,
+  findDraftUnit,
+  markSaved,
+  otherDestinations,
+  problemItems,
+  readyUnits,
+  repeatUnit,
+  startNewList,
+  unitsAfterShelf,
+  unitsWithoutShelf,
+  type BatchState,
+  type ShelfItem,
+  type UnitFacts,
+  type UnitItem,
+} from './batch';
+import { isoWithOffset, placePath, shelfAfterText } from './format';
+import { linkedUnits, movePathForUnits, readUnitsParam } from './move-link';
 import {
   classifyResponse,
   drainQueue,
@@ -291,20 +310,155 @@ describe('response rules', () => {
   });
 });
 
-describe('batch duplicates (P20)', () => {
-  const item = (readableId: string, destination = C2): BatchItem => ({
-    key: readableId,
-    kind: 'move',
-    clientMoveId: `id-${readableId}`,
+describe('the Move list: labels in any order (STRATA-80, P20)', () => {
+  const C3 = { id: '00000000-0000-4000-8000-000000000603', code: 'WH-C3', name: 'Warehouse C3' };
+  const facts = (unit: { id: string; readableId: string }, location = RECEIVING): UnitFacts => ({
+    ...unit,
+    version: 1,
+    status: 'in_stock',
+    location,
+    recordStatus: 'received',
+    description: 'DEMO-2601 · TH26-01 · Bucket',
+    fromCache: false,
+  });
+  const unitRow = (
+    unit: { id: string; readableId: string } | null,
+    readableId = unit?.readableId ?? 'BKT-2026-009999',
+    problem: UnitItem['problem'] = null,
+  ): Omit<UnitItem, 'destination'> => ({
+    key: `row-${readableId}`,
+    kind: 'unit',
     readableId,
-    unitId: readableId,
-    destination,
+    scannedAt: '2026-11-13T09:15:00.000-07:00',
+    repeats: [],
+    unit: unit ? facts(unit) : null,
+    problem,
+    clientMoveId: null,
+  });
+  const shelfRow = (place: typeof C1 | null, problem: ShelfItem['problem'] = null): ShelfItem => ({
+    key: `shelf-${place?.code ?? 'x'}-${problem ?? 'ok'}`,
+    kind: 'shelf',
+    code: place?.code ?? 'WH-XX',
+    place,
+    scannedAt: '2026-11-13T09:15:00.000-07:00',
+    problem,
   });
 
-  it('ignores U1 again in a U1 → U2 → U1 batch, but not after a destination change or dismissal', () => {
-    const items = [item('BKT-2026-000014'), item('BKT-2026-000015')];
-    expect(inBatch(items, 'BKT-2026-000014', C2.id)).toBe(true);
-    expect(inBatch(items, 'BKT-2026-000014', C1.id)).toBe(false);
-    expect(inBatch(items, 'BKT-2026-000014', C2.id, new Set(['id-BKT-2026-000014']))).toBe(false);
+  it('units scanned before any shelf wait for the first one; a later shelf never redirects earlier rows', () => {
+    let batch: BatchState = EMPTY_BATCH;
+    batch = addUnitItem(batch, unitRow(U1));
+    expect(unitsWithoutShelf(batch.items)).toHaveLength(1);
+    expect(readyUnits(batch.items)).toHaveLength(0);
+    batch = addShelfItem(batch, shelfRow(C1));
+    expect(batch.destination).toEqual(C1);
+    batch = addUnitItem(batch, unitRow(U2));
+    batch = addShelfItem(batch, shelfRow(C2));
+    const ready = readyUnits(batch.items);
+    expect(ready.map((row) => [row.readableId, row.destination?.code])).toEqual([
+      [U1.readableId, 'WH-C1'],
+      [U2.readableId, 'WH-C1'],
+    ]);
+    expect(batch.destination).toEqual(C2);
+    expect(comingTo(batch.items, C1.id)).toBe(2);
+    expect(otherDestinations(batch.items, C2.id)).toEqual([{ place: C1, count: 2 }]);
+  });
+
+  it('a retired or unknown shelf is a problem row and changes nothing', () => {
+    let batch = addShelfItem(EMPTY_BATCH, shelfRow(C1));
+    batch = addShelfItem(batch, shelfRow(C3, 'retired'));
+    batch = addUnitItem(batch, unitRow(U1));
+    expect(batch.destination).toEqual(C1);
+    expect(readyUnits(batch.items)[0]!.destination).toEqual(C1);
+    expect(problemItems(batch.items)).toHaveLength(1);
+  });
+
+  it('lists a repeated label once and keeps its destination (U1 → shelf → U1)', () => {
+    let batch = addShelfItem(EMPTY_BATCH, shelfRow(C1));
+    batch = addUnitItem(batch, unitRow(U1));
+    batch = addShelfItem(batch, shelfRow(C2));
+    const existing = findDraftUnit(batch.items, U1.readableId)!;
+    batch = repeatUnit(batch, existing.key, '2026-11-13T16:39:00.000Z');
+    const rows = readyUnits(batch.items);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.destination).toEqual(C1);
+    expect(rows[0]!.repeats).toEqual(['2026-11-13T16:39:00.000Z']);
+  });
+
+  it('problem rows never block Save: Save takes the ready rows and leaves problems out', () => {
+    let batch = addShelfItem(EMPTY_BATCH, shelfRow(C1));
+    batch = addUnitItem(batch, unitRow(U1));
+    batch = addUnitItem(batch, unitRow(null, 'BKT-2026-001190', 'not_found'));
+    batch = addUnitItem(batch, { ...unitRow(U2), problem: 'disposed' });
+    batch = addUnitItem(batch, unitRow(null, 'BKT-2026-000131', 'lookup'));
+    expect(readyUnits(batch.items).map((row) => row.readableId)).toEqual([U1.readableId]);
+    expect(problemItems(batch.items)).toHaveLength(2);
+
+    const ready = readyUnits(batch.items)[0]!;
+    const saved = markSaved(batch, new Map([[ready.key, 'move-1']]), '2026-11-13T16:42:00.000Z');
+    expect(saved.lastSave).toMatchObject({ clientMoveIds: ['move-1'], dropped: 2 });
+    // The saved row carries its intent; the label waiting for a lookup stays, unsaved.
+    expect(
+      saved.items.map((item) => [
+        item.kind,
+        item.kind === 'unit' ? item.readableId : '',
+        item.kind === 'unit' ? item.clientMoveId : '',
+      ]),
+    ).toEqual([
+      ['unit', U1.readableId, 'move-1'],
+      ['unit', 'BKT-2026-000131', null],
+    ]);
+    expect(saved.destination).toEqual(C1);
+
+    // The next label starts a new list: settled rows leave, unanswered ones stay.
+    expect(startNewList(saved, () => 'saved').items).toHaveLength(1);
+    expect(startNewList(saved, () => 'pending').items).toHaveLength(2);
+    expect(startNewList(saved, () => 'pending').lastSave).toBeNull();
+  });
+
+  it('counts the units after each shelf row', () => {
+    let batch = addShelfItem(EMPTY_BATCH, shelfRow(C1));
+    const first = batch.items[0]!.key;
+    batch = addUnitItem(batch, unitRow(U1));
+    batch = addUnitItem(batch, unitRow(U2));
+    batch = addShelfItem(batch, shelfRow(C2));
+    expect(unitsAfterShelf(batch.items, first)).toBe(2);
+    expect(unitsAfterShelf(batch.items, batch.items[3]!.key)).toBe(0);
+  });
+});
+
+describe('Move wording (STRATA-80)', () => {
+  it('says the shelf after the move honestly: known, unknown and over capacity', () => {
+    expect(shelfAfterText(12, 2, 16)).toEqual({
+      line: 'Shelf after this move: 14 of 16 places',
+      over: 0,
+    });
+    expect(shelfAfterText(15, 3, 16)).toEqual({
+      line: 'Shelf after this move: 18 of 16 places · 2 over',
+      over: 2,
+    });
+    expect(shelfAfterText(1, 0, null).line).toBe('Shelf after this move: 1 unit · places not set');
+  });
+
+  it('names a place by its hierarchy', () => {
+    const byId = new Map([
+      ['a', { name: 'Warehouse A', parentId: null }],
+      ['b', { name: 'Bay 2', parentId: 'a' }],
+      ['s', { name: 'Shelf 3', parentId: 'b' }],
+    ]);
+    expect(placePath({ id: 's', code: 'WH-A-B2-S3', name: 'Shelf 3' }, byId)).toBe(
+      'Warehouse A · Bay 2 · Shelf 3',
+    );
+  });
+
+  it('reads linked units from ?units= and router state, without repeats', () => {
+    const path = movePathForUnits(['BKT-2026-000124', 'CRE-2026-000018'], 'r-1');
+    expect(path).toBe('/sample-storage/move?units=BKT-2026-000124,CRE-2026-000018&receipt=r-1');
+    const search = new URLSearchParams(path.split('?')[1]);
+    expect(linkedUnits(search, { units: ['CRE-2026-000018', 'ST-2026-000041'] })).toEqual([
+      'BKT-2026-000124',
+      'CRE-2026-000018',
+      'ST-2026-000041',
+    ]);
+    expect(readUnitsParam(null)).toEqual([]);
   });
 });
