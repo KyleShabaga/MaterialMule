@@ -12,6 +12,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../../routes';
 import { SessionContext } from '../../session/context';
+import { stationSessionKey, storeRecordingPerson } from '../../session/recording-person-store';
 import { planSave } from './row-state';
 
 // Concrete Lab → Testing table (MM-V2-C23): row states, tester attribution and corrections.
@@ -139,6 +140,7 @@ function renderPage(
   onPut: (put: Put) => Response,
   me: MeResponse = ME,
   reads: string[] = [],
+  path = '/concrete/testing',
 ) {
   const puts: Put[] = [];
   vi.stubGlobal(
@@ -159,7 +161,7 @@ function renderPage(
       return json(404, {});
     }),
   );
-  const router = createMemoryRouter(routes, { initialEntries: ['/concrete/testing'] });
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
     <SessionContext.Provider
       value={{
@@ -186,6 +188,10 @@ const statusOf = (label: string) =>
   screen.getByRole('rowheader', { name: label }).closest('tr')!.querySelector('.testing-status')!;
 
 beforeEach(() => {
+  // jsdom lacks pointer capture; Radix Select and menus call it.
+  const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+  proto.hasPointerCapture ??= () => false;
+  proto.releasePointerCapture ??= () => {};
   try {
     window.localStorage.clear();
   } catch {
@@ -197,13 +203,89 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('Testing table in Strata (STRATA-95, STRATA-125)', () => {
+  it('opens just the specimens picked in Breaks, with a way back to all due', async () => {
+    const reads: string[] = [];
+    const ids = [row(1, 'B').specimenId, row(2, 'C').specimenId];
+    renderPage(
+      table([row(1, 'B'), row(2, 'C')]),
+      (put) => ok(put),
+      ME,
+      reads,
+      `/concrete/testing?specimenIds=${ids.join(',')}`,
+    );
+    expect(await screen.findByRole('rowheader', { name: '26-01B' })).toBeInTheDocument();
+    expect(new URL(reads[0]!, 'http://test').searchParams.get('specimenIds')).toBe(ids.join(','));
+    expect(screen.getByText('Showing 2 selected specimens from Breaks')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Show all due' })).toHaveAttribute(
+      'href',
+      '/concrete/testing',
+    );
+    // A selection isn't narrowed by project or date.
+    expect(screen.queryByRole('combobox', { name: 'Project' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Include overdue' })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Hide completed' })).toBeInTheDocument();
+  });
+
+  it('arrow keys move between cells; units sit on a second header line', async () => {
+    renderPage(table([row(1, 'B'), row(2, 'C')]), (put) => ok(put));
+    const load = await screen.findByRole('textbox', { name: 'Max load 26-01B' });
+    expect(screen.getAllByRole('columnheader', { name: 'Max load (kN)' })).toHaveLength(1);
+    await userEvent.click(load);
+    await userEvent.keyboard('{ArrowDown}');
+    expect(screen.getByRole('textbox', { name: 'Max load 26-01C' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(load).toHaveFocus();
+    // Empty cell: the caret is at both ends, so ← and → leave it.
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('textbox', { name: 'Height 26-01B' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(load).toHaveFocus();
+    // Inside typed text, ← moves the caret, not the focus.
+    await userEvent.keyboard('412{ArrowLeft}');
+    expect(load).toHaveFocus();
+  });
+
+  it('on a LAB station, Tested by is the person picked with the station chip', async () => {
+    const LAB: MeResponse = {
+      ...ME,
+      id: '00000000-0000-4000-8000-000000000199',
+      displayName: 'LAB',
+      initials: null,
+      accountType: 'shared_lab',
+      roles: [],
+    };
+    storeRecordingPerson(stationSessionKey(LAB), {
+      id: LM.id,
+      displayName: LM.displayName,
+      initials: LM.initials,
+      roleLine: 'Lab Manager',
+    });
+    const puts = renderPage(table([row(1, 'B')]), (put) => ok(put), LAB);
+    const load = await screen.findByRole('textbox', { name: 'Max load 26-01B' });
+    expect(screen.getByLabelText('Tested by')).toHaveTextContent('Lee Manager (LM)');
+    expect(screen.queryByRole('combobox', { name: /Tested by/ })).toBeNull();
+    await userEvent.click(load);
+    await userEvent.keyboard('400');
+    await userEvent.tab();
+    await userEvent.keyboard('203.2');
+    await userEvent.tab();
+    await userEvent.keyboard('101.6');
+    await userEvent.tab();
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]!.body).toMatchObject({ testerUserId: LM.id, maxLoad: 400 });
+  });
+});
+
 describe('Testing table (MM-V2-C23)', () => {
   it('shows the progress and sorted rows, and saves a row when focus leaves it', async () => {
     const puts = renderPage(table([row(1, 'B'), row(2, 'C')]), (put) => ok(put));
     const load = await screen.findByRole('textbox', { name: 'Max load 26-01B' });
     expect(screen.getByText('0 of 2 completed')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveValue(TB.id),
+      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveTextContent(
+        'TB · Taylor Bench',
+      ),
     );
     expect(within(statusOf('26-01B') as HTMLElement).getByText('Not entered')).toBeInTheDocument();
 
@@ -238,7 +320,9 @@ describe('Testing table (MM-V2-C23)', () => {
     const puts = renderPage(table([row(1, 'B')]), (put) => ok(put));
     await userEvent.click(await screen.findByRole('textbox', { name: 'Max load 26-01B' }));
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveValue(TB.id),
+      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveTextContent(
+        'TB · Taylor Bench',
+      ),
     );
     await userEvent.keyboard('300');
     await userEvent.click(document.body);
@@ -258,7 +342,9 @@ describe('Testing table (MM-V2-C23)', () => {
     );
     const load = await screen.findByRole('textbox', { name: 'Max load 26-01B' });
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveValue(TB.id),
+      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveTextContent(
+        'TB · Taylor Bench',
+      ),
     );
     await userEvent.click(load);
     await userEvent.keyboard('412.5');
@@ -309,11 +395,13 @@ describe('Testing table (MM-V2-C23)', () => {
       ok(put),
     );
     const tester = await screen.findByRole('combobox', { name: /Tested by/ });
-    await waitFor(() => expect(tester).toHaveValue(TB.id));
+    await waitFor(() => expect(tester).toHaveTextContent('TB · Taylor Bench'));
     const first = screen.getByRole('rowheader', { name: '26-01B' }).closest('tr')!;
     expect(within(first).getByText('LM')).toBeInTheDocument();
-    await userEvent.selectOptions(tester, LM.id);
-    await userEvent.selectOptions(tester, TB.id);
+    await userEvent.click(tester);
+    await userEvent.click(await screen.findByRole('option', { name: 'LM · Lee Manager' }));
+    await userEvent.click(tester);
+    await userEvent.click(await screen.findByRole('option', { name: 'TB · Taylor Bench' }));
     expect(within(first).getByText('LM')).toBeInTheDocument();
   });
 
@@ -331,9 +419,10 @@ describe('Testing table (MM-V2-C23)', () => {
       (put) => ok(put),
     );
     await screen.findByRole('rowheader', { name: '26-01A' });
-    expect(screen.getByText('Overdue 21 d')).toBeInTheDocument();
+    // The Flags cell, and its copy folded into Status below 70rem (CSS shows one).
+    expect(screen.getAllByText('Overdue 21 d')).toHaveLength(2);
     expect(screen.getByText('target 2026-11-09')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Details for 26-01A' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Details for 26-01A' })[0]).toHaveAttribute(
       'href',
       '/concrete/specimens/00000000-0000-4000-8000-000000000501',
     );
@@ -347,8 +436,10 @@ describe('Testing table (MM-V2-C23)', () => {
     await screen.findByRole('rowheader', { name: '26-01B' });
     expect(screen.getAllByRole('columnheader', { name: 'Strength (MPa)' })).toHaveLength(1);
     expect(screen.getByLabelText('Strength 26-01B: not calculated')).toHaveTextContent('—');
-    await userEvent.click(screen.getByText('Columns'));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Strength' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Columns' }));
+    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Strength' }));
+    // The menu stays open for more changes; Escape closes it.
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('columnheader', { name: 'Strength (MPa)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Height (mm)' })).toBeInTheDocument();
   });
@@ -379,7 +470,7 @@ describe('Testing table (MM-V2-C23)', () => {
       'title',
       expect.stringContaining('Calculation method P1 (provisional)'),
     );
-    expect(screen.getByText('Diameters differ by more than 2%')).toBeVisible();
+    expect(screen.getAllByText('Diameters differ by more than 2%')[0]).toBeVisible();
   });
 
   it('keeps a failed overdue edit and its retry key while Include overdue is off', async () => {
@@ -399,7 +490,9 @@ describe('Testing table (MM-V2-C23)', () => {
     );
     await screen.findByRole('rowheader', { name: '26-01B' });
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveValue(TB.id),
+      expect(screen.getByRole('combobox', { name: /Tested by/ })).toHaveTextContent(
+        'TB · Taylor Bench',
+      ),
     );
     const includeOverdue = screen.getByRole('checkbox', { name: 'Include overdue' });
     await userEvent.click(includeOverdue);
@@ -459,9 +552,8 @@ describe('Testing table (MM-V2-C23)', () => {
       reads,
     );
     await screen.findByRole('rowheader', { name: '26-01B' });
-    const select = screen.getByRole('combobox', { name: 'Project' });
-    expect(within(select).getByRole('option', { name: 'DEMO-2602' })).toBeInTheDocument();
-    await userEvent.selectOptions(select, OTHER);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Project' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'DEMO-2602' }));
     expect(await screen.findByRole('rowheader', { name: '26-09A' })).toBeInTheDocument();
     expect(screen.queryByRole('rowheader', { name: '26-01B' })).not.toBeInTheDocument();
     expect(reads.at(-1)).toContain(`projectId=${OTHER}`);

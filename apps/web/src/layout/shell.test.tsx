@@ -119,12 +119,13 @@ describe('flat destinations (page sections, concrete lab pages)', () => {
     });
   });
 
-  it('groups Retention and Concrete; only lab staff get the Concrete lab pages', () => {
+  it('groups Retention and Concrete; only lab staff get Overview and the Concrete lab pages', () => {
     expect(childrenOf(OTHER, 'retention').map((c) => [c.label, c.to])).toEqual([
       ['Due and overdue', '/disposal-retention'],
       ['Disposal scan', '/disposal-retention/scan'],
     ]);
     expect(childrenOf(LAB_STAFF, 'concrete').map((c) => [c.label, c.to])).toEqual([
+      ['Overview', '/concrete'],
       ['Breaks', '/lab-testing/concrete'],
       ['Receiving', '/concrete/receiving'],
       ['Specimens', '/concrete/specimens'],
@@ -138,9 +139,36 @@ describe('flat destinations (page sections, concrete lab pages)', () => {
     ]);
     expect(
       childrenOf({ accountType: 'shared_lab', roles: [] }, 'concrete').map((c) => c.label),
-    ).toContain('Receiving');
+    ).toEqual(['Overview', 'Breaks', 'Receiving', 'Specimens', 'Holds', 'Review']);
     // Single-page destinations have no group.
     expect(childrenOf(OTHER, 'projects')).toEqual([]);
+  });
+
+  it('STRATA-93: Overview needs lab staff and the Concrete dashboard (concreteLab)', () => {
+    const overview = (
+      who: Pick<MeResponse, 'accountType' | 'roles'>,
+      features: typeof ALL_ON = ALL_ON,
+    ) =>
+      destinationsFor(who, features)
+        .find((d) => d.key === 'concrete')
+        ?.children.find((c) => c.label === 'Overview') ?? null;
+    // Lab Technician, Lab Manager and the shared LAB station see it first in the group.
+    for (const who of [
+      LAB_STAFF,
+      { accountType: 'personal' as const, roles: ['lab_manager' as const] },
+      { accountType: 'shared_lab' as const, roles: [] },
+    ]) {
+      expect(overview(who), JSON.stringify(who)).toEqual({
+        to: '/concrete',
+        label: 'Overview',
+        match: 'exact',
+      });
+      expect(childrenOf(who, 'concrete')[0]!.label).toBe('Overview');
+    }
+    // Everyone else, and lab staff without the Concrete dashboard, do not.
+    expect(overview(OTHER)).toBeNull();
+    expect(overview({ accountType: 'personal', roles: ['admin'] })).toBeNull();
+    expect(overview(LAB_STAFF, { ...ALL_ON, concreteLab: false })).toBeNull();
   });
 
   it('activeDestination maps every section path to its destination', () => {
@@ -171,7 +199,7 @@ describe('flat destinations (page sections, concrete lab pages)', () => {
     for (const [path, expected] of cases) expect(activeDestination(path), path).toBe(expected);
   });
 
-  it('activeSubPage: exact for Breaks and Due and overdue, prefix for the rest', () => {
+  it('activeSubPage: exact for Overview, Breaks and Due and overdue, prefix for the rest', () => {
     const concrete = childrenOf(LAB_STAFF, 'concrete');
     expect(activeSubPage('/lab-testing/concrete', concrete)).toBe('/lab-testing/concrete');
     expect(activeSubPage('/lab-testing/concrete/holds', concrete)).toBe(
@@ -179,7 +207,9 @@ describe('flat destinations (page sections, concrete lab pages)', () => {
     );
     expect(activeSubPage('/concrete/review/r1/issue', concrete)).toBe('/concrete/review');
     expect(activeSubPage('/concrete/specimens/s1', concrete)).toBe('/concrete/specimens');
-    expect(activeSubPage('/concrete', concrete)).toBeNull();
+    // STRATA-93: Overview is current only on /concrete itself.
+    expect(activeSubPage('/concrete', concrete)).toBe('/concrete');
+    expect(activeSubPage('/concrete/testing', concrete)).toBeNull();
     const retention = childrenOf(OTHER, 'retention');
     expect(activeSubPage('/disposal-retention', retention)).toBe('/disposal-retention');
     expect(activeSubPage('/disposal-retention/scan', retention)).toBe('/disposal-retention/scan');

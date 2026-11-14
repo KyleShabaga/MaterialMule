@@ -6,10 +6,15 @@ import {
   concreteSearchSchema,
   concreteSetReceivingSchema,
   concreteSpecimenSetDetailSchema,
+  concreteTestingTableSchema,
   concreteWorklistSchema,
   inventoryPageSchema,
   projectSearchResponseSchema,
   type ConcreteFieldReportDetail,
+  type ConcreteMarkerConfirmationRequest,
+  type ConcretePickupRequest,
+  type ConcreteReceiptRequest,
+  type ConcreteTestingTable,
   type ConcreteReceivingQueue,
   type ConcreteReceivingStage,
   type ConcreteScheduleHistory,
@@ -51,8 +56,11 @@ export function fetchReceivingQueue(query: {
   stage: ConcreteReceivingStage;
   page?: number;
   pageSize?: number;
+  /** One project only (the server filters). */
+  projectId?: string;
 }): Promise<LoadResult<ConcreteReceivingQueue>> {
   const params = new URLSearchParams({ stage: query.stage });
+  if (query.projectId) params.set('projectId', query.projectId);
   if (query.page && query.page > 1) params.set('page', String(query.page));
   if (query.pageSize) params.set('pageSize', String(query.pageSize));
   return getJson(
@@ -145,6 +153,107 @@ export function fetchScheduleHistory(
     'schedule history',
   );
 }
+
+// ---- Set page (STRATA-95 part B): test results of a set's scheduled specimens ----------------
+
+/**
+ * The testing table's rows for these specimens (C23's read with the STRATA-95 selection): each
+ * scheduled specimen's latest result and whether its entry is complete. HOLD and uncast
+ * specimens aren't listed there; the set page shows them from the set record.
+ */
+export function fetchSetTesting(
+  specimenIds: readonly string[],
+): Promise<LoadResult<ConcreteTestingTable>> {
+  const params = new URLSearchParams({
+    includeOverdue: 'true',
+    specimenIds: specimenIds.join(','),
+  });
+  return getJson(
+    `/api/concrete/testing-table?${params.toString()}`,
+    concreteTestingTableSchema,
+    'test results',
+  );
+}
+
+export function fetchSetReceiving(setId: string): Promise<LoadResult<ConcreteSetReceiving>> {
+  return getJson(
+    `/api/concrete/specimen-sets/${encodeURIComponent(setId)}/receiving`,
+    concreteSetReceivingSchema,
+    'specimen set',
+  );
+}
+
+// ---- Pickup and receipt (C06 commands; the rules stay on the server) ------------------------
+
+const COMMAND_REFUSAL: Record<string, string> = {
+  forbidden: 'Pickup and receiving need a Lab Technician, a Lab Manager or the LAB station.',
+  pickup_incomplete:
+    'Mark picked up needs who collected them, when, and both curing readings (minimum and maximum).',
+  before_casting: 'The pickup can’t be before the casting time.',
+  already_received: 'Already received. A mass is corrected from the set page, with a reason.',
+  set_not_numbered: 'Number this set first: permanent IDs are confirmed on a numbered set.',
+  nothing_to_confirm: 'Every received specimen’s marking is already confirmed.',
+  version_conflict: 'Someone else changed this set first. It has been reloaded; check and retry.',
+  report_void: 'Its field report is Void.',
+  set_void: 'This set is Void.',
+  idempotency_key_reused: 'This was already sent differently. Reload and try again.',
+  concrete_specimen_not_found: 'This specimen no longer exists.',
+  concrete_specimen_set_not_found: 'This set no longer exists.',
+};
+
+export type CommandResult<T> =
+  { ok: true; data: T } | { ok: false; message: string; code?: string; field?: string };
+
+async function postJson<T>(
+  path: string,
+  body: unknown,
+  schema: z.ZodType<T>,
+): Promise<CommandResult<T>> {
+  let response: Response;
+  try {
+    response = await apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+  } catch {
+    return { ok: false, message: UNREACHABLE };
+  }
+  const json = (await response.json().catch(() => null)) as {
+    code?: string;
+    errors?: { field?: string; message?: string }[];
+  } | null;
+  if (response.ok) {
+    const parsed = schema.safeParse(json);
+    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, message: UNEXPECTED };
+  }
+  const code = json?.code;
+  const known = code ? COMMAND_REFUSAL[code] : undefined;
+  const error = json?.errors?.[0];
+  if (known) return { ok: false, message: known, code, field: error?.field };
+  if (error?.message) {
+    const text = error.message[0]!.toUpperCase() + error.message.slice(1);
+    return { ok: false, message: `${text}.`.replace(/\.\.$/, '.'), code, field: error.field };
+  }
+  return { ok: false, message: 'Nothing was saved. Try again.', code };
+}
+
+export const recordPickup = (setId: string, body: ConcretePickupRequest) =>
+  postJson(
+    `/api/concrete/specimen-sets/${encodeURIComponent(setId)}/pickup`,
+    body,
+    concreteSetReceivingSchema,
+  );
+
+export const recordReceipt = (specimenId: string, body: ConcreteReceiptRequest) =>
+  postJson(
+    `/api/concrete/specimens/${encodeURIComponent(specimenId)}/receipt`,
+    body,
+    concreteSetReceivingSchema,
+  );
+
+export const confirmMarkers = (setId: string, body: ConcreteMarkerConfirmationRequest) =>
+  postJson(
+    `/api/concrete/specimen-sets/${encodeURIComponent(setId)}/marker-confirmation`,
+    body,
+    concreteSetReceivingSchema,
+  );
 
 // ---- Lab search (top bar): the existing searches of each lab area, side by side ---------------
 
