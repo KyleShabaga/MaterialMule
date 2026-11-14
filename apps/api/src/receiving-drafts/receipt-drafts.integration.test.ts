@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import {
+  receiptDraftClosedSchema,
   receiptDraftDeleteForbiddenSchema,
   receiptDraftDeletedSchema,
   receiptDraftOwnershipListSchema,
@@ -133,6 +134,8 @@ describe.runIf(testDatabaseUrl)('receipt draft registry routes (STRATA-108)', ()
     );
     expect(rows.map((r) => r.column_name)).toEqual([
       'account_user_id',
+      'closed_at',
+      'closed_reason',
       'created_at',
       'deleted_at',
       'deleted_by_account_user_id',
@@ -284,6 +287,100 @@ describe.runIf(testDatabaseUrl)('receipt draft registry routes (STRATA-108)', ()
     const other = randomUUID();
     await register('lab', other, users.pat);
     await expectForbidden(await remove('lab', other, users.morgan), 'not_starter');
+  });
+
+  describe('closing a draft the browser cleaned up (migration 0049)', () => {
+    const close = (who: string, draftId: string, body: object = { reason: 'expired' }) =>
+      post(`/api/receipt-drafts/${draftId}/close`, who, body);
+    async function closed(response: request.Response) {
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      return receiptDraftClosedSchema.parse(response.body);
+    }
+    async function closeColumns(draftId: string) {
+      const { rows } = await db.pool.query(
+        `SELECT closed_at, closed_reason FROM receipt_draft_registry WHERE draft_id = $1`,
+        [draftId],
+      );
+      return rows[0] as { closed_at: Date | null; closed_reason: string | null } | undefined;
+    }
+    const nothing = (draftId: string) => ({ draftId, closed: false, closedAt: null, reason: null });
+
+    it("closes the account's own draft as expired, once; a repeat answers the first close", async () => {
+      const draftId = randomUUID();
+      await register('lab', draftId, users.jordan);
+      // LAB closes without picking anyone: the clean-up is the browser's, not a person's.
+      const first = await closed(await close('lab', draftId));
+      expect(first).toMatchObject({ draftId, closed: true, reason: 'expired' });
+      const before = await fingerprint();
+      const columns = await closeColumns(draftId);
+      const again = await closed(await close('lab', draftId));
+      expect(again).toEqual(first);
+      expect(await closeColumns(draftId)).toEqual(columns);
+      expect(await fingerprint()).toBe(before);
+      const { rows } = await db.pool.query(
+        `SELECT actor_user_id, after_values FROM audit_event
+         WHERE entity_type = 'receipt_draft' AND entity_id = $1 AND action = 'receipt_draft.closed'`,
+        [draftId],
+      );
+      expect(rows).toEqual([{ actor_user_id: users.lab, after_values: { reason: 'expired' } }]);
+      // Closing is not deleting.
+      expect((await ownership('lab', [draftId], users.jordan))[0]).toMatchObject({
+        deletedAt: null,
+      });
+    });
+
+    it('a confirmed draft keeps its first reason', async () => {
+      const draftId = randomUUID();
+      await register('pat', draftId);
+      await db.pool.query(
+        `UPDATE receipt_draft_registry SET closed_at = now(), closed_reason = 'confirmed'
+         WHERE draft_id = $1`,
+        [draftId],
+      );
+      const before = await fingerprint();
+      expect(await closed(await close('pat', draftId))).toMatchObject({
+        closed: true,
+        reason: 'confirmed',
+      });
+      expect(await fingerprint()).toBe(before);
+    });
+
+    it("never closes another account's, a deleted or an unknown draft, and answers each the same", async () => {
+      const personal = randomUUID();
+      const station = randomUUID();
+      const deleted = randomUUID();
+      await register('pat', personal);
+      await register('lab', station, users.pat);
+      await register('sam', deleted);
+      expect((await remove('sam', deleted)).status).toBe(200);
+      const before = await fingerprint();
+      // Another person, a Lab Manager, LAB on a personal draft, the starter on LAB's draft.
+      expect(await closed(await close('jordan', personal))).toEqual(nothing(personal));
+      expect(await closed(await close('morgan', personal))).toEqual(nothing(personal));
+      expect(await closed(await close('lab', personal))).toEqual(nothing(personal));
+      expect(await closed(await close('pat', station))).toEqual(nothing(station));
+      expect(await closed(await close('sam', deleted))).toEqual(nothing(deleted));
+      const unknown = randomUUID();
+      expect(await closed(await close('pat', unknown))).toEqual(nothing(unknown));
+      expect(await fingerprint()).toBe(before);
+      expect((await closeColumns(personal))?.closed_reason).toBeNull();
+      expect((await closeColumns(station))?.closed_reason).toBeNull();
+      expect(await closeColumns(unknown)).toBeUndefined();
+    });
+
+    it("accepts only reason 'expired' and nothing else in the body", async () => {
+      const draftId = randomUUID();
+      await register('pat', draftId);
+      const before = await fingerprint();
+      expect((await close('pat', draftId, { reason: 'confirmed' })).status).toBe(400);
+      expect((await close('pat', draftId, {})).status).toBe(400);
+      expect(
+        (await close('pat', draftId, { reason: 'expired', personUserId: users.pat })).status,
+      ).toBe(400);
+      expect((await close('pat', 'not-a-uuid')).status).toBe(400);
+      expect(await fingerprint()).toBe(before);
+      expect((await closeColumns(draftId))?.closed_reason).toBeNull();
+    });
   });
 
   it('cancelling records nothing: reading ownership writes no row and no audit', async () => {

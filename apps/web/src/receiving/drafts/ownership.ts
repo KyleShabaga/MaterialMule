@@ -61,6 +61,24 @@ export async function fetchDraftOwnership(
   }
 }
 
+/**
+ * Tells the server that automatic clean-up (MM-T45) deleted this registered draft, so it is no
+ * longer counted as open (migration 0049). Best effort: true when the server answered, false on
+ * any failure, never throws.
+ */
+export async function closeExpiredDraft(draftId: string): Promise<boolean> {
+  try {
+    const response = await apiFetch(
+      `/api/receipt-drafts/${encodeURIComponent(draftId)}/close`,
+      { method: 'POST', body: JSON.stringify({ reason: 'expired' }) },
+      REQUEST_OPTIONS,
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export type DraftDeleteProblem = 'refused' | 'offline' | 'failed';
 
 export class DraftDeleteError extends Error {

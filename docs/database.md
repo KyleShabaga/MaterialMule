@@ -1248,3 +1248,14 @@ is indexed by person. Relevance only: All projects is unchanged and nothing is h
   saved is an active personal or test account holding the Lab Manager role at that moment, never
   the shared LAB account. Saves are audited as `station_config.saved`.
 - **Who may save:** see [permissions.md](permissions.md#lab-station-today-configuration-and-inbox-strata-lane-a).
+
+## Receipt draft close (Strata lane A, `0049_receipt_draft_close.sql`)
+
+- **What it adds.** `closed_at` and `closed_reason` (`confirmed`: its receipt was confirmed, in
+  the receipt's transaction; `expired`: the browser's automatic clean-up deleted it) on
+  `receipt_draft_registry`, so the LAB station's "Draft receipts to finish" counts open drafts
+  only. A close is not a deletion: `deleted_*` keep 0044's meaning.
+- **Rules** (proved in `schema-receipt-draft-close.test.ts`): both columns come together, never
+  before `created_at`; a draft is registered open; a close is recorded once and never changed or
+  cleared; a deleted row is never closed afterwards; 0044's rules on every other column still
+  hold (its immutability trigger is extended, not replaced).

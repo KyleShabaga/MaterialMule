@@ -1,9 +1,11 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query, Req } from '@nestjs/common';
 import {
+  receiptDraftCloseRequestSchema,
   receiptDraftDeleteRequestSchema,
   receiptDraftIdParamSchema,
   receiptDraftOwnershipQuerySchema,
   receiptDraftRegisterRequestSchema,
+  type ReceiptDraftClosed,
   type ReceiptDraftDeleted,
   type ReceiptDraftOwnership,
   type ReceiptDraftOwnershipList,
@@ -71,5 +73,23 @@ export class ReceiptDraftsController {
     const { draftId } = parseBody(receiptDraftIdParamSchema, params);
     const { personUserId } = parseBody(receiptDraftDeleteRequestSchema, body ?? {});
     return this.drafts.delete(user, draftId, personUserId, requestIdOf(request));
+  }
+  /**
+   * `POST /api/receipt-drafts/:draftId/close` `{ reason: 'expired' }` → 200 (migration 0049). The
+   * browser's automatic clean-up deleted this draft; best effort and idempotent. Only this
+   * account's own registered draft is closed; any other ID answers `closed: false`.
+   */
+  @Post(':draftId/close')
+  @HttpCode(200)
+  @RequirePermission('receipt.draft')
+  close(
+    @Param() params: unknown,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ReceiptDraftClosed> {
+    const { draftId } = parseBody(receiptDraftIdParamSchema, params);
+    parseBody(receiptDraftCloseRequestSchema, body ?? {});
+    return this.drafts.close(user, draftId, requestIdOf(request));
   }
 }

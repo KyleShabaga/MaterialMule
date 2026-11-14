@@ -1,6 +1,8 @@
 import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import type {
   PersonSnapshot,
+  ReceiptDraftCloseReason,
+  ReceiptDraftClosed,
   ReceiptDraftDeleteReason,
   ReceiptDraftDeleted,
   ReceiptDraftOwnership,
@@ -153,6 +155,62 @@ async function pickedPerson(
   return resolveActingPerson(client, user, personUserId, ATTRIBUTION);
 }
 
+/**
+ * Closes this account's open registry row for a draft (migration 0049): `confirmed` when its
+ * receipt is confirmed (called inside the receipt's transaction), `expired` when the browser's
+ * automatic clean-up deleted it. Only a row the account itself registered (LAB's for LAB, one's
+ * own for a personal account) that is not legacy, deleted or already closed is touched; anything
+ * else is left alone and answers null, the same for an unknown and another account's draft.
+ * Audits `receipt_draft.closed` when it closes. The close time is never before the row's
+ * creation (a transaction may have started just before the row was registered).
+ */
+export async function closeOwnDraft(
+  client: PoolClient,
+  user: AuthUser,
+  draftId: string,
+  reason: ReceiptDraftCloseReason,
+  requestId: string | null,
+): Promise<Date | null> {
+  const { rows } = await client.query<{ closed_at: Date }>(
+    `UPDATE receipt_draft_registry
+     SET closed_at = GREATEST(now(), created_at), closed_reason = $3
+     WHERE draft_id = $1 AND account_user_id = $2 AND NOT legacy
+       AND deleted_at IS NULL AND closed_at IS NULL
+     RETURNING closed_at`,
+    [draftId, user.userId, reason],
+  );
+  if (rows.length === 0) return null;
+  await recordAudit(client, {
+    action: 'receipt_draft.closed',
+    entityType: 'receipt_draft',
+    entityId: draftId,
+    actor: actorOf(user),
+    after: { reason },
+    requestId,
+  });
+  return rows[0]!.closed_at;
+}
+
+/**
+ * The receipt confirmation's close (MM-T09 + 0049): best effort inside the receipt's transaction.
+ * A savepoint keeps any failure here from failing the receipt; a missing or foreign draft ID
+ * changes nothing and says nothing.
+ */
+export async function closeDraftOnConfirm(
+  client: PoolClient,
+  user: AuthUser,
+  draftId: string | undefined,
+): Promise<void> {
+  if (!draftId) return;
+  await client.query('SAVEPOINT receipt_draft_close');
+  try {
+    await closeOwnDraft(client, user, draftId, 'confirmed', null);
+    await client.query('RELEASE SAVEPOINT receipt_draft_close');
+  } catch {
+    await client.query('ROLLBACK TO SAVEPOINT receipt_draft_close');
+  }
+}
+
 @Injectable()
 export class ReceiptDraftsService {
   constructor(private readonly database: DatabaseService) {}
@@ -279,6 +337,38 @@ export class ReceiptDraftsService {
         requestId,
       });
       return { draftId, deletedAt: rows[0]!.deleted_at.toISOString(), reason };
+    });
+  }
+  /**
+   * The browser's automatic clean-up (MM-T45) deleted this draft: closes this account's open row
+   * as `expired`. Idempotent: a closed row keeps its first close and answers it. A draft that is
+   * not this account's (unknown, another account's, legacy or deleted) answers `closed: false`
+   * with nothing written and nothing about the row revealed.
+   */
+  close(user: AuthUser, draftId: string, requestId: string | null): Promise<ReceiptDraftClosed> {
+    return withTransaction(this.database.pool, async (client) => {
+      const closedAt = await closeOwnDraft(client, user, draftId, 'expired', requestId);
+      if (closedAt) {
+        return { draftId, closed: true, closedAt: closedAt.toISOString(), reason: 'expired' };
+      }
+      const { rows } = await client.query<{
+        closed_at: Date;
+        closed_reason: ReceiptDraftCloseReason;
+      }>(
+        `SELECT closed_at, closed_reason FROM receipt_draft_registry
+         WHERE draft_id = $1 AND account_user_id = $2 AND NOT legacy AND deleted_at IS NULL
+           AND closed_at IS NOT NULL`,
+        [draftId, user.userId],
+      );
+      const row = rows[0];
+      return row
+        ? {
+            draftId,
+            closed: true,
+            closedAt: row.closed_at.toISOString(),
+            reason: row.closed_reason,
+          }
+        : { draftId, closed: false, closedAt: null, reason: null };
     });
   }
 }

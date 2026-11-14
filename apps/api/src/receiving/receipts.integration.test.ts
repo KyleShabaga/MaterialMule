@@ -392,6 +392,104 @@ describe.runIf(testDatabaseUrl)('receipt confirmation API (MM-T09)', () => {
     );
   });
 
+  describe('closing the confirmed draft (migration 0049)', () => {
+    async function registerDraft(account: string, starter: string) {
+      const draftId = randomUUID();
+      await db.pool.query(
+        `INSERT INTO receipt_draft_registry (draft_id, account_user_id, starter_user_id)
+         VALUES ($1, $2, $3)`,
+        [draftId, users[account], users[starter]],
+      );
+      return draftId;
+    }
+    async function draftRow(draftId: string) {
+      const { rows } = await db.pool.query(
+        `SELECT closed_reason, closed_at IS NOT NULL AS closed, deleted_at
+         FROM receipt_draft_registry WHERE draft_id = $1`,
+        [draftId],
+      );
+      return rows[0] as { closed_reason: string | null; closed: boolean; deleted_at: Date | null };
+    }
+
+    it("closes this account's draft as confirmed, with the receipt; a retry without it replays", async () => {
+      const draftId = await registerDraft('lab', 'at');
+      const body = twoBuckets({ draftId });
+      const first = await post(body);
+      expect(first.status, JSON.stringify(first.body)).toBe(201);
+      expect(await draftRow(draftId)).toEqual({
+        closed_reason: 'confirmed',
+        closed: true,
+        deleted_at: null,
+      });
+      const { rows } = await db.pool.query(
+        `SELECT action, after_values FROM audit_event
+         WHERE entity_type = 'receipt_draft' AND entity_id = $1`,
+        [draftId],
+      );
+      expect(rows).toEqual([
+        { action: 'receipt_draft.closed', after_values: { reason: 'confirmed' } },
+      ]);
+      // The draft ID is not part of the payload hash: the same receipt without it replays.
+      const { draftId: _omit, ...withoutDraft } = body;
+      const retry = await post(withoutDraft);
+      expect(retry.status).toBe(200);
+      expect(retry.body).toEqual(first.body);
+    });
+
+    it('a personal account closes its own draft', async () => {
+      const draftId = await registerDraft('pe', 'pe');
+      const response = await post(twoBuckets({ draftId }), await cookieFor('pe'));
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+      expect((await draftRow(draftId)).closed_reason).toBe('confirmed');
+    });
+
+    it("ignores another account's or an unknown draft: the receipt still succeeds", async () => {
+      const personal = await registerDraft('pe', 'pe');
+      const station = await registerDraft('lab', 'at');
+      // LAB confirming with a personal account's draft, and Pat with LAB's.
+      const byLab = await post(twoBuckets({ draftId: personal }));
+      expect(byLab.status, JSON.stringify(byLab.body)).toBe(201);
+      const byPat = await post(twoBuckets({ draftId: station }), await cookieFor('pe'));
+      expect(byPat.status, JSON.stringify(byPat.body)).toBe(201);
+      expect(await draftRow(personal)).toMatchObject({ closed: false, closed_reason: null });
+      expect(await draftRow(station)).toMatchObject({ closed: false, closed_reason: null });
+      // An unknown draft ID: same answer shape, nothing written for it.
+      const unknown = randomUUID();
+      const response = await post(twoBuckets({ draftId: unknown }));
+      expect(response.status).toBe(201);
+      expect(Object.keys(response.body as object).sort()).toEqual(['receiptId', 'units']);
+      const { rows } = await db.pool.query(
+        `SELECT count(*)::int AS n FROM receipt_draft_registry WHERE draft_id = $1`,
+        [unknown],
+      );
+      expect(rows[0]).toEqual({ n: 0 });
+    });
+
+    it('a failure while closing never fails the receipt', async () => {
+      const draftId = await registerDraft('lab', 'at');
+      await db.pool.query(`
+        CREATE FUNCTION fail_draft_close() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'injected draft close failure'; END; $$;
+        CREATE TRIGGER fail_draft_close BEFORE UPDATE ON receipt_draft_registry
+          FOR EACH ROW EXECUTE FUNCTION fail_draft_close();`);
+      try {
+        const response = await post(twoBuckets({ draftId }));
+        expect(response.status, JSON.stringify(response.body)).toBe(201);
+        const receipt = confirmReceiptResponseSchema.parse(response.body);
+        const { rows } = await db.pool.query(
+          `SELECT count(*)::int AS n FROM receipt WHERE id = $1`,
+          [receipt.receiptId],
+        );
+        expect(rows[0]).toEqual({ n: 1 });
+      } finally {
+        await db.pool.query(
+          'DROP TRIGGER fail_draft_close ON receipt_draft_registry; DROP FUNCTION fail_draft_close();',
+        );
+      }
+      expect(await draftRow(draftId)).toMatchObject({ closed: false });
+    });
+  });
+
   it('T5: parallel identical requests with one key create one receipt', async () => {
     const body = twoBuckets();
     const cookie = await cookieFor('lab');

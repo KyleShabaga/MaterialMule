@@ -12,8 +12,11 @@ import { countLabelsToPrint, dashboardDates } from '../inventory/recently-receiv
  * values) and the others still come back.
  *
  * - draftReceipts: receiving drafts started on the shared LAB account (registry, migration 0044)
- *   and not deleted. The registry has no confirmed mark (a confirmed draft is removed only in the
- *   browser), so a confirmed draft stays counted until it is deleted; see the lane report.
+ *   that are open: not deleted, not closed (0049: confirmed, or deleted by the browser's automatic
+ *   clean-up while online), and, while automatic clean-up (MM-T45, `draft_auto_delete_setting`)
+ *   is on, started no more than its `afterDays` ago, so drafts the clean-up deleted offline drop
+ *   out too. The registry knows when a draft was started, not last saved, so a draft still being
+ *   edited past that age drops out early (rare: the age is at least 30 days).
  * - breaksDueToday: concrete specimens due today (America/Edmonton) with no complete test entry,
  *   on the concrete worklist's scheduled set.
  * - labelsToPrint: storage units not disposed, received in the last LABELS_TO_CHECK_DAYS days
@@ -36,7 +39,12 @@ export class StationTodayService {
           `SELECT count(*)::int AS count
            FROM receipt_draft_registry r
            JOIN app_user a ON a.id = r.account_user_id
-           WHERE a.account_type = 'shared_lab' AND NOT r.legacy AND r.deleted_at IS NULL`,
+           LEFT JOIN draft_auto_delete_setting s ON s.enabled
+           WHERE a.account_type = 'shared_lab' AND NOT r.legacy AND r.deleted_at IS NULL
+             AND r.closed_at IS NULL
+             AND (s.after_days IS NULL
+                  OR r.created_at >= $1::timestamptz - make_interval(days => s.after_days))`,
+          [now],
         );
         return rows[0]?.count ?? 0;
       }),

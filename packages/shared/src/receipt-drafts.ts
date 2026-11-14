@@ -56,6 +56,35 @@ export const receiptDraftDeleteRequestSchema = z.strictObject({ personUserId });
 export type ReceiptDraftDeleteRequest = z.output<typeof receiptDraftDeleteRequestSchema>;
 
 /**
+ * Why a draft was closed without a person deleting it (migration 0049): its receipt was
+ * `confirmed`, or the browser's automatic clean-up (MM-T45) deleted it as `expired`.
+ */
+export const RECEIPT_DRAFT_CLOSE_REASONS = ['confirmed', 'expired'] as const;
+export type ReceiptDraftCloseReason = (typeof RECEIPT_DRAFT_CLOSE_REASONS)[number];
+
+/**
+ * `POST /api/receipt-drafts/:draftId/close` body. Only `expired` is sent by the browser: a
+ * confirmed draft is closed by the receipt confirmation itself.
+ */
+export const receiptDraftCloseRequestSchema = z.strictObject({
+  reason: z.literal('expired', { error: "must be 'expired'" }),
+});
+export type ReceiptDraftCloseRequest = z.output<typeof receiptDraftCloseRequestSchema>;
+
+/**
+ * `POST /api/receipt-drafts/:draftId/close` 200 response. Idempotent: a closed draft keeps its
+ * first close (`reason` may then be `confirmed`). `closed` is false when there was nothing of
+ * this account's to close (unknown, another account's, or deleted), which is not an error.
+ */
+export const receiptDraftClosedSchema = z.object({
+  draftId: z.string(),
+  closed: z.boolean(),
+  closedAt: z.string().nullable(),
+  reason: z.enum(RECEIPT_DRAFT_CLOSE_REASONS).nullable(),
+});
+export type ReceiptDraftClosed = z.infer<typeof receiptDraftClosedSchema>;
+
+/**
  * Why the current actor may or may not delete a draft:
  * - `starter`: they started it (on LAB: this LAB account, with the starter picked now);
  * - `lab_manager`: a personal account holding the Lab Manager role, checked as it stands;

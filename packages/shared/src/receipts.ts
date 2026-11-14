@@ -227,6 +227,12 @@ export const confirmReceiptRequestSchema = z
   .object({
     /** UUID created with the draft; retries with the same key return the original result. */
     idempotencyKey: z.uuid({ error: 'must be a UUID' }),
+    /**
+     * The browser draft being confirmed (registry, STRATA-108). Optional: the server closes that
+     * registry row ('confirmed') with the receipt when it belongs to this account, and otherwise
+     * ignores it. Not part of the payload hash, so a retry with or without it replays the same.
+     */
+    draftId: z.uuid({ error: 'must be a draft ID' }).optional(),
     projectId: z.uuid({ error: 'must be a project ID' }),
     receivedDate: z.iso.date({ error: 'must be a date (YYYY-MM-DD)' }),
     receiverUserId: z.uuid({ error: 'must be a staff member ID' }),
