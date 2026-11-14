@@ -208,51 +208,128 @@ describe('Review queue page', () => {
     page: 1,
     pageSize: 25,
     counts: { awaiting_review: 1, returned: 2, reviewed_awaiting_issue: 0, issued: 5 },
+    openExceptionCount: 0,
     ...overrides,
   });
 
-  it('shows the four statuses with counts and each row’s columns and flags', async () => {
+  const urls = (fetchMock: ReturnType<typeof renderAt>) =>
+    fetchMock.mock.calls.map((c) => String(c[0]));
+
+  it('STRATA-97: tabs with counts, each row’s columns, and the exact version it opens', async () => {
     const fetchMock = renderAt('/concrete/review', me('rv'), (url) =>
-      url.startsWith('/api/concrete/review-queue') ? json(200, queue()) : undefined,
+      url.startsWith('/api/concrete/review-queue')
+        ? json(200, queue({ openExceptionCount: 3 }))
+        : undefined,
     );
-    const table = await screen.findByRole('table', { name: /Awaiting review/ });
+    const table = await screen.findByRole('table', { name: /Waiting for review/ });
     const tabs = screen.getByRole('tablist', { name: 'Queue status' });
     expect(
       within(tabs)
         .getAllByRole('tab')
-        .map((t) => t.getAttribute('aria-label')),
+        .map((t) => t.textContent),
     ).toEqual([
-      'Awaiting review (1)',
-      'Returned for correction (2)',
-      'Reviewed awaiting issuance (0)',
-      'Issued (5)',
+      'Waiting for review1',
+      'Returned2',
+      'Reviewed, not issued0',
+      'Exceptions3',
+      'Issued5',
     ]);
-    // Field Ledger: the chosen status's reports sit in a band with its title.
-    expect(screen.getByRole('region', { name: 'Waiting for review' })).toContainElement(table);
+    expect(within(tabs).getByRole('tab', { name: /Waiting for review/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     const row = within(table).getAllByRole('row')[1]!;
+    // Opens the exact report and version shown.
     expect(within(row).getByRole('link', { name: 'DEMO-2601' })).toHaveAttribute(
       'href',
-      `/concrete/review/${REPORT_ID}`,
+      `/concrete/review/${REPORT_ID}?version=2`,
     );
-    expect(row).toHaveTextContent('Field report v2');
+    expect(row).toHaveTextContent('Field report');
+    expect(row).toHaveTextContent('v2');
     expect(row).toHaveTextContent('2026-11-08');
     expect(row).toHaveTextContent('Alex Tester');
+    expect(row).toHaveTextContent('1 open');
     expect(row).toHaveTextContent('Slump out of range');
-    expect(row).toHaveTextContent('Routed to Riley Reviewer');
+    expect(row).toHaveTextContent('You');
     expect(row).toHaveTextContent('Your action');
+    expect(urls(fetchMock)).toContain(
+      '/api/concrete/review-queue?status=awaiting_review&exceptions=any&page=1',
+    );
+  });
 
-    await userEvent.click(within(tabs).getByRole('tab', { name: /Issued/ }));
+  it('STRATA-97: tabs, filters, search and sort are server filters', async () => {
+    const fetchMock = renderAt(
+      '/concrete/review?status=open_exceptions&filter=mine&filter=field&sort=project&dir=desc&search=demo',
+      me('rv'),
+      (url) => (url.startsWith('/api/concrete/review-queue') ? json(200, queue()) : undefined),
+    );
+    await screen.findByRole('table', { name: /Reports with open exceptions/ });
     await waitFor(() =>
-      expect(fetchMock.mock.calls.map((c) => String(c[0]))).toContain(
-        '/api/concrete/review-queue?status=issued&exceptions=any&page=1',
+      expect(urls(fetchMock)).toContain(
+        '/api/concrete/review-queue?status=open_exceptions&search=demo&exceptions=any&reportType=field&mine=true&sort=project&dir=desc&page=1',
       ),
     );
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Needs my action' }));
+    // Another tab is another server filter; the search, filters and sort carry over.
+    await userEvent.click(screen.getByRole('tab', { name: /Returned/ }));
     await waitFor(() =>
-      expect(fetchMock.mock.calls.map((c) => String(c[0]))).toContain(
-        '/api/concrete/review-queue?status=issued&exceptions=any&mine=true&page=1',
+      expect(urls(fetchMock)).toContain(
+        '/api/concrete/review-queue?status=returned&search=demo&exceptions=any&reportType=field&mine=true&sort=project&dir=desc&page=1',
       ),
     );
+    await userEvent.click(screen.getByRole('tab', { name: /Issued/ }));
+    await waitFor(() =>
+      expect(urls(fetchMock).at(-1)).toMatch(/^\/api\/concrete\/review-queue\?status=issued&/),
+    );
+  });
+
+  it('STRATA-97: J/K move between reports in the order shown; Enter opens one', async () => {
+    const second = {
+      ...queue().items[0]!,
+      reportId: '00000000-0000-4000-8000-0000000000b9',
+      projectNumber: 'DEMO-2602',
+      versionNo: 1,
+    };
+    renderAt('/concrete/review', me('rv'), (url) =>
+      url.startsWith('/api/concrete/review-queue')
+        ? json(200, queue({ items: [queue().items[0]!, second], total: 2 }))
+        : undefined,
+    );
+    const table = await screen.findByRole('table', { name: /Waiting for review/ });
+    const rows = within(table).getAllByRole('row').slice(1);
+    await userEvent.keyboard('j');
+    expect(rows[0]).toHaveFocus();
+    await userEvent.keyboard('j');
+    expect(rows[1]).toHaveFocus();
+    await userEvent.keyboard('k');
+    expect(rows[0]).toHaveFocus();
+    await userEvent.keyboard('j');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/concrete/review/${second.reportId}`),
+    );
+    expect(router.state.location.search).toBe('?version=1');
+  });
+
+  it('STRATA-97: an empty tab says nothing here needs your action, never that no work exists', async () => {
+    renderAt('/concrete/review', me('rv'), (url) =>
+      url.startsWith('/api/concrete/review-queue')
+        ? json(200, queue({ items: [], total: 0 }))
+        : undefined,
+    );
+    expect(await screen.findByText('Nothing here needs your action.')).toBeVisible();
+    expect(screen.getByText(/Only reports on projects you can see are listed/)).toBeVisible();
+  });
+
+  it('STRATA-97: a failed load offers Try again', async () => {
+    let fail = true;
+    renderAt('/concrete/review', me('rv'), (url) => {
+      if (!url.startsWith('/api/concrete/review-queue')) return undefined;
+      return fail ? json(500, { code: 'internal' }) : json(200, queue());
+    });
+    expect(await screen.findByText('Couldn’t load the review queue')).toBeVisible();
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('table', { name: /Waiting for review/ })).toBeVisible();
   });
 });
 
@@ -280,7 +357,12 @@ describe('Review view', () => {
   it('AC1/AC3: interim preview, only the changed field marked, Mark reviewed disabled with why', async () => {
     renderAt(`/concrete/review/${REPORT_ID}`, me('rv'), reportApi(current, [v1, v2]));
     const preview = await screen.findByRole('article', { name: /Review preview · version 2/ });
-    expect(preview).toHaveTextContent('This is not the issued report format.');
+    // STRATA-96: labelled as a review preview, never the issued file; no number before issue.
+    expect(
+      screen.getByText(/Review preview, not the issued file · template P1 is provisional/),
+    ).toBeVisible();
+    expect(preview).toHaveTextContent('CF number at issue');
+    expect(preview).toHaveTextContent('Not issued');
     // AC3: the ticket number changed, the truck number didn't; both are shown.
     const ticket = preview.querySelector('[data-path="fields.ticketNumber"]')!;
     expect(ticket).toHaveTextContent('T-100');
@@ -300,10 +382,15 @@ describe('Review view', () => {
     expect(mark).toHaveAccessibleDescription(
       '1 exception is still open. Resolve or document each one first.',
     );
-    const checklist = screen.getByRole('complementary', { name: 'Review checklist' });
+    const checklist = screen.getByRole('complementary', { name: 'Review panel' });
     expect(checklist).toHaveTextContent('Slump out of range');
     expect(checklist).toHaveTextContent('Open');
     expect(checklist).toHaveTextContent('arrives with C15');
+    // The exception's marker sits on the paper section its field belongs to and links to it.
+    const marker = within(preview).getByRole('link', {
+      name: 'Exception 1 on Slump and air readings: Slump out of range',
+    });
+    expect(marker).toHaveAttribute('href', '#exception-1');
   });
 
   it('documents an exception, then Mark reviewed can be sent', async () => {
@@ -335,8 +422,7 @@ describe('Review view', () => {
         return undefined;
       }),
     );
-    await userEvent.click(await screen.findByRole('button', { name: 'Document exception' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save note' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Enter a note explaining how it was addressed.',
     );
@@ -369,8 +455,11 @@ describe('Review view', () => {
     await screen.findByRole('article', { name: /Review preview · version 1/ });
     const mark = screen.getByRole('button', { name: 'Mark reviewed' });
     expect(mark).toBeDisabled();
-    expect(mark).toHaveAccessibleDescription('You are looking at an earlier version.');
+    expect(mark).toHaveAccessibleDescription('Reload to review the latest version first.');
     expect(screen.getByRole('button', { name: 'Return for correction' })).toBeDisabled();
+    // STRATA-96: the report changed while it loaded; Reload is offered.
+    expect(screen.getByText('This report changed while it was loading')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeEnabled();
     // The two reads were retried before giving up on them agreeing.
     expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/versions')).length).toBe(3);
   });
@@ -411,40 +500,92 @@ describe('Review view', () => {
       ),
     );
     await userEvent.click(await screen.findByRole('button', { name: 'Return for correction' }));
-    const dialog = screen.getByRole('dialog', { name: 'Return for correction' });
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Return report' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+    // STRATA-96: the comment is asked for at the panel's foot, in place of the decision.
+    const panel = screen.getByRole('complementary', { name: 'Review panel' });
+    expect(within(panel).queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
+    const send = within(panel).getByRole('button', { name: 'Return for correction' });
+    await userEvent.click(send);
+    expect(within(panel).getByRole('alert')).toHaveTextContent(
       'Enter a comment explaining the changes needed.',
     );
     expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/return'))).toBe(false);
 
-    await userEvent.type(within(dialog).getByRole('textbox'), 'Recheck the slump');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Return report' }));
+    await userEvent.type(
+      within(panel).getByRole('textbox', { name: 'Comment for Alex Tester' }),
+      'Recheck the slump',
+    );
+    await userEvent.click(send);
     await waitFor(() =>
       expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/return'))).toBe(true),
     );
     const sent = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/return'))!;
     expect(JSON.parse(String(sent[1]!.body))).toMatchObject({
       version: 4,
+      reportVersionNo: 2,
       comment: 'Recheck the slump',
     });
   });
 
-  it('the technician sees the actions disabled with who can act', async () => {
-    renderAt(
+  it('self-review denial: the report’s own author gets no reviewer decision at all', async () => {
+    const fetchMock = renderAt(
       `/concrete/review/${REPORT_ID}`,
       me('tech'),
+      reportApi(detail({ allowedActions: [] }), [versionDetail(1, fields())]),
+    );
+    const panel = await screen.findByRole('complementary', { name: 'Review panel' });
+    expect(within(panel).getByText('You wrote this report')).toBeVisible();
+    expect(
+      within(panel).getByText(/You can’t review or issue your own report\./),
+    ).toHaveTextContent(
+      'A designated reviewer (Riley Reviewer) or the Lead Project Engineer (Pat Example) reviews it',
+    );
+    expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Return for correction' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save note' })).toBeNull();
+    // The exception is still listed, read-only.
+    expect(panel).toHaveTextContent('Slump out of range');
+    expect(fetchMock.mock.calls.some((c) => c[1]?.method === 'POST')).toBe(false);
+  });
+
+  it('someone without review authority sees the decision disabled with who can act', async () => {
+    renderAt(
+      `/concrete/review/${REPORT_ID}`,
+      me('js'),
       reportApi(detail({ allowedActions: [] }), [versionDetail(1, fields())]),
     );
     const mark = await screen.findByRole('button', { name: 'Mark reviewed' });
     expect(mark).toBeDisabled();
     expect(mark).toHaveAccessibleDescription(
-      'You are this report’s technician. Someone else must review it.',
+      'Only a designated reviewer (Riley Reviewer) or the Lead Project Engineer (Pat Example) can review this report.',
     );
-    expect(screen.getByText(/Who can review or return it:/)).toHaveTextContent(
-      'a designated reviewer (Riley Reviewer) or the Lead Project Engineer (Pat Example)',
+    expect(screen.queryByRole('button', { name: 'Save note' })).toBeNull();
+  });
+
+  it('stale version conflict: a refused command says so and reloads the report', async () => {
+    const clean = versionDetail(1, fields(), {}, []);
+    const fetchMock = renderAt(
+      `/concrete/review/${REPORT_ID}`,
+      me('rv'),
+      reportApi(detail({ latest: versionSummary(1), warnings: [] }), [clean], (url, init) =>
+        url.endsWith('/review') && init?.method === 'POST'
+          ? json(409, { code: 'version_conflict' })
+          : undefined,
+      ),
     );
-    expect(screen.queryByRole('button', { name: 'Document exception' })).toBeNull();
+    const mark = await screen.findByRole('button', { name: 'Mark reviewed' });
+    await waitFor(() => expect(mark).toBeEnabled());
+    const reads = () =>
+      fetchMock.mock.calls.filter(
+        (c) => String(c[0]) === `/api/concrete/field-reports/${REPORT_ID}`,
+      ).length;
+    const before = reads();
+    await userEvent.click(mark);
+    expect(
+      await screen.findByText(
+        'Someone changed this report while you had it open. It has been reloaded; check it and try again.',
+      ),
+    ).toBeVisible();
+    await waitFor(() => expect(reads()).toBeGreaterThan(before));
   });
 });
 
@@ -477,11 +618,16 @@ describe('Issue view', () => {
         url.endsWith('/issue') && init?.method === 'POST' ? json(201, reviewed) : undefined,
       ),
     );
-    const side = await screen.findByRole('complementary', { name: 'Issue' });
+    const side = await screen.findByRole('complementary', { name: 'Issue panel' });
     expect(side).toHaveTextContent('v1');
     expect(side).toHaveTextContent('Snapshot ab12cd34ef56');
     expect(side).toHaveTextContent('Riley Reviewer');
-    const photos = within(side).getByRole('checkbox', { name: 'Include photos' });
+    // The CF number is allocated in the issue transaction, never by the preview.
+    expect(side).toHaveTextContent('The next CF number, given when you issue');
+    expect(screen.getByRole('article', { name: /Review preview · version 1/ })).toHaveTextContent(
+      'CF number at issue',
+    );
+    const photos = within(side).getByRole('switch', { name: 'Include photos' });
     expect(photos).toBeDisabled();
     expect(photos).toHaveAccessibleDescription(/no photos are recorded/);
     await screen.findByText(
@@ -492,7 +638,7 @@ describe('Issue view', () => {
     const issue = within(side).getByRole('button', { name: 'Issue report' });
     expect(issue).toBeEnabled();
     await userEvent.click(issue);
-    const dialog = screen.getByRole('dialog', { name: 'Issue this report?' });
+    const dialog = screen.getByRole('alertdialog', { name: 'Issue the 2026-11-08 field report?' });
     expect(dialog).toHaveTextContent('testing machine information omitted');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Issue report' }));
     await waitFor(() =>
@@ -530,12 +676,12 @@ describe('Issue view', () => {
         return undefined;
       }),
     );
-    const side = await screen.findByRole('complementary', { name: 'Issue' });
+    const side = await screen.findByRole('complementary', { name: 'Issue panel' });
     await screen.findByText('Project setting: include.');
     await waitFor(() => expect(within(side).getByRole('radio', { name: 'Include' })).toBeChecked());
     await userEvent.click(within(side).getByRole('radio', { name: 'Omit' }));
     await userEvent.click(within(side).getByRole('button', { name: 'Issue report' }));
-    const dialog = screen.getByRole('dialog', { name: 'Issue this report?' });
+    const dialog = screen.getByRole('alertdialog', { name: 'Issue the 2026-11-08 field report?' });
     expect(dialog).toHaveTextContent('testing machine information omitted');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Issue report' }));
     await waitFor(() =>
@@ -591,15 +737,15 @@ describe('Issue view', () => {
       return undefined;
     });
     await screen.findByText('Project setting: include.');
-    let side = screen.getByRole('complementary', { name: 'Issue' });
+    let side = screen.getByRole('complementary', { name: 'Issue panel' });
     await waitFor(() => expect(within(side).getByRole('radio', { name: 'Include' })).toBeChecked());
 
     await act(() => router.navigate(`/concrete/review/${OTHER_REPORT}/issue`));
     await screen.findByText('Project setting: omit.');
-    side = screen.getByRole('complementary', { name: 'Issue' });
+    side = screen.getByRole('complementary', { name: 'Issue panel' });
     await waitFor(() => expect(within(side).getByRole('radio', { name: 'Omit' })).toBeChecked());
     await userEvent.click(within(side).getByRole('button', { name: 'Issue report' }));
-    const dialog = screen.getByRole('dialog', { name: 'Issue this report?' });
+    const dialog = screen.getByRole('alertdialog', { name: 'Issue the 2026-11-08 field report?' });
     expect(dialog).toHaveTextContent('testing machine information omitted');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Issue report' }));
     const issued = `/api/concrete/field-reports/${OTHER_REPORT}/issue`;
@@ -608,5 +754,71 @@ describe('Issue view', () => {
     );
     const sent = fetchMock.mock.calls.find((c) => String(c[0]) === issued)!;
     expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ includeMachineInfo: false });
+  });
+
+  it('issue confirm: nothing is sent until the irreversible confirm; Cancel sends nothing', async () => {
+    const fetchMock = renderAt(
+      `/concrete/review/${REPORT_ID}/issue`,
+      me('js'),
+      reportApi(reviewed, [version], (url, init) =>
+        url.endsWith('/issue') && init?.method === 'POST' ? json(201, reviewed) : undefined,
+      ),
+    );
+    const side = await screen.findByRole('complementary', { name: 'Issue panel' });
+    const issue = within(side).getByRole('button', { name: 'Issue report' });
+    await waitFor(() => expect(issue).toBeEnabled());
+    await userEvent.click(issue);
+    const confirm = screen.getByRole('alertdialog', { name: 'Issue the 2026-11-08 field report?' });
+    expect(confirm).toHaveTextContent('This can’t be undone');
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/issue'))).toBe(false);
+  });
+
+  it('an issued report shows As issued; a revision never changes the issued version', async () => {
+    const issuedSummary = versionSummary(1, {
+      state: 'issued',
+      review: reviewedSummary.review,
+      issued: {
+        by: PEOPLE.js,
+        at: '2026-11-09T17:00:00.000Z',
+        source: 'report_issuer',
+        includePhotos: false,
+        includeMachineInfo: false,
+        reportNumber: 'CF-2026-00014',
+        file: null,
+      },
+    });
+    const issuedDetail = detail({
+      state: 'issued',
+      allowedActions: ['revise'],
+      latest: issuedSummary,
+      warnings: [],
+    });
+    const fetchMock = renderAt(
+      `/concrete/review/${REPORT_ID}/issue`,
+      me('js'),
+      reportApi(issuedDetail, [versionDetail(1, fields(), issuedSummary, [])], (url, init) =>
+        url.endsWith('/revise') && init?.method === 'POST'
+          ? json(201, detail({ state: 'draft', allowedActions: [], latest: issuedSummary }))
+          : undefined,
+      ),
+    );
+    const side = await screen.findByRole('complementary', { name: 'Issue panel' });
+    expect(within(side).getByRole('heading', { name: 'As issued' })).toBeVisible();
+    expect(within(side).getByText('CF-2026-00014')).toBeVisible();
+    expect(screen.getByRole('article', { name: /Review preview · version 1/ })).toHaveTextContent(
+      'CF-2026-00014',
+    );
+    expect(within(side).queryByRole('button', { name: 'Issue report' })).toBeNull();
+    await userEvent.click(within(side).getByRole('button', { name: 'Start a revision' }));
+    const dialog = screen.getByRole('dialog', { name: 'Start a revision' });
+    await userEvent.type(within(dialog).getByRole('textbox'), 'Wrong truck number');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Start revision' }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith('/revise'))).toBe(true),
+    );
+    const sent = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/revise'))!;
+    expect(JSON.parse(String(sent[1]!.body))).toMatchObject({ comment: 'Wrong truck number' });
   });
 });

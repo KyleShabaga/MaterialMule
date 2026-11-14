@@ -1,122 +1,205 @@
 import type { ProjectDetail } from '@materialmule/shared';
+import { FolderX } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link, Navigate, NavLink, useParams } from 'react-router';
-import { EmptyState, ErrorState, PageHeader } from '../../components/app-ui';
-import { ContextRow } from '../../layout/ContextRow';
+import { Link, Navigate, useLocation, useParams } from 'react-router';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePageTitle } from '../../layout/page-title';
-import '../../projects/projects.css';
-import { ProjectSectionNav } from '../../projects/ProjectSectionNav';
-import { CONCRETE_TABS, concreteTabPath } from './paths';
+import { useProjectLayout } from '../../projects/project-layout-context';
+import { LoadErrorAlert } from '../../projects/project-ui';
+import { CONCRETE_TABS, LEGACY_CONCRETE_TABS, concreteTabPath, type ConcreteTab } from './paths';
 import { useProject } from './useProject';
 import { MixesTab } from './MixesTab';
 import { ReportsTab } from './ReportsTab';
+import { SetsTab } from './SetsTab';
 import { SettingsTab } from './SettingsTab';
-import { SpecimensTab } from './SpecimensTab';
 import { SummaryTab } from './SummaryTab';
-import './project-concrete.css';
 
-// MM-V2-C30: the project's Concrete section. It sits beside the project's existing page as a
-// second section ("Overview" | "Concrete") under the same project header, so storage-unit work
-// and concrete work each keep a full page. Five tabs, each its own address so a link or Back
-// lands on the same tab: Reports, Specimens, Summary, Mixes and Settings.
-// Field Ledger (docs/redesign/design.md, "Concrete pages"): the back link sits in the context
-// row above the title; the section switch and five underlined tabs share one row under it.
-// Screens reached from a row (a mix, its update step) have their own title under a back link.
+// MM-V2-C30, STRATA-98: the project's Concrete tab, inside the project page (lane D's
+// ProjectLayout: breadcrumb, header and the project's line tabs). Five sub-tabs (Kyle
+// 2026-11-11), each its own address so a link or Back lands on the same one: Field reports, Sets,
+// Mixes, Summary and Settings. A mix and its propagation review are pages of their own, with a
+// breadcrumb back through the project (canvas R8Mix*, R8Prop*).
 
-/**
- * The project around a Concrete screen. `back` given: a screen reached from a row, which renders
- * its own title; otherwise the project header, the section switch and the children.
- */
-export function ConcreteFrame({
-  projectId,
-  title,
-  back,
-  children,
-}: {
-  projectId: string;
-  /** Names the browser tab, e.g. "Mixes · DEMO-2601". */
-  title: string;
-  /** The back link of a screen reached from a row; that screen renders its own `<h1>`. */
-  back?: ReactNode;
-  children: (project: ProjectDetail) => ReactNode;
-}) {
-  const { project, reload } = useProject(projectId);
-  usePageTitle(project?.ok ? `${title} · ${project.data.projectNumber}` : null);
-  if (!project) return <p role="status">Loading…</p>;
-  if (!project.ok) {
-    return (
-      <>
-        <PageHeader title="Project" documentTitle={false} />
-        {project.notFound ? (
-          <EmptyState>Project not found.</EmptyState>
-        ) : (
-          <ErrorState message={project.message} onRetry={reload} />
-        )}
-      </>
-    );
-  }
-  const data = project.data;
-  if (back) {
-    return (
-      <div className="concrete-record">
-        <ContextRow>{back}</ContextRow>
-        {children(data)}
-      </div>
-    );
-  }
-  return (
-    <>
-      <ContextRow>
-        <Link to="/projects">← Back to Projects</Link>
-      </ContextRow>
-      <div className="project-header">
-        <div>
-          <h1 className="project-number-heading">{data.projectNumber}</h1>
-          <p className="project-name">{data.name}</p>
-        </div>
-      </div>
-      {children(data)}
-    </>
-  );
-}
-
-export function ProjectConcretePage() {
-  const { projectId = '', tab = '' } = useParams();
+/** `/projects/:projectId/concrete/:tab`, rendered in the project page's outlet. */
+export function ProjectConcreteTab() {
+  const { tab = '' } = useParams();
+  const { project } = useProjectLayout();
+  const location = useLocation();
   const current = CONCRETE_TABS.find((t) => t.key === tab);
-  if (!current) return <Navigate to={concreteTabPath(projectId)} replace />;
+  if (!current) {
+    const target: ConcreteTab = LEGACY_CONCRETE_TABS[tab] ?? 'reports';
+    return <Navigate to={`${concreteTabPath(project.id, target)}${location.search}`} replace />;
+  }
   return (
-    <ConcreteFrame projectId={projectId} title={current.label}>
-      {(project) => (
-        <>
-          <div className="concrete-switches">
-            <ProjectSectionNav projectId={project.id} current="concrete" />
-            <nav className="concrete-section-tabs" aria-label="Concrete">
-              {CONCRETE_TABS.map((t) => (
-                <NavLink key={t.key} to={concreteTabPath(project.id, t.key)}>
-                  {t.label}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
-          {current.key === 'reports' ? <ReportsTab project={project} /> : null}
-          {current.key === 'specimens' ? <SpecimensTab project={project} /> : null}
-          {current.key === 'summary' ? <SummaryTab project={project} /> : null}
-          {current.key === 'mixes' ? <MixesTab project={project} /> : null}
-          {current.key === 'settings' ? <SettingsTab project={project} /> : null}
-        </>
-      )}
-    </ConcreteFrame>
+    <div className="flex min-w-0 flex-col gap-5">
+      <nav aria-label="Concrete sections">
+        <Tabs value={current.key} activationMode="manual">
+          <TabsList variant="line" className="h-auto flex-wrap justify-start">
+            {CONCRETE_TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key} asChild>
+                <Link to={concreteTabPath(project.id, t.key)}>{t.label}</Link>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </nav>
+      <ConcreteSubTab tab={current.key} project={project} />
+    </div>
   );
 }
 
-/** `/projects/:projectId/concrete` opens the Reports tab. */
+function ConcreteSubTab({ tab, project }: { tab: ConcreteTab; project: ProjectDetail }) {
+  switch (tab) {
+    case 'reports':
+      return <ReportsTab project={project} />;
+    case 'sets':
+      return <SetsTab project={project} />;
+    case 'mixes':
+      return <MixesTab project={project} />;
+    case 'summary':
+      return <SummaryTab project={project} />;
+    case 'settings':
+      return <SettingsTab project={project} />;
+  }
+}
+
+/** `/projects/:projectId/concrete` opens Field reports. */
 export function ProjectConcreteRedirect() {
   const { projectId = '' } = useParams();
   return <Navigate to={concreteTabPath(projectId)} replace />;
 }
 
-/** `/projects/:projectId/concrete-mixes` (MM-V2-C37's former mixes screen) opens the Mixes tab. */
+/** `/projects/:projectId/concrete-mixes` (MM-V2-C37's former mixes screen) opens Mixes. */
 export function ProjectConcreteMixesRedirect() {
   const { projectId = '' } = useParams();
   return <Navigate to={concreteTabPath(projectId, 'mixes')} replace />;
+}
+
+/** One step of a record page's breadcrumb after Projects › project number. */
+export interface Crumb {
+  label: string;
+  to?: string;
+  mono?: boolean;
+}
+
+/**
+ * A page reached from a Concrete row (a mix, its propagation review): the breadcrumb Projects ›
+ * project › Mixes › …, then the page. The project loads first, so the page never shows under a
+ * project that doesn't exist.
+ */
+export function ConcreteRecordFrame({
+  projectId,
+  title,
+  crumbs,
+  children,
+}: {
+  projectId: string;
+  /** Names the browser tab, e.g. "Mix"; the project number is added. */
+  title: string;
+  crumbs: Crumb[];
+  children: (project: ProjectDetail) => ReactNode;
+}) {
+  const { project, reload } = useProject(projectId);
+  usePageTitle(project?.ok ? `${title} · ${project.data.projectNumber}` : null);
+  const frame = 'mx-auto flex w-full max-w-[1280px] min-w-0 flex-col gap-6';
+  if (!project) {
+    return (
+      <div aria-busy="true" className={frame}>
+        <Skeleton className="h-4 w-64" />
+        <Skeleton className="h-8 w-80 max-w-full" />
+        <Skeleton className="h-40 w-full" />
+        <p className="sr-only" role="status">
+          Loading…
+        </p>
+      </div>
+    );
+  }
+  if (!project.ok) {
+    return (
+      <div className={frame}>
+        <h1 className="sr-only">Project</h1>
+        {project.notFound ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FolderX aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>Project not found.</EmptyTitle>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button asChild>
+                <Link to="/projects">Go to Projects</Link>
+              </Button>
+            </EmptyContent>
+          </Empty>
+        ) : (
+          <LoadErrorAlert
+            title="This project couldn't load"
+            message={project.message}
+            onRetry={reload}
+          />
+        )}
+      </div>
+    );
+  }
+  const data = project.data;
+  return (
+    <div className={`@container ${frame}`}>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/projects">Projects</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link
+                className="font-mono whitespace-nowrap"
+                to={`/projects/${encodeURIComponent(data.id)}`}
+              >
+                {data.projectNumber}
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {crumbs.map((crumb) => (
+            <Crumbs key={crumb.label} crumb={crumb} />
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
+      {children(data)}
+    </div>
+  );
+}
+
+function Crumbs({ crumb }: { crumb: Crumb }) {
+  const mono = crumb.mono ? 'font-mono whitespace-nowrap' : undefined;
+  return (
+    <>
+      <BreadcrumbSeparator />
+      <BreadcrumbItem>
+        {crumb.to ? (
+          <BreadcrumbLink asChild>
+            <Link className={mono} to={crumb.to}>
+              {crumb.label}
+            </Link>
+          </BreadcrumbLink>
+        ) : (
+          <BreadcrumbPage className={mono}>{crumb.label}</BreadcrumbPage>
+        )}
+      </BreadcrumbItem>
+    </>
+  );
 }

@@ -39,6 +39,17 @@ export const CONCRETE_REVIEW_QUEUE_STATUS_LABEL: Record<ConcreteReviewQueueStatu
   issued: 'Issued',
 };
 
+/**
+ * STRATA-97: what the queue's `status` parameter selects. The four report states, plus
+ * `open_exceptions`: reports awaiting review or returned whose latest version has exceptions not
+ * yet documented (the queue's Exceptions tab). A row's own `status` is always one of the four.
+ */
+export const CONCRETE_REVIEW_QUEUE_FILTERS = [
+  ...CONCRETE_REVIEW_QUEUE_STATUSES,
+  'open_exceptions',
+] as const;
+export type ConcreteReviewQueueFilter = (typeof CONCRETE_REVIEW_QUEUE_FILTERS)[number];
+
 export const CONCRETE_REPORT_KIND_LABEL: Record<(typeof CONCRETE_REPORT_KINDS)[number], string> = {
   field: 'Field report',
   strength: 'Strength report',
@@ -51,6 +62,10 @@ export const CONCRETE_REPORT_EXCEPTION_CODES = [
 ] as const;
 export type ConcreteReportExceptionCode = (typeof CONCRETE_REPORT_EXCEPTION_CODES)[number];
 
+/** STRATA-97: the queue's sortable columns. */
+export const CONCRETE_REVIEW_QUEUE_SORTS = ['submitted', 'project', 'report_date'] as const;
+export type ConcreteReviewQueueSort = (typeof CONCRETE_REVIEW_QUEUE_SORTS)[number];
+
 export const CONCRETE_REVIEW_QUEUE_PAGE_SIZE = 25;
 export const CONCRETE_REVIEW_QUEUE_PAGE_SIZE_MAX = 100;
 
@@ -61,7 +76,7 @@ const queryBoolean = z
 export const concreteReviewQueueQuerySchema = z
   .object({
     status: z
-      .enum(CONCRETE_REVIEW_QUEUE_STATUSES, { error: 'Choose a queue status' })
+      .enum(CONCRETE_REVIEW_QUEUE_FILTERS, { error: 'Choose a queue status' })
       .default('awaiting_review'),
     projectId: idSchema.optional(),
     technicianUserId: idSchema.optional(),
@@ -75,6 +90,11 @@ export const concreteReviewQueueQuerySchema = z
       .default('any'),
     /** Only the reports the caller could act on now (review, return, issue or correct). */
     mine: queryBoolean.default(false),
+    /** STRATA-97: project number or name, technician name or set label (contains, any case). */
+    search: z.string().trim().max(100, { error: 'At most 100 characters' }).optional(),
+    /** STRATA-97: a chosen order; without one each status keeps its own (oldest waiting first). */
+    sort: z.enum(CONCRETE_REVIEW_QUEUE_SORTS, { error: 'Choose a sort' }).optional(),
+    dir: z.enum(['asc', 'desc'], { error: 'Use asc or desc' }).default('asc'),
     page: z.coerce.number().int().min(1).max(100000).default(1),
     pageSize: z.coerce
       .number()
@@ -135,6 +155,8 @@ export const concreteReviewQueueSchema = z.object({
   pageSize: z.number(),
   /** Rows per status with the same filters (for the tab counts). */
   counts: z.record(z.enum(CONCRETE_REVIEW_QUEUE_STATUSES), z.number()),
+  /** STRATA-97: rows the `open_exceptions` filter selects, with the same other filters. */
+  openExceptionCount: z.number().default(0),
 });
 export type ConcreteReviewQueue = z.infer<typeof concreteReviewQueueSchema>;
 

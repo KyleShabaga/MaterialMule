@@ -1223,6 +1223,19 @@ is indexed by person. Relevance only: All projects is unchanged and nothing is h
   is a `legacy` row with no account and no starter, so ownership is never invented.
 - **Who may delete:** see [permissions.md](permissions.md#receiving-drafts-and-receipts-strata-78-strata-108).
 
+## Concrete Hold until (STRATA-121, `0045_concrete_hold_until.sql`)
+
+- **What it adds.** `concrete_specimen.hold_until` (the date chosen with Hold until from Breaks)
+  and the append-only `concrete_specimen_hold_assignment` history (previous age and target date,
+  hold-until date, reason, who, the `concrete_hold_command` row, whose `kind` now also allows
+  `hold_until`). See [concrete.md](concrete.md#hold-management-bulk-actions-and-disposal-c26).
+- **Rules** (proved in `schema-concrete-hold-until.test.ts`): a hold-until date is written only
+  with a history row for exactly that date in the same transaction, and only on a HOLD specimen
+  (the dates trigger drops it on any age in days, so Schedule test clears it; a check backs that
+  up); a numbered set's scheduled specimen goes to HOLD only with a matching history row (the age
+  guard's one new path); while set, the HOLD expiry is that date, and a casting change never moves
+  it. History rows are never changed or deleted.
+
 ## Station configuration (Strata lane A, `0048_station_config.sql`)
 
 - **What it holds.** One row per LAB station that someone customized: `station_id` (the random

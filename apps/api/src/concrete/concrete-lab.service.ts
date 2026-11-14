@@ -22,7 +22,9 @@ import { peopleOf } from './concrete-report-lifecycle.read.js';
  * Each specimen's receiving stage, the same rule as C06's set receiving read: received (a
  * receipt) or a resolved Missing disposition is no longer waiting; a completed pickup is awaiting
  * receiving; anything else is awaiting pickup. Only specimens that can be collected count: a set
- * that isn't Void, on a report that isn't Void, with a known casting time.
+ * that isn't Void, on a report that isn't Void. STRATA-120 (Kyle, 2026-11-12): a set without a
+ * casting time is listed and can be received; its test dates stay unscheduled until the casting
+ * time is recorded (the C05 dates trigger derives them then).
  */
 const SPECIMEN_STAGE = `
   SELECT sp.set_id, sp.letter,
@@ -38,7 +40,7 @@ const SPECIMEN_STAGE = `
     SELECT true AS resolved FROM concrete_receiving_exception e
     WHERE e.kind = 'missing' AND e.specimen_id = sp.id AND e.resolved_at IS NOT NULL LIMIT 1
   ) mx ON true
-  WHERE st.voided_at IS NULL AND r.workflow_state <> 'void' AND r.cast_at IS NOT NULL
+  WHERE st.voided_at IS NULL AND r.workflow_state <> 'void'
     AND ($1::uuid IS NULL OR sp.project_id = $1)`;
 
 /** One row per set and stage with the set's letters in that stage. */
@@ -54,7 +56,8 @@ interface QueueRowSql {
   project_name: string;
   temporary_id: string | null;
   permanent_id: string | null;
-  cast_at: Date;
+  /** Null: casting time not recorded yet (STRATA-120). */
+  cast_at: Date | null;
   technician_user_id: string | null;
   mine: boolean;
   letters: string[];
@@ -138,7 +141,8 @@ export class ConcreteLabService {
        JOIN concrete_field_report r ON r.id = st.field_report_id
        JOIN project p ON p.id = st.project_id
        WHERE ss.stage = $3
-       ORDER BY coalesce(r.technician_user_id = $2, false) DESC, r.cast_at, p.project_number,
+       ORDER BY coalesce(r.technician_user_id = $2, false) DESC, r.cast_at NULLS LAST,
+                p.project_number,
                 st.permanent_number NULLS LAST, st.temporary_id NULLS LAST, st.id
        LIMIT ${query.pageSize} OFFSET ${offset}`,
       [projectId, user.userId, query.stage],
@@ -154,7 +158,7 @@ export class ConcreteLabService {
       projectNumber: row.project_number,
       projectName: row.project_name,
       identity: { temporaryId: row.temporary_id, permanentId: row.permanent_id },
-      castAt: row.cast_at.toISOString(),
+      castAt: row.cast_at?.toISOString() ?? null,
       technician: row.technician_user_id ? (people.get(row.technician_user_id) ?? null) : null,
       mine: row.mine,
       letters: row.letters,

@@ -45,19 +45,54 @@ function summaryOf(unit: Locator, hole: string) {
 }
 
 /**
- * Waits until the indicator reports a save whose snapshot was taken after `since` (an ISO time).
- * Take `since` after the edit, so the save found includes it.
+ * The newest stored draft (this browser's IndexedDB) whose entries, receiver or history contain
+ * `text`: its lastSavedAt, or null while no stored draft has it yet.
  */
-async function savedAfter(page: Page, since: string): Promise<string> {
-  const time = draftStatus(page).locator('time');
-  await expect
-    .poll(
-      async () => Date.parse(((await time.count()) && (await time.getAttribute('datetime'))) || ''),
-      { timeout: 10_000 },
-    )
-    .toBeGreaterThan(Date.parse(since));
+async function storedDraftWith(page: Page, text: string): Promise<string | null> {
+  return page.evaluate(
+    (needle) =>
+      new Promise<string | null>((resolve, reject) => {
+        const open = indexedDB.open('materialmule-drafts');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('receiptDrafts')) return resolve(null);
+          const all = db.transaction('receiptDrafts').objectStore('receiptDrafts').getAll();
+          all.onerror = () => reject(all.error);
+          all.onsuccess = () => {
+            const times = (
+              all.result as {
+                data: unknown;
+                receiver: unknown;
+                history: unknown;
+                lastSavedAt: string;
+              }[]
+            )
+              .filter((d) =>
+                JSON.stringify({ data: d.data, receiver: d.receiver, history: d.history }).includes(
+                  needle,
+                ),
+              )
+              .map((d) => d.lastSavedAt)
+              .sort();
+            resolve(times.at(-1) ?? null);
+          };
+        };
+      }),
+    text,
+  );
+}
+
+/**
+ * Waits until a stored draft holds `text` (the value just entered) and the indicator reports a
+ * save; returns that draft's save time. It checks the stored content, not a clock: the page saves
+ * about 1 s after the last change, but also sooner (when the draft is first registered), so no
+ * time taken by the test reliably separates the save that has the edit from one that doesn't.
+ */
+async function savedWith(page: Page, text: string): Promise<string> {
+  await expect.poll(() => storedDraftWith(page, text), { timeout: 10_000 }).not.toBeNull();
   await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: \w+$/);
-  return (await time.getAttribute('datetime'))!;
+  return (await storedDraftWith(page, text))!;
 }
 
 /** Signs the context out on the server only (cookie kept, so the next request gets a 401). */
@@ -112,7 +147,7 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
   await bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped');
-  await savedAfter(page, new Date().toISOString());
+  await savedWith(page, 'Lid taped');
   await page.close();
 
   const reopened = await context.newPage();
@@ -158,9 +193,9 @@ test(
       page.getByText('Offline: your entries are kept here.', { exact: false }),
     ).toBeVisible();
     await page.getByLabel('Description (optional)').fill('Edited offline');
-    const savedFirst = await savedAfter(page, new Date().toISOString());
+    const savedFirst = await savedWith(page, 'Edited offline');
     await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
-    const savedSecond = await savedAfter(page, new Date().toISOString());
+    const savedSecond = await savedWith(page, 'Still offline');
     expect(savedSecond > savedFirst).toBe(true);
 
     await context.setOffline(false);
@@ -273,7 +308,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
   await page.getByLabel('Description (optional)').fill('Handover check');
-  await savedAfter(page, new Date().toISOString());
+  await savedWith(page, 'Handover check');
 
   // The next person at the station opens the list.
   await page.goto('/receiving-log/new');
@@ -288,26 +323,27 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
     /^AT · /,
   );
   await chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/);
-  await savedAfter(page, new Date().toISOString());
   await expect(page.getByText('Receiver changed to PE.')).toBeVisible();
-  await expect(draftStatus(page)).toContainText('Receiver: PE');
 
-  const history = await page.evaluate(
-    () =>
-      new Promise<unknown[]>((resolve, reject) => {
-        const open = indexedDB.open('materialmule-drafts');
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const all = open.result
-            .transaction('receiptDrafts')
-            .objectStore('receiptDrafts')
-            .getAll();
-          all.onsuccess = () =>
-            resolve((all.result as { history: unknown[] }[]).flatMap((d) => d.history));
-        };
-      }),
-  );
-  expect(history).toContainEqual(
+  // The stored draft records the change from AT to PE. Polled: the autosave lands about 1 s later.
+  // (On LAB, Received by starts blank, so choosing AT earlier is itself a receiver_changed entry.)
+  const storedHistory = () =>
+    page.evaluate(
+      () =>
+        new Promise<unknown[]>((resolve, reject) => {
+          const open = indexedDB.open('materialmule-drafts');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const all = open.result
+              .transaction('receiptDrafts')
+              .objectStore('receiptDrafts')
+              .getAll();
+            all.onsuccess = () =>
+              resolve((all.result as { history: unknown[] }[]).flatMap((d) => d.history));
+          };
+        }),
+    );
+  await expect.poll(storedHistory, { timeout: 10_000 }).toContainEqual(
     expect.objectContaining({
       type: 'receiver_changed',
       from: expect.objectContaining({ initials: 'AT' }),
@@ -316,6 +352,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
       at: expect.any(String),
     }),
   );
+  await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: PE$/);
 });
 
 test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns the same IDs', async ({
@@ -380,7 +417,7 @@ test('T8/AC7: a personal draft is not shown to another user on the same browser'
   await page.goto('/receiving-log/new');
   await chooseProject(page);
   await page.getByLabel('Description (optional)').fill("Alex's draft");
-  await savedAfter(page, new Date().toISOString());
+  await savedWith(page, "Alex's draft");
 
   await signInAs(page, 'pe');
   await page.goto('/receiving-log/new');
