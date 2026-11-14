@@ -134,7 +134,7 @@ export function StorageUnitTable({
               : null
             : item.holes.map((h) => formatStorageUnitHoleSummary(h)).join(', ');
           return (
-            <span className="flex min-w-0 flex-col" title={text || undefined}>
+            <span className="flex min-w-0 flex-col" title={text || 'No test hole'}>
               <span className="truncate font-mono text-[13px]">{holeNames(item) || '—'}</span>
               {summaries ? (
                 <span className="truncate text-[13px] text-muted-foreground">{summaries}</span>
@@ -182,7 +182,11 @@ export function StorageUnitTable({
         width: '10ch',
         hideBelow: '58rem',
         sortKey: 'received',
-        cell: (item) => <span className="whitespace-nowrap">{item.receivedDate}</span>,
+        cell: (item) => (
+          <span className="whitespace-nowrap" title={item.receivedDate}>
+            {item.receivedDate}
+          </span>
+        ),
       },
       {
         id: 'retain',
@@ -223,12 +227,16 @@ export function StorageUnitTable({
 function WhereCell({ item, pending }: { item: InventoryListItem; pending?: QueuedMove }) {
   const disposed = item.status === 'disposed';
   const path = item.locationPath?.length ? item.locationPath.join(' · ') : item.location.name;
+  const place = disposed ? currentLocationName(item) : `${item.location.code} · ${path}`;
   return (
-    <span className="flex min-w-0 items-center gap-2">
+    // Every clipped piece of the cell keeps its full text in this title (MTR-58).
+    <span className="flex min-w-0 items-center gap-2" title={place}>
       <span className="flex min-w-0 flex-col">
         {disposed ? (
           // MISC-12: a disposed unit has no current location; its last one stays in History.
-          <span className="text-[13px] text-muted-foreground">{currentLocationName(item)}</span>
+          <span className="truncate text-[13px] text-muted-foreground">
+            {currentLocationName(item)}
+          </span>
         ) : (
           <>
             <span className="truncate font-mono text-[13px]" title={item.location.code}>
@@ -302,7 +310,10 @@ function RetainUntil({ item }: { item: InventoryItem }) {
   const status = rowRecordStatus(item);
   const onHold = item.retention.onHold && item.status !== 'disposed';
   return (
-    <span className="flex flex-col">
+    <span
+      className="flex flex-col"
+      title={`${item.retention.effectiveRetainUntil}${onHold ? ' · On hold' : ''}`}
+    >
       <span
         className={cn(
           'whitespace-nowrap',
