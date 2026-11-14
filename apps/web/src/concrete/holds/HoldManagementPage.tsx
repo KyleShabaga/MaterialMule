@@ -395,7 +395,9 @@ export function HoldManagementPage() {
                         ? 'Disposal authorized'
                         : e.kind === 'disposed'
                           ? `Disposed (removed ${new Date(e.disposedAt!).toLocaleString()})`
-                          : 'Failed-specimen hold'}{' '}
+                          : e.kind === 'hold_assigned'
+                            ? `Held until ${e.holdUntil} (was ${e.previousAge} d, target ${e.previousTargetDate})`
+                            : 'Failed-specimen hold'}{' '}
                     by {e.by.name}
                     {e.recordedBy ? `, recorded by ${e.recordedBy.name}` : ''}
                     {e.reason ? `: ${e.reason}` : ''}

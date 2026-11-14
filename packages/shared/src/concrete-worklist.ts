@@ -209,6 +209,11 @@ export const concreteWorklistGroupSchema = z.object({
   count: z.number().int().min(0),
   /** Whether the caller holds `concrete_specimen.reschedule` on this project. */
   canReschedule: z.boolean(),
+  /**
+   * STRATA-121: whether the caller holds `concrete_ordinary_hold.manage` on this project (Hold
+   * until from Breaks). The server rechecks each specimen.
+   */
+  canHoldUntil: z.boolean(),
   rows: z.array(concreteWorklistRowSchema),
 });
 export type ConcreteWorklistGroup = z.infer<typeof concreteWorklistGroupSchema>;

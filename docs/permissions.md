@@ -500,6 +500,7 @@ to the capability list in the same change.
   | `GET /api/concrete-mixes/:id/propagation` (C30)                                         | `inventory.read`                                      |
   | `POST /api/concrete-mixes/:id/propagation {previewId, selection, idempotencyKey}` (C30) | active user; handler checks `concrete_mix.approve`    |
   | `GET /api/concrete/projects/:projectId/specimens` (C30)                                 | `inventory.read`                                      |
+  | `GET /api/concrete/projects/:projectId/specimen-sets` (STRATA-98)                       | `inventory.read`                                      |
 
   Reads follow the project (mixes are project data; field preparation caches them, CD-15). Order
   of checks as AO03: 401/403 from the guard; 403 when the caller isn't the project's lead (an
@@ -926,11 +927,11 @@ The review queue, documenting a submitted version's exceptions, the Mark reviewe
 issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migration 0025
 ([concrete.md](concrete.md#review-queue-and-issuance-c28)). Field reports only (G2).
 
-| Route                                                                                                                                           | Policy                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `GET /api/concrete/review-queue?status=&projectId=&technicianUserId=&reportType=&submittedFrom=&submittedTo=&exceptions=&mine=&page=&pageSize=` | `inventory.read` (every active session, LAB included)                                    |
-| `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                       | `inventory.read`                                                                         |
-| `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                  | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
+| Route                                                                                                                                                              | Policy                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `GET /api/concrete/review-queue?status=&projectId=&technicianUserId=&reportType=&submittedFrom=&submittedTo=&exceptions=&mine=&search=&sort=&dir=&page=&pageSize=` | `inventory.read` (every active session, LAB included)                                    |
+| `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                                          | `inventory.read`                                                                         |
+| `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                                     | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
 
 - **Queue.** Visible to every `inventory.read` session (confirmed by the owner, 2026-11-09). Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
   issuance, Issued; `counts` per status with the same filters. Each row's `canAct` says whether
@@ -1011,9 +1012,9 @@ Test-result drafts with tester attribution and correction history. Contracts:
 
 ## Concrete testing table (MM-V2-C23)
 
-| Route                                                            | Policy                                                |
-| ---------------------------------------------------------------- | ----------------------------------------------------- |
-| `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=` | `inventory.read` (every active session, LAB included) |
+| Route                                                                         | Policy                                                |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=&specimenIds=` | `inventory.read` (every active session, LAB included) |
 
 - Read only; entry is C07's PUT above (`concrete_test.enter`). The page shows the cells read-only
   without that permission; the server decides either way. Swept by the endpoint sweep.
@@ -1104,6 +1105,7 @@ retention and disposal (MM-T29/T30, MISC-13) are unchanged.
 | `GET /api/concrete/disposal/ready?page=`                     | `inventory.read` (the Ready for disposal list's Concrete specimens filter)                                   |
 | `POST /api/concrete/holds/schedule-test`                     | active user; per specimen `concrete_ordinary_hold.manage` (ordinary HOLD only)                               |
 | `POST /api/concrete/holds/authorize-disposal`                | active user; per specimen `concrete_ordinary_hold.manage` (ordinary) or `concrete_hold.manage` (failed hold) |
+| `POST /api/concrete/holds/hold-until` (STRATA-121)           | active user; per specimen `concrete_ordinary_hold.manage` (scheduled specimens onto an ordinary HOLD)        |
 | `POST /api/concrete/disposal/record`                         | `concrete_specimen.dispose_record` (lab staff; LAB names the performing person)                              |
 
 - **Who.** Ordinary HOLD release (Schedule test, Authorize disposal): the project's Lead Project
@@ -1111,6 +1113,12 @@ retention and disposal (MM-T29/T30, MISC-13) are unchanged.
   or a Lab Manager holding the project's concrete grant (D13); a Lab Manager without it is
   refused (AC2). Record disposal: Lab Technician, Lab Manager, or LAB with the performing staff
   member (attribution only; LAB never gains their roles). Release is personal accounts only.
+  **Hold until** (STRATA-121, from Breaks) is the same authority as the ordinary release: the
+  lead or any Lab Manager, personal accounts only; the LAB station is refused whoever it names
+  (the request has no performer). A failed-specimen hold stays under `concrete_hold.manage` and
+  its own workflow (409 `failed_hold`). Its route is in the endpoint sweep; the permission was
+  already in the project capability list. The Breaks worklist reports it per project
+  (`canHoldUntil`).
 - **Order of checks.** Release routes: 403 before the body unless the caller is an active personal
   account that is a Lab Manager or leads some project; 400 body; then one transaction: replay by
   idempotency key, reports, sets, then specimens FOR UPDATE (each in id order, D09), the authority

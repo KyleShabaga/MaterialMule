@@ -86,6 +86,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'concrete_specimen',
       'concrete_specimen_disposal',
       'concrete_specimen_failure_hold',
+      'concrete_specimen_hold_assignment',
       'concrete_specimen_hold_schedule',
       'concrete_specimen_identity',
       'concrete_specimen_mass_correction',

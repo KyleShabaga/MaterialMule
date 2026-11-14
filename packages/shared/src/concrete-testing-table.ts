@@ -20,6 +20,9 @@ import { personSnapshotSchema } from './lab-programs';
 //   (provisional method P1) and its unusual-measurement flags.
 // - Each saved row keeps its own tester: the page's "Tested by" only fills new rows (AC1).
 
+/** The most specimens one `specimenIds` selection reads. */
+export const CONCRETE_TESTING_TABLE_SELECTION_MAX = 200;
+
 /** `GET /api/concrete/testing-table` query (`inventory.read`). */
 export const concreteTestingTableQuerySchema = z.strictObject({
   /** The business date to read as today; defaults to the lab's date now. */
@@ -30,6 +33,28 @@ export const concreteTestingTableQuerySchema = z.strictObject({
     .transform((value) => value === 'true')
     .default(false),
   projectId: z.uuid({ error: 'must be an ID' }).optional(),
+  /**
+   * STRATA-95: just these specimens (comma-separated IDs, at most
+   * `CONCRETE_TESTING_TABLE_SELECTION_MAX`), e.g. Record breaks for a Breaks selection. They are
+   * listed whatever their target date (today, overdue or upcoming), still only when scheduled: an
+   * age in days, casting known, set and report not Void, not authorized for disposal. The
+   * `projects` list is unchanged.
+   */
+  specimenIds: z
+    .string()
+    .transform((value) =>
+      value
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0),
+    )
+    .pipe(
+      z
+        .array(z.uuid({ error: 'must be specimen IDs' }))
+        .min(1, { error: 'Choose at least one specimen' })
+        .max(CONCRETE_TESTING_TABLE_SELECTION_MAX, { error: 'at most 200 specimens at once' }),
+    )
+    .optional(),
 });
 export type ConcreteTestingTableQuery = z.infer<typeof concreteTestingTableQuerySchema>;
 

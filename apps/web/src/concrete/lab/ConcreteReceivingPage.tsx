@@ -76,7 +76,12 @@ function columnsFor(stage: ConcreteReceivingStage): Column<ConcreteReceivingQueu
     },
     {
       header: 'Cast',
-      cell: (row) => <span className="mono concrete-nowrap">{labDateTime(row.castAt)}</span>,
+      cell: (row) =>
+        row.castAt ? (
+          <span className="mono concrete-nowrap">{labDateTime(row.castAt)}</span>
+        ) : (
+          'Casting time not recorded'
+        ),
     },
     {
       header: 'Field technician',

@@ -169,22 +169,26 @@ test('mix draft discard: the Lead discards a draft and the approved revision sta
   await page.goto(`/projects/${DEMO.projectId}/concrete-mixes`);
   await expect(page).toHaveURL(new RegExp(`/projects/${DEMO.projectId}/concrete/mixes$`));
   await page.getByRole('link', { name: `Open mix ${mixNumber}` }).click();
-  const heading = page.locator('.mix-heading');
-  await expect(heading.getByText('Revision awaiting approval')).toBeVisible();
-  await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
-  await expect(page.getByText('Revision 2 (draft)')).toBeVisible();
+  const status = page.getByRole('group', { name: 'Mix status' });
+  const spec = page.getByRole('table', { name: 'Mix specification' });
+  await expect(status.getByText('Revision pending')).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 1, in effect' })).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 2, draft' })).toBeVisible();
   await expectNoHorizontalScroll(page);
-  await page.getByRole('button', { name: 'Discard draft revision 2' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Discard draft revision 2?' });
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Discard draft revision 2' }).click();
+  const dialog = page.getByRole('alertdialog', { name: 'Discard draft revision 2?' });
   await dialog.getByLabel(/Note/).fill('Wrong strength');
   await dialog.getByRole('button', { name: 'Discard draft' }).click();
   await expect(
     page.getByText(`Draft revision 2 of ${mixNumber} discarded. Revision 1 stays in effect.`),
   ).toBeVisible();
-  await expect(heading.getByText('Approved', { exact: true })).toBeVisible();
-  await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
-  await expect(page.getByText('Revision 2 (draft)')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Discard draft/ })).toHaveCount(0);
+  await expect(status.getByText('Approved', { exact: true })).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 1, in effect' })).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 2, draft' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await expect(page.getByRole('menuitem', { name: /Discard draft/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText(
     'Draft discarded',
   );

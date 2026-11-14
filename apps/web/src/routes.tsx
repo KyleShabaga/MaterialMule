@@ -34,8 +34,8 @@ import { ProjectUnitsTab } from './projects/ProjectUnitsTab';
 import { ProjectsPage } from './projects/ProjectsPage';
 import {
   ProjectConcreteMixesRedirect,
-  ProjectConcretePage,
   ProjectConcreteRedirect,
+  ProjectConcreteTab,
 } from './concrete/project/ProjectConcretePage';
 import { MixDetailPage } from './concrete/project/MixDetailPage';
 import { PropagationReviewPage } from './concrete/project/PropagationReviewPage';
@@ -230,8 +230,7 @@ export const routes: RouteObject[] = [
                           // Field Ledger search across units, samples, projects and programs (top bar, Find).
                           { path: 'search', element: <SearchPage /> },
                           // Projects list (STRATA-83) and the project page with its tabs
-                          // (STRATA-84): each tab keeps its own URL. Concrete keeps its own
-                          // routes below (lane E); the layout's Concrete tab links there.
+                          // (STRATA-84): each tab keeps its own URL, Concrete included (STRATA-98).
                           { path: 'projects', element: <ProjectsPage /> },
                           {
                             path: 'projects/:projectId',
@@ -241,18 +240,14 @@ export const routes: RouteObject[] = [
                               { path: 'units', element: <ProjectUnitsTab /> },
                               { path: 'programs', element: <ProjectProgramsTab /> },
                               { path: 'team', element: <TeamPermissionsPage /> },
+                              // The project's Concrete tab (MM-V2-C30, STRATA-98): five sub-tabs,
+                              // each its own address; /concrete opens Field reports.
+                              { path: 'concrete', element: <ProjectConcreteRedirect /> },
+                              { path: 'concrete/:tab', element: <ProjectConcreteTab /> },
                             ],
                           },
-                          // The project's Concrete section (MM-V2-C30): five tabs, mix detail and the mix
-                          // propagation review.
-                          {
-                            path: 'projects/:projectId/concrete',
-                            element: <ProjectConcreteRedirect />,
-                          },
-                          {
-                            path: 'projects/:projectId/concrete/:tab',
-                            element: <ProjectConcretePage />,
-                          },
+                          // A mix and its change propagation (MM-V2-C30, STRATA-98): pages of their own
+                          // with a breadcrumb back through the project.
                           {
                             path: 'projects/:projectId/concrete/mixes/:mixId',
                             element: <MixDetailPage />,

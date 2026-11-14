@@ -83,6 +83,7 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0042_feedback_notifications',
       '0043_location_storage_term',
       '0044_receipt_draft_registry',
+      '0045_concrete_hold_until',
       '0048_station_config',
       '0049_receipt_draft_close',
     ]);

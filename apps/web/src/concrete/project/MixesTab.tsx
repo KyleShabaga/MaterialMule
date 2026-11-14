@@ -1,65 +1,159 @@
-import type {
-  ConcreteMixSpec,
-  ConcreteMixSummary,
-  ProjectDetail,
-  ProjectSummary,
-} from '@materialmule/shared';
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import type { ConcreteMixSummary, ProjectDetail, ProjectSummary } from '@materialmule/shared';
+import { Copy, Cylinder, Lock, Plus } from 'lucide-react';
+import { useEffect, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { searchProjects } from '../../api/projects';
 import {
-  BandedCard,
   DataTable,
-  ErrorState,
-  StatusBadge,
-  TableScroll,
-  TableViewSelector,
-} from '../../components/app-ui';
-import { useTableView } from '../../components/useTableView';
+  DENSITY_VIEW_OPTIONS,
+  useTableDensity,
+  type DataTableColumn,
+} from '../../components/strata/data-table';
+import { StageTag } from '../../components/strata/stage-tag';
+import { TableToolbar } from '../../components/strata/table-toolbar';
+import { useTableQuery, type TableQuery } from '../../components/strata/table-query';
+import { useDebounced } from '../../projects/project-format';
+import { LoadErrorAlert } from '../../projects/project-ui';
 import { concreteProblem, copyMix, createMix, fetchMixes } from './api';
+import { MIX_STAGE } from './concrete-format';
 import { MixForm } from './MixForm';
-import { MIX_STATUS, agesText, airText, slumpText, strengthText } from './mix-format';
+import { strengthText } from './mix-format';
 import { mixPath } from './paths';
-import { TabHead } from './TabHead';
+import { ConcreteNote, ConcreteSection } from './ui';
 import { useLoad } from './useLoad';
 
-// MM-V2-C30 Mixes tab: the project's mixes; Add mix and Copy from another project for the Lead
-// (CD-52: only the project's Lead Project Engineer manages and approves mixes; the server refuses
-// everyone else, AC3). A copy always starts Unapproved (AC2).
+// MM-V2-C30, STRATA-98 Mixes sub-tab (canvas R8ProjectMixes, R8ProjectMixesEmpty): each mix with
+// the approved revision in effect and any draft. Add mix and Copy from another project are the
+// project's Lead's only (CD-52); the controls follow the server's `canManage`, and the server
+// refuses everyone else. A copy always starts Unapproved (AC2).
 
-const LEAD_ONLY = 'Only the project’s Lead Project Engineer can add, copy, edit or approve mixes.';
+const STATUS_FILTERS = [
+  { id: 'approved', label: 'Approved' },
+  { id: 'revision_pending', label: 'Revision pending' },
+  { id: 'unapproved', label: 'Unapproved' },
+] as const;
 
-/** The specification shown in the list: the revision in effect, else the draft. */
-function specText(mix: ConcreteMixSummary, format: (spec: ConcreteMixSpec) => string): string {
-  const spec = (mix.effectiveRevision ?? mix.draftRevision)?.spec;
-  return spec ? format(spec) : '—';
-}
-
-/** "Revision 2 in effect · revision 3 is a draft", under the mix number. */
-function revisionsText(mix: ConcreteMixSummary): string {
-  const parts: string[] = [];
-  if (mix.effectiveRevision)
-    parts.push(`Revision ${mix.effectiveRevision.revisionNumber} in effect`);
-  if (mix.draftRevision) {
-    parts.push(
-      `${parts.length > 0 ? 'revision' : 'Revision'} ${mix.draftRevision.revisionNumber} is a draft`,
-    );
-  }
-  return parts.join(' · ');
+function leadOnly(project: ProjectDetail): string {
+  const lead = project.leadProjectEngineer?.displayName;
+  return lead
+    ? `Only the project’s lead, ${lead}, adds, changes and approves mixes. A field report keeps the mix values it was made with.`
+    : 'Only the project’s lead adds, changes and approves mixes. A field report keeps the mix values it was made with.';
 }
 
 export function MixesTab({ project }: { project: ProjectDetail }) {
   const navigate = useNavigate();
+  const headingId = useId();
   const [mode, setMode] = useState<'list' | 'add' | 'copy'>('list');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const headingId = useId();
-  const [view, setView] = useTableView('concrete-project-mixes');
-  const { load, reload } = useLoad(`mixes|${project.id}`, () => fetchMixes(project.id));
+  const [query, setQuery] = useTableQuery();
+  const [density, setDensity] = useTableDensity('concrete-project-mixes');
+  const search = useDebounced(query.search).trim();
+  const status = query.filters[query.filters.length - 1] ?? '';
+  const { load, reload } = useLoad(`mixes|${project.id}|${search}|${status}`, () =>
+    fetchMixes(project.id, { search, status }),
+  );
+
+  const columns = useMemo<DataTableColumn<ConcreteMixSummary>[]>(
+    () => [
+      {
+        id: 'mix',
+        header: 'Mix',
+        priority: 'identity',
+        width: '16rem',
+        cell: (mix) => (
+          <span className="flex min-w-0 flex-col">
+            <Button
+              variant="link"
+              asChild
+              className="h-auto justify-start p-0 font-mono focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid [&:hover]:underline"
+            >
+              <Link to={mixPath(project.id, mix.id)} aria-label={`Open mix ${mix.mixNumber}`}>
+                {mix.mixNumber}
+              </Link>
+            </Button>
+            <span className="truncate text-xs text-muted-foreground">
+              {mix.supplierName}
+              {mix.copiedFrom ? ` · copied from ${mix.copiedFrom.projectNumber}` : ''}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'strength',
+        header: 'Strength',
+        priority: 'attribute',
+        mono: true,
+        hideOrder: 2,
+        cell: (mix) => {
+          const spec = (mix.effectiveRevision ?? mix.draftRevision)?.spec;
+          return spec ? strengthText(spec) : '—';
+        },
+      },
+      {
+        id: 'effective',
+        header: 'In effect',
+        priority: 'attribute',
+        hideOrder: 3,
+        cell: (mix) =>
+          mix.effectiveRevision ? (
+            `Revision ${mix.effectiveRevision.revisionNumber}`
+          ) : (
+            <span className="text-muted-foreground">None</span>
+          ),
+      },
+      {
+        id: 'draft',
+        header: 'Draft',
+        priority: 'identity',
+        cell: (mix) => (mix.draftRevision ? `Revision ${mix.draftRevision.revisionNumber}` : '—'),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        priority: 'state',
+        width: '10rem',
+        cell: (mix) => (
+          <StageTag stage={MIX_STAGE[mix.status].stage} label={MIX_STAGE[mix.status].label} />
+        ),
+      },
+      {
+        id: 'updated',
+        header: 'Updated',
+        priority: 'attribute',
+        mono: true,
+        width: '11ch',
+        hideOrder: 1,
+        cell: (mix) => mix.updatedAt.slice(0, 10),
+      },
+    ],
+    [project.id],
+  );
 
   if (mode === 'add') {
     return (
-      <BandedCard title="Add mix" className="concrete-tab">
+      <ConcreteSection id={headingId} title="Add mix">
         <MixForm
           initial={null}
           title="Add mix"
@@ -79,7 +173,7 @@ export function MixesTab({ project }: { project: ProjectDetail }) {
               .finally(() => setBusy(false));
           }}
         />
-      </BandedCard>
+      </ConcreteSection>
     );
   }
 
@@ -93,97 +187,116 @@ export function MixesTab({ project }: { project: ProjectDetail }) {
     );
   }
 
-  return (
-    <section className="concrete-tab" aria-labelledby={`${headingId}-heading`}>
-      <TabHead
-        id={`${headingId}-heading`}
-        title="Mixes"
-        hint={load.state === 'ready' && !load.data.canManage ? LEAD_ONLY : undefined}
-      >
-        {load.state === 'ready' && load.data.canManage ? (
-          <div className="page-actions">
-            <button type="button" onClick={() => setMode('copy')}>
-              Copy from another project
-            </button>
-            <button type="button" className="primary" onClick={() => setMode('add')}>
+  const canManage = load.state === 'ready' && load.data.canManage;
+  const toolbarQuery: TableQuery = { ...query, view: density };
+  const onQueryChange = (patch: Partial<TableQuery>) => {
+    const { view, ...rest } = patch;
+    if (view === 'comfortable' || view === 'compact') setDensity(view);
+    // One status at a time: the server filters on one.
+    if (rest.filters) rest.filters = rest.filters.slice(-1);
+    if (Object.keys(rest).length > 0) setQuery(rest);
+  };
+  const filtered = Boolean(search || status);
+
+  let body: ReactNode;
+  if (load.state === 'error') {
+    body = (
+      <LoadErrorAlert
+        title={`Couldn’t load the concrete records for ${project.projectNumber}`}
+        message={concreteProblem(load.error)}
+        onRetry={reload}
+      />
+    );
+  } else if (load.state === 'ready' && load.data.items.length === 0) {
+    body = (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Cylinder aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>{filtered ? 'No mixes match these filters.' : 'No mixes yet.'}</EmptyTitle>
+          {filtered ? null : (
+            <EmptyDescription>
+              Add the mixes this project uses so field reports can pick them. Only the project’s
+              lead adds mixes.
+            </EmptyDescription>
+          )}
+        </EmptyHeader>
+        {!filtered && canManage ? (
+          <EmptyContent>
+            <Button onClick={() => setMode('add')}>
+              <Plus aria-hidden="true" />
               Add mix
-            </button>
-          </div>
+            </Button>
+          </EmptyContent>
         ) : null}
-        <TableViewSelector value={view} onChange={setView} />
-      </TabHead>
-      {load.state === 'loading' ? <p role="status">Loading…</p> : null}
-      {load.state === 'error' ? (
-        <ErrorState message={concreteProblem(load.error)} onRetry={reload} />
-      ) : null}
-      {load.state === 'ready' ? (
-        <>
-          <TableScroll label="Mixes">
-            <DataTable<ConcreteMixSummary>
-              rows={load.data.items}
-              rowKey={(mix) => mix.id}
-              caption="Mixes"
-              view={view}
-              empty="No mixes for this project yet."
-              columns={[
-                {
-                  header: 'Mix',
-                  cell: (mix) => (
-                    <>
-                      <Link
-                        className="mono mix-row-id"
-                        to={mixPath(project.id, mix.id)}
-                        aria-label={`Open mix ${mix.mixNumber}`}
-                      >
-                        {mix.mixNumber}
-                      </Link>
-                      <span className="mix-row-revisions">{revisionsText(mix)}</span>
-                    </>
-                  ),
-                },
-                {
-                  header: 'Supplier',
-                  cell: (mix) => mix.supplierName,
-                },
-                {
-                  header: 'Strength',
-                  cell: (mix) => <span className="mono">{specText(mix, strengthText)}</span>,
-                },
-                {
-                  header: 'Slump',
-                  cell: (mix) => <span className="mono">{specText(mix, slumpText)}</span>,
-                },
-                {
-                  header: 'Air',
-                  cell: (mix) => <span className="mono">{specText(mix, airText)}</span>,
-                },
-                {
-                  header: 'Test ages',
-                  cell: (mix) => (
-                    <span className="mono">{specText(mix, (s) => agesText(s.testAges))}</span>
-                  ),
-                },
-                {
-                  header: 'Status',
-                  cell: (mix) => (
-                    <StatusBadge tone={MIX_STATUS[mix.status].tone}>
-                      {MIX_STATUS[mix.status].label}
-                    </StatusBadge>
-                  ),
-                },
-                {
-                  header: 'Copied from',
-                  cell: (mix) =>
-                    mix.copiedFrom
-                      ? `${mix.copiedFrom.projectNumber} ${mix.copiedFrom.mixNumber} (rev ${mix.copiedFrom.revisionNumber})`
-                      : '—',
-                },
-              ]}
+      </Empty>
+    );
+  } else {
+    body = (
+      <DataTable
+        columns={columns}
+        data={load.state === 'ready' ? load.data.items : []}
+        getRowId={(mix) => mix.id}
+        rowLabel={(mix) => `Mix ${mix.mixNumber}`}
+        density={density}
+        stage={(mix) => MIX_STAGE[mix.status].stage}
+        onOpenRow={(mix) => navigate(mixPath(project.id, mix.id))}
+        caption={`Mixes, ${project.projectNumber}`}
+        loading={load.state === 'loading'}
+      />
+    );
+  }
+
+  const hasRows = load.state === 'ready' && (load.data.items.length > 0 || filtered);
+
+  return (
+    <ConcreteSection
+      id={headingId}
+      title="Mixes"
+      tools={
+        hasRows || load.state !== 'ready' ? (
+          <>
+            {canManage ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Copy from another project"
+                      className="text-muted-foreground hover:text-accent-foreground"
+                      onClick={() => setMode('copy')}
+                    >
+                      <Copy aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Copy a mix from another project</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+            <TableToolbar
+              label="Mixes tools"
+              query={toolbarQuery}
+              onQueryChange={onQueryChange}
+              pageAction={
+                canManage
+                  ? { label: 'Add mix', icon: Plus, onClick: () => setMode('add') }
+                  : undefined
+              }
+              filters={STATUS_FILTERS}
+              views={DENSITY_VIEW_OPTIONS}
+              searchPlaceholder="Search mixes…"
             />
-          </TableScroll>
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null
+      }
+    >
+      <div aria-busy={load.state === 'loading'} className="min-w-0">
+        {body}
+      </div>
+      <ConcreteNote icon={Lock}>{leadOnly(project)}</ConcreteNote>
+    </ConcreteSection>
   );
 }
 
@@ -241,36 +354,42 @@ function CopyMix({
   }
 
   return (
-    <BandedCard title="Copy a mix from another project" className="concrete-tab">
-      <p className="field-hint">
+    <ConcreteSection id={id} title="Copy a mix from another project">
+      <p className="text-sm text-muted-foreground">
         The copy starts Unapproved in {project.projectNumber}. The source mix and its approval don’t
         change.
       </p>
       {!source ? (
         <>
-          <form role="search" className="concrete-search" onSubmit={find}>
-            <label htmlFor={`${id}-q`}>Find the source project</label>
-            <div className="inline-input">
-              <input
+          <form role="search" className="flex max-w-xl items-end gap-2" onSubmit={find}>
+            <Field className="flex-1">
+              <FieldLabel htmlFor={`${id}-q`}>Find the source project</FieldLabel>
+              <Input
                 id={`${id}-q`}
                 type="search"
                 value={text}
                 placeholder="Project number or name"
                 onChange={(e) => setText(e.target.value)}
               />
-              <button type="submit">Search</button>
-            </div>
+            </Field>
+            <Button type="submit" variant="outline">
+              Search
+            </Button>
           </form>
           {found ? (
             found.length === 0 ? (
-              <p>No other projects match.</p>
+              <p className="text-sm">No other projects match.</p>
             ) : (
-              <ul className="concrete-choices" aria-label="Projects">
+              <ul aria-label="Projects" className="flex max-w-xl flex-col gap-2">
                 {found.map((p) => (
                   <li key={p.id}>
-                    <button type="button" onClick={() => setSource(p)}>
-                      {p.projectNumber} · {p.name}
-                    </button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setSource(p)}
+                    >
+                      <span className="font-mono">{p.projectNumber}</span> · {p.name}
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -279,49 +398,65 @@ function CopyMix({
         </>
       ) : (
         <>
-          <p>
-            Mixes in <strong>{source.projectNumber}</strong>{' '}
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span>
+              Mixes in <strong className="font-mono">{source.projectNumber}</strong>
+            </span>
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
               onClick={() => {
                 setSource(null);
                 setMixes(null);
               }}
             >
               Choose another project
-            </button>
-          </p>
-          {mixes === null ? <p role="status">Loading…</p> : null}
-          {mixes && mixes.length === 0 ? <p>That project has no mixes.</p> : null}
+            </Button>
+          </div>
+          {mixes === null ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Loading…
+            </p>
+          ) : null}
+          {mixes && mixes.length === 0 ? (
+            <p className="text-sm">That project has no mixes.</p>
+          ) : null}
           {mixes && mixes.length > 0 ? (
-            <ul className="concrete-choices" aria-label="Source mixes">
+            <ItemGroup aria-label="Source mixes" className="max-w-xl gap-2">
               {mixes.map((mix) => (
-                <li key={mix.id}>
-                  <span>
-                    {mix.supplierName} {mix.mixNumber}{' '}
-                    <StatusBadge tone={MIX_STATUS[mix.status].tone}>
-                      {MIX_STATUS[mix.status].label}
-                    </StatusBadge>
-                  </span>
-                  <button type="button" disabled={busy} onClick={() => copy(mix)}>
-                    Copy {mix.mixNumber}
-                  </button>
-                </li>
+                <Item key={mix.id} variant="outline" size="sm">
+                  <ItemContent>
+                    <ItemTitle>
+                      <span className="font-mono">{mix.mixNumber}</span>
+                    </ItemTitle>
+                    <ItemDescription>{mix.supplierName}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <StageTag
+                      stage={MIX_STAGE[mix.status].stage}
+                      label={MIX_STAGE[mix.status].label}
+                    />
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => copy(mix)}>
+                      Copy {mix.mixNumber}
+                    </Button>
+                  </ItemActions>
+                </Item>
               ))}
-            </ul>
+            </ItemGroup>
           ) : null}
         </>
       )}
       {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive" className="max-w-xl">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
-      <div className="page-actions">
-        <button type="button" onClick={onCancel}>
+      <div>
+        <Button variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
-    </BandedCard>
+    </ConcreteSection>
   );
 }

@@ -94,14 +94,16 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   });
   const reviewPath = `/concrete/review/${created.id}`;
 
-  // The technician can't review their own report: the actions say so.
+  // The technician can't review their own report: no reviewer decision is offered (STRATA-96).
   await page.goto(reviewPath);
-  await expect(page.getByRole('button', { name: 'Mark reviewed' })).toBeDisabled();
+  await expect(page.getByText('You wrote this report')).toBeVisible();
   await expect(
-    page.getByText('You are this report’s technician. Someone else must review it.').first(),
+    page.getByText('You can’t review or issue your own report.', { exact: false }),
   ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark reviewed' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Return for correction' })).toHaveCount(0);
 
-  // The lead finds it in Awaiting review with its exception flags.
+  // The lead finds it in Waiting for review with its exception flags.
   await signInAs(page, 'pe');
   await page.goto('/concrete/review');
   // The sidebar's Concrete section marks Review as the current page.
@@ -112,11 +114,12 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   );
   await closeMore(page);
   await expect(page.getByRole('heading', { name: 'Concrete review' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Awaiting review \(\d+\)/ })).toHaveAttribute(
+  await expect(page.getByRole('tab', { name: /Waiting for review/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
-  const link = page.locator(`a[href="${reviewPath}"]`);
+  // Rows open the exact version listed (STRATA-97).
+  const link = page.locator(`a[href="${reviewPath}?version=1"]`);
   const row = page.getByRole('row').filter({ has: link });
   await expect(row).toContainText('Slump out of range');
   await expect(row).toContainText('Alex Tester');
@@ -124,8 +127,9 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
 
   // AC1: Mark reviewed is disabled with the reason while exceptions are open.
   const preview = page.getByRole('article', { name: /Review preview · version 1/ });
+  await expect(preview).toBeVisible();
   await expect(
-    preview.getByText('This is not the issued report format.', { exact: false }),
+    page.getByText('Review preview, not the issued file', { exact: false }),
   ).toBeVisible();
   const mark = page.getByRole('button', { name: 'Mark reviewed' });
   await expect(mark).toBeDisabled();
@@ -133,13 +137,16 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
     page.getByText('2 exceptions are still open. Resolve or document each one first.'),
   ).toBeVisible();
 
-  // AC2: Return needs a comment; then returned with one.
-  await page.getByRole('button', { name: 'Return for correction' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Return for correction' });
-  await dialog.getByRole('button', { name: 'Return report' }).click();
-  await expect(dialog.getByText('Enter a comment explaining the changes needed.')).toBeVisible();
-  await dialog.getByLabel(/What needs correcting/).fill('The ticket number has an extra suffix');
-  await dialog.getByRole('button', { name: 'Return report' }).click();
+  // AC2: Return needs a comment (asked at the review panel's foot); then returned with one.
+  const reviewPanel = page.getByRole('complementary', { name: 'Review panel' });
+  await reviewPanel.getByRole('button', { name: 'Return for correction' }).click();
+  const send = reviewPanel.getByRole('button', { name: 'Return for correction' });
+  await send.click();
+  await expect(
+    reviewPanel.getByText('Enter a comment explaining the changes needed.'),
+  ).toBeVisible();
+  await reviewPanel.getByLabel(/Comment for/).fill('The ticket number has an extra suffix');
+  await send.click();
   await expect(page.getByText('Returned for correction.', { exact: true })).toBeVisible();
 
   // The technician corrects the ticket number and resubmits (explicitly).
@@ -174,11 +181,13 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   );
 
   // Document both exceptions, then Mark reviewed.
-  const checklist = page.getByRole('complementary', { name: 'Review checklist' });
+  const checklist = page.getByRole('complementary', { name: 'Review panel' });
   for (const note of ['Engineer accepted the load at 130 mm', 'Mix confirmed with the supplier']) {
-    await checklist.getByRole('button', { name: 'Document exception' }).first().click();
-    await checklist.getByLabel(/How it was addressed/).fill(note);
-    await checklist.getByRole('button', { name: 'Save note' }).click();
+    await checklist
+      .getByLabel(/How it was addressed/)
+      .first()
+      .fill(note);
+    await checklist.getByRole('button', { name: 'Save note' }).first().click();
     await expect(checklist.getByText(`“${note}”`, { exact: false })).toBeVisible();
   }
   await expect(mark).toBeEnabled();
@@ -188,9 +197,9 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   // Issue: exact version, reviewer, photos unavailable. Machine info (C38): the project setting is
   // unset, so it starts as Omit and Issue is available without a choice; the issuer overrides it.
   await page.getByRole('link', { name: 'Go to issue' }).click();
-  const side = page.getByRole('complementary', { name: 'Issue' });
+  const side = page.getByRole('complementary', { name: 'Issue panel' });
   await expect(side.getByText('v2', { exact: false }).first()).toBeVisible();
-  await expect(side.getByRole('checkbox', { name: 'Include photos' })).toBeDisabled();
+  await expect(side.getByRole('switch', { name: 'Include photos' })).toBeDisabled();
   await expect(
     side.getByText('Engineer accepted the load at 130 mm', { exact: false }),
   ).toBeVisible();
@@ -199,7 +208,7 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   await expect(issue).toBeEnabled();
   await side.getByRole('radio', { name: 'Include' }).check();
   await issue.click();
-  const confirm = page.getByRole('dialog', { name: 'Issue this report?' });
+  const confirm = page.getByRole('alertdialog', { name: 'Issue the 2026-11-08 field report?' });
   await expect(confirm).toContainText('testing machine information included');
   await confirm.getByRole('button', { name: 'Issue report' }).click();
   await expect(page.getByText('Version 2 issued.')).toBeVisible();
@@ -208,7 +217,7 @@ test('T2: review with exceptions, return with a comment, resubmit, review and is
   // It now sits under Issued.
   await page.goto('/concrete/review?status=issued');
   await expect(page.getByRole('tab', { name: /Issued/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator(`a[href="${reviewPath}"]`)).toBeVisible();
+  await expect(page.locator(`a[href="${reviewPath}?version=2"]`)).toBeVisible();
 
   // A Lab Manager who is neither a reviewer nor an issuer reads it but can't act.
   await signInAs(page, 'lab');

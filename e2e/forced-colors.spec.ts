@@ -34,10 +34,14 @@ test('MTR-131: selected states stay distinguishable in forced colours', async ({
 
   // Strata: the Inbox's segmented tabs (STRATA-24; the Notifications filter before it).
   await page.goto('/inbox');
-  const tabs = page.getByRole('tablist', { name: 'Inbox' });
-  const pressed = tabs.getByRole('tab', { name: /^All/ });
+  const inboxTabs = page.getByRole('tablist', { name: 'Inbox' });
+  const pressed = inboxTabs.getByRole('tab', { name: /^All/ });
   await expect(pressed).toHaveAttribute('aria-selected', 'true');
-  await expectDifferent(pressed, tabs.getByRole('tab', { name: /^Requests/ }), 'segmented filter');
+  await expectDifferent(
+    pressed,
+    inboxTabs.getByRole('tab', { name: /^Requests/ }),
+    'segmented filter',
+  );
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expectDifferent(

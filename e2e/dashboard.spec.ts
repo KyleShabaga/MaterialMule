@@ -25,7 +25,8 @@ test('Today shows the welcome, shortcuts, Needs you and the last 24 hours, and f
     /^Good (morning|afternoon|evening), Alex$/,
   );
   await expect(
-    page.getByText(/^(Nothing needs you right now\.|\d+ things? needs? you\..*)$/),
+    // The summary under the greeting (a clear day repeats it in the Needs you panel).
+    page.getByText(/^(Nothing needs you right now\.|\d+ things? needs? you\..*)$/).first(),
   ).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute('href', '/inbox');

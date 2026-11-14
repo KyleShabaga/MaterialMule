@@ -112,10 +112,10 @@ test('issuing a field report stores its PDF; the issue view opens exactly that f
 }) => {
   const reportId = await reviewedReport(page);
   await page.goto(`/concrete/review/${reportId}/issue`);
-  const side = page.getByRole('complementary', { name: 'Issue' });
+  const side = page.getByRole('complementary', { name: 'Issue panel' });
   await side.getByRole('button', { name: 'Issue report' }).click();
   await page
-    .getByRole('dialog', { name: 'Issue this report?' })
+    .getByRole('alertdialog', { name: /^Issue the .* field report\?$/ })
     .getByRole('button', { name: 'Issue report' })
     .click();
   await expect(page.getByText('Version 1 issued.')).toBeVisible();
@@ -162,7 +162,7 @@ test('the lead issues a project summary report from the Summary tab', async ({ p
 
   await generate.click();
   await page
-    .getByRole('dialog', { name: 'Issue this summary report?' })
+    .getByRole('alertdialog', { name: 'Issue this summary report?' })
     .getByRole('button', { name: 'Issue summary report' })
     .click();
   const status = page.getByRole('status').filter({ hasText: /CSR-\d{4}-\d{4} issued\./ });

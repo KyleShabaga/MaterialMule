@@ -200,6 +200,9 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // Manager (concrete_hold.manage, a subset of the same callers). Refused before the body.
   'POST /api/concrete/holds/schedule-test': 'concrete_ordinary_hold.manage',
   'POST /api/concrete/holds/authorize-disposal': 'concrete_ordinary_hold.manage',
+  // STRATA-121: Hold until a date from Breaks puts scheduled specimens on an ordinary HOLD, by the
+  // same callers as its release (the lead or any Lab Manager; never LAB). Refused before the body.
+  'POST /api/concrete/holds/hold-until': 'concrete_ordinary_hold.manage',
   // MM-V2-C32: issuing a project summary report (the lead or an Authorized report issuer for
   // concrete_field reports); checked before the body and again under the project lock.
   'POST /api/concrete/projects/:projectId/summary-reports': 'report.issue',
