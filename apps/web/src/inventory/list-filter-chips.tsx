@@ -258,7 +258,24 @@ export function InventoryFilterChips({
                   <ChevronDown aria-hidden="true" className="size-3.5" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-72 p-0">
+              <PopoverContent
+                align="start"
+                className="w-72 p-0"
+                // A picker that just closed returns focus to its chip only after its exit
+                // animation. If another chip's picker opened meanwhile (pick a Location, then
+                // "+ Add filter" › Type at once), that late focus would land outside the new
+                // picker and close it under the person's pointer. So: no focus return while
+                // another picker is open, and focus moving to a chip never closes a picker.
+                onCloseAutoFocus={(event) => {
+                  if (openFilter !== null && openFilter !== filter) event.preventDefault();
+                }}
+                onFocusOutside={(event) => {
+                  const target = event.target as Element | null;
+                  if (target?.closest?.('[data-slot="inventory-filter-chips"]')) {
+                    event.preventDefault();
+                  }
+                }}
+              >
                 {picker(filter)}
               </PopoverContent>
             </Popover>

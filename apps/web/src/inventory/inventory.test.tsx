@@ -387,6 +387,25 @@ describe('Sample Storage inventory (STRATA-79)', () => {
     await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
+  it('a picker that just opened stays open when an earlier chip gets its focus back late', async () => {
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    renderAt(`/sample-storage?locationId=${WAREHOUSE.id}`);
+    await screen.findByText('42 storage units');
+    const location = within(screen.getByRole('group', { name: 'Filter Location' })).getAllByRole(
+      'button',
+    )[0]!;
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Type' }));
+    expect(await screen.findByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    // The Location picker's delayed focus return (after its exit animation) lands on its chip.
+    act(() => location.focus());
+    expect(screen.getByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Bucket' }));
+    await waitFor(() =>
+      expect(screen.getByRole('group', { name: 'Filter Type' })).toHaveTextContent('Bucket'),
+    );
+  });
+
   it('filters by received dates as you type', async () => {
     stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
     const router = renderAt('/sample-storage');
