@@ -464,6 +464,14 @@ test('inventory search and filters find newly received units', critical, async (
   await page.goto('/sample-storage');
   const searchBox = page.getByRole('searchbox', { name: 'Search storage units' });
   const search = async (text: string) => {
+    // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+    await expect(
+      searchBox.or(
+        page
+          .getByRole('toolbar', { name: 'Storage unit tools' })
+          .getByRole('button', { name: 'Search', exact: true }),
+      ),
+    ).toBeVisible();
     if (!(await searchBox.isVisible())) {
       await page
         .getByRole('toolbar', { name: 'Storage unit tools' })

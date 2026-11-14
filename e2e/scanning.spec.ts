@@ -242,6 +242,14 @@ test('scan-anywhere leaves a focused field alone', async ({ page }) => {
   await page.goto('/sample-storage');
   // The toolbar's search opens from its Search button (STRATA-79).
   const search = page.getByRole('searchbox', { name: 'Search storage units' });
+  // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+  await expect(
+    search.or(
+      page
+        .getByRole('toolbar', { name: 'Storage unit tools' })
+        .getByRole('button', { name: 'Search', exact: true }),
+    ),
+  ).toBeVisible();
   if (!(await search.isVisible())) {
     await page
       .getByRole('toolbar', { name: 'Storage unit tools' })

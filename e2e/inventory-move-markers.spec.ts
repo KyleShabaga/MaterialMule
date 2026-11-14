@@ -126,6 +126,8 @@ test('T1/AC1/T3: a unit with an open conflict shows Location conflict on the Con
   await page.goto('/sample-storage');
   // STRATA-79: the Conflicts tab (a Stage select when the list is narrow) replaces the filter.
   const tabs = page.getByRole('tablist', { name: 'Stage' });
+  // Wait for whichever control this width shows before choosing (isVisible() doesn't wait).
+  await expect(tabs.or(page.getByRole('combobox', { name: 'Stage' }))).toBeVisible();
   if (await tabs.isVisible()) {
     await tabs.getByRole('tab', { name: /^Conflicts [\d,]+$/ }).click();
   } else {
