@@ -62,3 +62,5 @@ export * from './people';
 export * from './receipt-drafts';
 export * from './today';
 export * from './inventory-list';
+export * from './disposal-scan';
+export * from './retention-pipeline';

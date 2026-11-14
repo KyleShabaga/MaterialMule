@@ -76,6 +76,8 @@ export const APPEND_ONLY_TABLES: AppendOnlyTable[] = [
   ...[
     'action_item_assignment',
     'disposal_removal',
+    // STRATA-92 (0047): disposal scan intents, written once per intent ID.
+    'disposal_scan_intent',
     'lab_comment_revision',
     'program_amendment',
     'program_lifecycle_event',

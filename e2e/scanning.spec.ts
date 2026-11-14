@@ -211,6 +211,8 @@ test('scan-anywhere: a label scanned with no field focused opens it, read-only',
   await scan(page, data.a1);
   await expect(page).toHaveURL(new RegExp(`/sample-storage/${data.a1}$`));
   await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
+  // Let the unit page finish its loads (they can move focus) before the next scan.
+  await page.waitForLoadState('networkidle');
 
   // The next label opens from the unit page too, read as typed and normalised by the server.
   // (Ignoring a repeat within 2 s is covered by the unit tests, which control the clock.)
@@ -240,6 +242,14 @@ test('scan-anywhere leaves a focused field alone', async ({ page }) => {
   await page.goto('/sample-storage');
   // The toolbar's search opens from its Search button (STRATA-79).
   const search = page.getByRole('searchbox', { name: 'Search storage units' });
+  // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+  await expect(
+    search.or(
+      page
+        .getByRole('toolbar', { name: 'Storage unit tools' })
+        .getByRole('button', { name: 'Search', exact: true }),
+    ),
+  ).toBeVisible();
   if (!(await search.isVisible())) {
     await page
       .getByRole('toolbar', { name: 'Storage unit tools' })

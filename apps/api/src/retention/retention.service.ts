@@ -42,7 +42,7 @@ function intentHash(value: unknown): string {
 
 const forbidden = () => new ForbiddenException({ code: 'forbidden' });
 
-type Kind = 'hold' | 'extension';
+export type Kind = 'hold' | 'extension';
 const TABLE: Record<Kind, { table: string; units: string; key: string; by: string; at: string }> = {
   hold: {
     table: 'retention_hold',
@@ -60,12 +60,13 @@ const TABLE: Record<Kind, { table: string; units: string; key: string; by: strin
   },
 };
 
-interface Scope {
+export interface Scope {
   projectId: string;
   scope: 'project' | 'units';
   unitIds?: string[];
   retainUntil?: string;
   extendMonths?: number;
+  holdUntil?: string;
   reason: string;
 }
 
@@ -270,12 +271,13 @@ export class RetentionService {
         }
         const project = await this.projectFacts(client, body.projectId, 'FOR SHARE');
         const unitIds = await this.checkUnits(client, body);
+        if (body.kind === 'extension') await assertNotEarlier(client, body, unitIds);
         const { rows } = await client.query<{ id: string }>(
           `INSERT INTO retention_request
              (project_id, kind, scope, retain_until, extend_months, reason, requested_by_user_id,
               requested_by_initials_snapshot, requested_by_name_snapshot, idempotency_key,
-              request_hash)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+              request_hash, hold_until)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
           [
             body.projectId,
             body.kind,
@@ -288,6 +290,7 @@ export class RetentionService {
             user.displayName,
             body.idempotencyKey,
             hash,
+            body.holdUntil ?? null,
           ],
         );
         const requestId = rows[0]!.id;
@@ -330,6 +333,7 @@ export class RetentionService {
             unitIds,
             retainUntil: body.retainUntil ?? null,
             extendMonths: body.extendMonths ?? null,
+            holdUntil: body.holdUntil ?? null,
             actionItemId,
           },
         });
@@ -369,6 +373,7 @@ export class RetentionService {
           scope: 'project' | 'units';
           retain_until: string | null;
           extend_months: number | null;
+          hold_until: string | null;
           reason: string;
           status: string;
           decision_idempotency_key: string | null;
@@ -379,7 +384,8 @@ export class RetentionService {
           lead_project_engineer_user_id: string | null;
         }>(
           `SELECT d.project_id, d.kind, d.scope, d.retain_until::text AS retain_until,
-                  d.extend_months, d.reason, d.status, d.decision_idempotency_key,
+                  d.extend_months, d.hold_until::text AS hold_until, d.reason, d.status,
+                  d.decision_idempotency_key,
                   d.decision_request_hash, d.decided_by_user_id, d.hold_id, d.extension_id,
                   p.lead_project_engineer_user_id
            FROM retention_request d JOIN project p ON p.id = d.project_id
@@ -425,6 +431,7 @@ export class RetentionService {
               unitIds: units.map((u) => u.storage_unit_id),
               retainUntil: request.retain_until ?? undefined,
               extendMonths: request.extend_months ?? undefined,
+              holdUntil: request.hold_until ?? undefined,
               reason: request.reason,
             },
             { idempotencyKey: body.idempotencyKey, hash, requestId: id },
@@ -519,7 +526,8 @@ export class RetentionService {
     }
   }
 
-  private async insertDecision(
+  /** Inserts a hold or extension (project locked and authority checked by the caller). */
+  async insertDecision(
     client: PoolClient,
     user: AuthUser,
     kind: Kind,
@@ -528,8 +536,10 @@ export class RetentionService {
   ): Promise<RetentionMutationResult> {
     const t = TABLE[kind];
     const unitIds = await this.checkUnits(client, body);
-    const extra = kind === 'extension' ? ', retain_until, extend_months' : '';
-    const extraValues = kind === 'extension' ? ', $10, $11' : '';
+    // STRATA-113 (Kyle 2026-11-13): an extension only ever pushes retain-until later.
+    if (kind === 'extension') await assertNotEarlier(client, body, unitIds);
+    const extra = kind === 'extension' ? ', retain_until, extend_months' : ', hold_until';
+    const extraValues = kind === 'extension' ? ', $10, $11' : ', $10';
     const { rows } = await client.query<{ id: string; version: number }>(
       `INSERT INTO ${t.table} (project_id, scope, reason, ${t.by}_user_id,
                                ${t.by}_initials_snapshot, ${t.by}_name_snapshot, request_id,
@@ -545,7 +555,9 @@ export class RetentionService {
         keys.requestId,
         keys.idempotencyKey,
         keys.hash,
-        ...(kind === 'extension' ? [body.retainUntil ?? null, body.extendMonths ?? null] : []),
+        ...(kind === 'extension'
+          ? [body.retainUntil ?? null, body.extendMonths ?? null]
+          : [body.holdUntil ?? null]),
       ],
     );
     const created = rows[0]!;
@@ -568,7 +580,7 @@ export class RetentionService {
         unitIds,
         ...(kind === 'extension'
           ? { retainUntil: body.retainUntil ?? null, extendMonths: body.extendMonths ?? null }
-          : {}),
+          : { holdUntil: body.holdUntil ?? null }),
         ...(keys.requestId ? { requestId: keys.requestId } : {}),
       },
     });
@@ -605,6 +617,59 @@ export class RetentionService {
     );
     if (!rows[0]) throw new NotFoundException({ code: 'project_not_found' });
     return rows[0];
+  }
+}
+
+/**
+ * STRATA-113 (Kyle 2026-11-13): the minimum is received + 1 year; holds and extensions only push
+ * the effective retain-until later. An extension whose date (a new retain-until, or the minimum
+ * plus months) is earlier than a covered unit's current effective retain-until is refused with
+ * 422 `retain_until_too_early`, naming those units. Scope project checks every current unit.
+ */
+export async function earlierThanEffective(
+  db: Pick<PoolClient, 'query'>,
+  body: Pick<Scope, 'projectId' | 'scope' | 'retainUntil' | 'extendMonths'>,
+  unitIds: string[],
+): Promise<{ id: string; readable_id: string; effective_retain_until: string }[]> {
+  const { rows } = await db.query<{
+    id: string;
+    readable_id: string;
+    effective_retain_until: string;
+  }>(
+    `SELECT su.id, su.readable_id, ur.effective_retain_until::text
+     FROM storage_unit su JOIN unit_retention ur ON ur.storage_unit_id = su.id
+     WHERE su.status <> 'disposed' AND su.project_id = $1::uuid
+       AND ($5::boolean OR su.id = ANY($2::uuid[]))
+       AND coalesce($3::date,
+                    (ur.minimum_retain_until + make_interval(months => $4::int))::date)
+           < ur.effective_retain_until
+     ORDER BY su.readable_id COLLATE "C"`,
+    [
+      body.projectId,
+      unitIds,
+      body.retainUntil ?? null,
+      body.extendMonths ?? null,
+      body.scope === 'project',
+    ],
+  );
+  return rows;
+}
+
+async function assertNotEarlier(
+  db: Pick<PoolClient, 'query'>,
+  body: Pick<Scope, 'projectId' | 'scope' | 'retainUntil' | 'extendMonths'>,
+  unitIds: string[],
+): Promise<void> {
+  const early = await earlierThanEffective(db, body, unitIds);
+  if (early.length > 0) {
+    throw new UnprocessableEntityException({
+      code: 'retain_until_too_early',
+      units: early.map((u) => ({
+        storageUnitId: u.id,
+        readableId: u.readable_id,
+        effectiveRetainUntil: u.effective_retain_until,
+      })),
+    });
   }
 }
 

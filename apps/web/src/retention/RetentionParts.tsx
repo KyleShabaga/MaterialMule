@@ -1,14 +1,32 @@
 import type { RetentionExtension, RetentionHold } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
-import { StatusBadge } from '../components/app-ui';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { formatExpiry } from '../lib/format';
 import { postRetention } from './api';
 
-// Shared MM-T29 pieces: the hold/extension form (decide directly, or request for people without
-// authority) and the history list with Release. Every rule is checked again by the server.
+// Shared MM-T29 pieces (Strata styles, STRATA-90): the hold/extension form (decide directly, or
+// request for people without authority) and the history list with Release. Every rule is checked
+// again by the server.
 
 function who(person: { initials: string | null; name: string }) {
   return person.initials ? `${person.initials} · ${person.name}` : person.name;
+}
+
+function Choice({ id, value, label }: { id: string; value: string; label: string }) {
+  return (
+    <Field orientation="horizontal">
+      <RadioGroupItem value={value} id={id} />
+      <FieldLabel htmlFor={id} className="font-normal">
+        {label}
+      </FieldLabel>
+    </Field>
+  );
 }
 
 export function RetentionForm({
@@ -28,6 +46,7 @@ export function RetentionForm({
   const [amount, setAmount] = useState<'date' | 'months'>('date');
   const [retainUntil, setRetainUntil] = useState('');
   const [months, setMonths] = useState('12');
+  const [holdUntil, setHoldUntil] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,7 +62,9 @@ export function RetentionForm({
         ? amount === 'date'
           ? { retainUntil }
           : { extendMonths: Number(months) }
-        : {};
+        : holdUntil
+          ? { holdUntil }
+          : {};
     const outcome =
       mode === 'request'
         ? await postRetention('/api/retention/requests', {
@@ -77,78 +98,87 @@ export function RetentionForm({
   const target = unitIds ? 'this unit' : 'the whole project (current and future units)';
   return (
     <form
-      className="retention-form"
+      className="flex flex-col gap-4 rounded-md border p-4"
       aria-label={mode === 'request' ? 'Request a hold or extension' : 'Place a hold or extension'}
       onSubmit={(event) => void submit(event)}
     >
-      <fieldset>
-        <legend>{mode === 'request' ? 'Ask for' : 'Add'}</legend>
-        <label>
-          <input type="radio" checked={kind === 'hold'} onChange={() => setKind('hold')} /> Hold on{' '}
-          {target}
-        </label>
-        <label>
-          <input
-            type="radio"
-            checked={kind === 'extension'}
-            onChange={() => setKind('extension')}
-          />{' '}
-          Extension for {target}
-        </label>
-      </fieldset>
+      <FieldSet>
+        <FieldLegend variant="label">{mode === 'request' ? 'Ask for' : 'Add'}</FieldLegend>
+        <RadioGroup value={kind} onValueChange={(next) => setKind(next as 'hold' | 'extension')}>
+          <Choice id={`${id}-hold`} value="hold" label={`Hold on ${target}`} />
+          <Choice id={`${id}-extension`} value="extension" label={`Extension for ${target}`} />
+        </RadioGroup>
+      </FieldSet>
       {kind === 'extension' ? (
-        <div className="retention-amount">
-          <label>
-            <input type="radio" checked={amount === 'date'} onChange={() => setAmount('date')} />{' '}
-            Retain until
-          </label>
-          <input
+        <FieldSet>
+          <RadioGroup
+            value={amount}
+            onValueChange={(next) => setAmount(next as 'date' | 'months')}
+            aria-label="Extend by"
+          >
+            <Choice id={`${id}-date`} value="date" label="Retain until" />
+            <Input
+              type="date"
+              aria-label="New retain-until date"
+              className="w-44 font-mono"
+              value={retainUntil}
+              disabled={amount !== 'date'}
+              onChange={(event) => setRetainUntil(event.target.value)}
+            />
+            <Choice id={`${id}-months`} value="months" label="Add months to the minimum" />
+            <Input
+              type="number"
+              min={1}
+              max={600}
+              aria-label="Months to add"
+              className="w-28 font-mono"
+              value={months}
+              disabled={amount !== 'months'}
+              onChange={(event) => setMonths(event.target.value)}
+            />
+          </RadioGroup>
+          <FieldDescription>An extension can only make retain-until later.</FieldDescription>
+        </FieldSet>
+      ) : (
+        <Field>
+          <FieldLabel htmlFor={`${id}-hold-until`}>Hold until (optional)</FieldLabel>
+          <Input
+            id={`${id}-hold-until`}
             type="date"
-            aria-label="New retain-until date"
-            value={retainUntil}
-            disabled={amount !== 'date'}
-            onChange={(event) => setRetainUntil(event.target.value)}
+            className="w-44 font-mono"
+            value={holdUntil}
+            onChange={(event) => setHoldUntil(event.target.value)}
           />
-          <label>
-            <input
-              type="radio"
-              checked={amount === 'months'}
-              onChange={() => setAmount('months')}
-            />{' '}
-            Add months to the minimum
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={600}
-            aria-label="Months to add"
-            value={months}
-            disabled={amount !== 'months'}
-            onChange={(event) => setMonths(event.target.value)}
-          />
-        </div>
-      ) : null}
-      <label htmlFor={`${id}-reason`}>Reason (required)</label>
-      <textarea
-        id={`${id}-reason`}
-        value={reason}
-        maxLength={2000}
-        onChange={(event) => setReason(event.target.value)}
-      />
+          <FieldDescription>
+            A reminder date. The hold stays until someone releases it.
+          </FieldDescription>
+        </Field>
+      )}
+      <Field>
+        <FieldLabel htmlFor={`${id}-reason`}>Reason (required)</FieldLabel>
+        <Textarea
+          id={`${id}-reason`}
+          value={reason}
+          maxLength={2000}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </Field>
       {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive" role="alert">
+          <AlertTitle>{error}</AlertTitle>
+        </Alert>
       ) : null}
-      <button type="submit" className="primary" disabled={busy || !reason.trim()}>
-        {mode === 'request' ? 'Send request' : kind === 'hold' ? 'Place hold' : 'Set extension'}
-      </button>
-      {mode === 'request' ? (
-        <p className="field-hint">
-          The project’s Lead Project Engineer and the Lab Managers decide; nothing changes until one
-          of them does.
-        </p>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={busy || !reason.trim()}>
+          {mode === 'request' ? 'Send request' : kind === 'hold' ? 'Place hold' : 'Set extension'}
+        </Button>
+        {mode === 'request' ? (
+          <p className="text-muted-foreground text-[13px]">
+            The project’s Lead Project Engineer and the Lab Managers decide; nothing changes until
+            one of them does.
+          </p>
+        ) : null}
+      </div>
     </form>
   );
 }
@@ -165,17 +195,19 @@ export function RetentionHistory({
   onChanged: () => void;
 }) {
   if (holds.length === 0 && extensions.length === 0) {
-    return <p className="field-hint">No holds or extensions.</p>;
+    return <p className="text-muted-foreground text-sm">No holds or extensions.</p>;
   }
   return (
-    <ul className="retention-history">
+    <ul className="flex flex-col divide-y">
       {holds.map((item) => (
         <DecisionRow
           key={item.id}
           kind="holds"
           item={item}
           title={`Hold: ${item.reason}`}
-          by={`Placed by ${who(item.placedBy)} · ${formatExpiry(item.placedAt)}`}
+          by={`Placed by ${who(item.placedBy)} · ${formatExpiry(item.placedAt)}${
+            item.holdUntil ? ` · until ${item.holdUntil}` : ''
+          }`}
           canManage={canManage}
           onChanged={onChanged}
         />
@@ -210,6 +242,7 @@ function DecisionRow({
   canManage: boolean;
   onChanged: () => void;
 }) {
+  const id = useId();
   const [releasing, setReleasing] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -238,41 +271,55 @@ function DecisionRow({
   }
 
   return (
-    <li className="retention-item" aria-label={title}>
-      <p>
-        <StatusBadge tone={item.active ? 'warning' : 'neutral'}>
-          {item.active ? 'Active' : 'Released'}
-        </StatusBadge>{' '}
-        <strong>{title}</strong>
+    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0" aria-label={title}>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="outline">{item.active ? 'Active' : 'Released'}</Badge>
+        <strong className="font-semibold">{title}</strong>
       </p>
-      <p className="field-hint">
+      <p className="text-muted-foreground text-[13px]">
         {scope} · {by}
         {item.releasedBy && item.releasedAt
           ? ` · Released by ${who(item.releasedBy)} · ${formatExpiry(item.releasedAt)}: ${item.releaseReason}`
           : ''}
       </p>
       {canManage && item.active && !releasing ? (
-        <button type="button" onClick={() => setReleasing(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => setReleasing(true)}
+        >
           Release
-        </button>
+        </Button>
       ) : null}
       {releasing && item.active ? (
-        <form aria-label="Release" onSubmit={(event) => void release(event)}>
-          <label>
-            Reason for releasing (required)
-            <textarea value={reason} onChange={(event) => setReason(event.target.value)} />
-          </label>
+        <form
+          aria-label="Release"
+          className="flex flex-col gap-3"
+          onSubmit={(event) => void release(event)}
+        >
+          <Field>
+            <FieldLabel htmlFor={`${id}-release`}>Reason for releasing (required)</FieldLabel>
+            <Textarea
+              id={`${id}-release`}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
           {error ? (
-            <p className="field-error" role="alert">
-              {error}
-            </p>
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>{error}</AlertTitle>
+            </Alert>
           ) : null}
-          <button type="button" onClick={() => setReleasing(false)}>
-            Cancel
-          </button>{' '}
-          <button type="submit" className="primary" disabled={!reason.trim()}>
-            Release
-          </button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setReleasing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={!reason.trim()}>
+              Release
+            </Button>
+          </div>
         </form>
       ) : null}
     </li>

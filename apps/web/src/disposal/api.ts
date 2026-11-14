@@ -1,38 +1,5 @@
-import {
-  disposalCandidatesSchema,
-  disposalReadySchema,
-  disposalScanResultSchema,
-  type DisposalCandidates,
-  type DisposalReady,
-  type DisposalScanResult,
-} from '@materialmule/shared';
+// MM-T30 approval and revocation, used by the Retention page (STRATA-90).
 import { apiFetch } from '../api/client';
-
-export async function fetchCandidates(
-  projectId: string,
-  page = 1,
-): Promise<DisposalCandidates | null> {
-  try {
-    const response = await apiFetch(
-      `/api/disposal/eligible?projectId=${encodeURIComponent(projectId)}&page=${page}`,
-    );
-    if (!response.ok) return null;
-    return disposalCandidatesSchema.parse(await response.json());
-  } catch {
-    return null;
-  }
-}
-
-/** MISC-13: units ready for disposal in every project; null when it couldn't be loaded. */
-export async function fetchReady(page = 1): Promise<DisposalReady | null> {
-  try {
-    const response = await apiFetch(`/api/disposal/ready?page=${page}`);
-    if (!response.ok) return null;
-    return disposalReadySchema.parse(await response.json());
-  } catch {
-    return null;
-  }
-}
 
 type Outcome = { ok: true } | { ok: false; message: string };
 
@@ -69,28 +36,3 @@ export const approveUnits = (unitIds: string[], idempotencyKey: string) =>
 
 export const revokeApproval = (id: string, reason: string, idempotencyKey: string) =>
   post(`/api/disposal/approvals/${id}/revoke`, { reason, idempotencyKey });
-
-/** One disposal scan; never queued. A connection failure says nothing was recorded. */
-export async function scanForDisposal(
-  suNumber: string,
-  idempotencyKey: string,
-): Promise<DisposalScanResult | { result: 'error'; message: string }> {
-  try {
-    const response = await apiFetch('/api/disposal/remove', {
-      method: 'POST',
-      body: JSON.stringify({ suNumber, idempotencyKey }),
-    });
-    const body = await response.json().catch(() => null);
-    const parsed = disposalScanResultSchema.safeParse(body);
-    if (parsed.success) return parsed.data;
-    if (response.status === 403) {
-      return { result: 'error', message: 'Disposal scans need a personal sign-in.' };
-    }
-    return { result: 'error', message: 'Not recorded. Try the scan again.' };
-  } catch {
-    return {
-      result: 'error',
-      message: 'Not recorded: Material Mule couldn’t be reached. Nothing was queued.',
-    };
-  }
-}

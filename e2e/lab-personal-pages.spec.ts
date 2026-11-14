@@ -59,7 +59,7 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
   await expect(
     page.getByRole('heading', { level: 1, name: 'Retention', exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel('Units shown')).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Retention stage' })).toBeVisible();
 
   // The picked person is attribution only: LAB still can't reach personal-account data.
   await expect(

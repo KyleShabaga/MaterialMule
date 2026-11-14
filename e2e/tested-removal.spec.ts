@@ -203,27 +203,18 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   const storageRow = page.getByRole('row', { name: new RegExp(tubeA!.readableId) });
   await expect(storageRow).toContainText('Not applicable');
   await expect(storageRow).not.toContainText('On hold');
-  await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}`);
-  await expect(page.getByText(/current units, by storage unit ID/)).toBeVisible();
-  const tested = page.getByRole('region', { name: 'Tested: removed after testing' });
-  for (
-    let next = 2;
-    (await tested.getByRole('link', { name: tubeA!.readableId }).count()) === 0;
-    next += 1
-  ) {
-    expect(next, 'tested tube not found on any Disposal page').toBeLessThan(50);
-    await page
-      .getByRole('navigation', { name: 'Pages' })
-      .getByRole('button', { name: 'Next' })
-      .click();
-    await expect(page.getByText(new RegExp(`Page ${next} of`))).toBeVisible();
-  }
-  const testedItem = tested.getByRole('listitem').filter({ hasText: tubeA!.readableId });
-  await expect(testedItem).toContainText('Retention: Not applicable');
-  await expect(testedItem).not.toContainText(/On hold|Retain until/);
-  await expect(page.getByRole('region', { name: 'Not eligible' })).not.toContainText(
-    tubeA!.readableId,
+  // Retention lists the tested tube apart from the bands: retention (and its hold) doesn't apply.
+  await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}&search=${tubeA!.readableId}`);
+  const tested = page.getByRole('region', { name: 'Tested units' });
+  await expect(tested).toContainText(
+    'Retention doesn’t apply. Open each unit and use “Confirm removal after testing”.',
   );
+  const testedRow = tested.getByRole('row', { name: new RegExp(tubeA!.readableId) });
+  await expect(testedRow.getByRole('link', { name: 'Open unit' })).toBeVisible();
+  await expect(testedRow).not.toContainText(/On hold|Retain until|Retention ends/);
+  for (const band of ['Overdue', 'Within 30 days', 'Within 90 days']) {
+    await expect(page.getByRole('region', { name: band })).not.toContainText(tubeA!.readableId);
+  }
 
   // A personal account confirms the physical removal (the hold doesn't block it).
   await signInAs(page, 'at');

@@ -14,6 +14,11 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Opens the toolbar's search box if needed and types `text` (the server search is debounced). */
 async function searchFor(page: Page, text: string) {
   const box = page.getByRole('searchbox', { name: 'Search storage units' });
+  const open = page
+    .getByRole('toolbar', { name: 'Storage unit tools' })
+    .getByRole('button', { name: 'Search', exact: true });
+  // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+  await expect(box.or(open)).toBeVisible();
   if (!(await box.isVisible())) {
     await page
       .getByRole('toolbar', { name: 'Storage unit tools' })
@@ -27,6 +32,8 @@ async function searchFor(page: Page, text: string) {
 async function chooseStage(page: Page, label: string) {
   const name = new RegExp(`^${escape(label)} [\\d,]+$`);
   const tabs = page.getByRole('tablist', { name: 'Stage' });
+  // Wait for whichever control this width shows before choosing (isVisible() doesn't wait).
+  await expect(tabs.or(page.getByRole('combobox', { name: 'Stage' }))).toBeVisible();
   if (await tabs.isVisible()) {
     await tabs.getByRole('tab', { name }).click();
   } else {

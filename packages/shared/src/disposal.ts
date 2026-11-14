@@ -21,6 +21,10 @@ export const DISPOSAL_BLOCKERS = [
   'location_conflict',
   // MM-T70: approved under the unit's earlier project; the current project must approve again.
   'approval_project_changed',
+  // STRATA-90: why a unit can't go on the disposal list (it is already on it; tested units leave
+  // through "Confirm removal after testing").
+  'on_disposal_list',
+  'retention_exempt',
 ] as const;
 export type DisposalBlockerCode = (typeof DISPOSAL_BLOCKERS)[number];
 
