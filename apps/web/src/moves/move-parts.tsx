@@ -92,6 +92,7 @@ export function MovedBy({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          className="pointer-coarse:h-11"
           type="button"
           variant={mover ? 'ghost' : 'default'}
           size="sm"
@@ -427,7 +428,14 @@ export function UnitRow({
         ) : item.problem === 'lookup' ? (
           <>
             <Badge variant="due">Needs online lookup</Badge>
-            <Button type="button" variant="outline" size="sm" disabled={!online} onClick={onLookUp}>
+            <Button
+              className="pointer-coarse:h-11"
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!online}
+              onClick={onLookUp}
+            >
               Look up
             </Button>
           </>
@@ -436,6 +444,7 @@ export function UnitRow({
         ) : null}
         {move && (move.state === 'attention' || move.state === 'waiting') ? (
           <Button
+            className="pointer-coarse:h-11"
             type="button"
             variant="ghost"
             size="sm"
@@ -446,6 +455,7 @@ export function UnitRow({
         ) : null}
         {!queued ? (
           <Button
+            className="pointer-coarse:size-11"
             type="button"
             variant="ghost"
             size="icon-sm"
@@ -533,6 +543,7 @@ export function ShelfRow({
         </ItemContent>
         <ItemActions className="ml-auto">
           <Button
+            className="pointer-coarse:size-11"
             type="button"
             variant="ghost"
             size="icon-sm"

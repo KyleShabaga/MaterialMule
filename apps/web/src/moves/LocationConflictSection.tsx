@@ -110,7 +110,7 @@ export function LocationConflictSection({
               type="button"
               variant="outline"
               size="sm"
-              className="text-foreground"
+              className="text-foreground pointer-coarse:h-11"
               onClick={() => setReloads((n) => n + 1)}
             >
               <RotateCw aria-hidden="true" />

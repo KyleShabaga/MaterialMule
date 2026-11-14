@@ -1,5 +1,5 @@
 import type { MeResponse, ReceiptDetail, StorageUnitDetail } from '@materialmule/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -225,6 +225,9 @@ const row = (readableId: string) =>
   screen.getAllByTestId('move-row').find((element) => element.textContent?.includes(readableId))!;
 
 afterEach(() => {
+  // Unmount first: a page still mounted could write its list back after the clear, and the next
+  // test would start with it (seen on slow CI as a Put away unit already on the list).
+  cleanup();
   vi.unstubAllGlobals();
   window.sessionStorage.clear();
 });
@@ -258,6 +261,38 @@ describe('Move storage units (STRATA-80)', () => {
       expect.objectContaining({ storageUnitId: UNITS['BKT-2026-000124']!.id, toLocationId: C1.id }),
     ]);
     expect(within(row('BKT-2026-000124')).getByText(/^Moved /)).toBeInTheDocument();
+  });
+
+  it('shows each unit once while Save stores its moves (a linked unit, then a scanned one)', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    renderAt('/sample-storage/move?units=BKT-2026-000124');
+    await waitFor(() => expect(row('BKT-2026-000124')).toHaveTextContent('Scan a shelf label'));
+    await scan(user, 'LOC-WH-C1');
+    await scan(user, 'BKT-2026-000125');
+    await waitFor(() => expect(screen.getAllByTestId('move-row')).toHaveLength(2));
+
+    // Every render during the save: never two rows for one unit (the row in the list and the
+    // same move again under "Waiting to send" before the row knows its queue ID).
+    let most = 0;
+    const count = () => {
+      for (const id of ['BKT-2026-000124', 'BKT-2026-000125']) {
+        const rows = screen
+          .queryAllByTestId('move-row')
+          .filter((element) => element.textContent?.includes(id));
+        most = Math.max(most, rows.length);
+      }
+    };
+    const observer = new MutationObserver(count);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    await user.click(screen.getByRole('button', { name: 'Save 2 moves' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert', { name: '' }).textContent).toContain('All moves saved.'),
+    );
+    observer.disconnect();
+    count();
+    expect(most).toBe(1);
+    expect(screen.getAllByTestId('move-row')).toHaveLength(2);
   });
 
   it('keeps problems on their own rows and never blocks the rest', async () => {

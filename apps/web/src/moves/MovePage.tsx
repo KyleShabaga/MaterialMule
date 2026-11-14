@@ -160,7 +160,7 @@ export function MovePage() {
   const station = useMemo(() => stationId(), []);
   const isLab = me.accountType === 'shared_lab';
   const routerLocation = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const receiptId = searchParams.get('receipt');
   const store = indexedDbMoveStore;
 
@@ -183,6 +183,11 @@ export function MovePage() {
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [camera, setCamera] = useState(false);
   const [saving, setSaving] = useState(false);
+  /**
+   * Queue IDs of the save in progress. Between storing a row's intent and marking the row with its
+   * ID, the move is already in the queue: it must not also show under "Waiting to send".
+   */
+  const [savingIds, setSavingIds] = useState<ReadonlySet<string>>(() => new Set());
   const [sessionEnded, setSessionEnded] = useState(false);
   // A toast ("4 moves saved · Undo") never covers the Save bar: the bar rises above it.
   const saveBar = useRef<HTMLDivElement | null>(null);
@@ -501,7 +506,19 @@ export function MovePage() {
       onScan(`LOC-${destinationCode}`, true);
     }
     // Put away lists the receipt's units as waiting for their labels instead.
-    if (!receiptId) for (const id of linked) onScan(id, true);
+    if (!receiptId && linked.length > 0) {
+      for (const id of linked) onScan(id, true);
+      // Applied once: take them out of the URL and router state, so a remount or reload (the list
+      // itself is kept in this tab) never scans them in again after a save.
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete('units');
+          return next;
+        },
+        { replace: true, state: null },
+      );
+    }
     // onScan only chains the scan; it is safe to call once per link.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mover?.id]);
@@ -547,13 +564,15 @@ export function MovePage() {
     const who = moverRef.current;
     if (rows.length === 0 || (isLab && !who)) return;
     setSaving(true);
+    const ids = rows.map(() => crypto.randomUUID());
+    setSavingIds(new Set(ids));
     const saved = new Map<string, string>();
     let failure: string | null = null;
-    for (const row of rows) {
+    for (const [index, row] of rows.entries()) {
       const unit = row.unit!;
       const destination = row.destination!;
       const previous = predecessorFor(queueRef.current.moves, unit.id, me.id, station);
-      const clientMoveId = crypto.randomUUID();
+      const clientMoveId = ids[index]!;
       const baseVersion = previous ? previous.request.baseVersion : unit.version;
       try {
         await queueRef.current.enqueue({
@@ -596,6 +615,8 @@ export function MovePage() {
     if (saved.size > 0) {
       setBatch((state) => markSaved(state, saved, new Date().toISOString()));
     }
+    // One render: the rows take their IDs as the in-progress set is cleared.
+    setSavingIds(new Set());
     setSaving(false);
     if (failure) announce({ tone: 'error', text: failure });
     else
@@ -695,6 +716,7 @@ export function MovePage() {
   const earlier = mine.filter(
     (move) =>
       !inList.has(move.clientMoveId) &&
+      !savingIds.has(move.clientMoveId) &&
       (move.state === 'pending' ||
         move.state === 'waiting' ||
         move.state === 'attention' ||
@@ -830,7 +852,7 @@ export function MovePage() {
               <Button
                 type="button"
                 size="sm"
-                className="mt-2"
+                className="mt-2 pointer-coarse:h-11"
                 onClick={() => {
                   setSessionEnded(false);
                   void refresh();
@@ -918,7 +940,13 @@ export function MovePage() {
                 }
               >
                 <div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setCamera(true)}>
+                  <Button
+                    className="pointer-coarse:h-11"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCamera(true)}
+                  >
                     <Camera aria-hidden="true" />
                     Scan with camera
                   </Button>
@@ -1071,7 +1099,13 @@ export function MovePage() {
             {barText}
           </p>
           {waitingToSend.length > 0 && online && !signedOut ? (
-            <Button type="button" variant="outline" size="sm" onClick={queue.syncNow}>
+            <Button
+              className="pointer-coarse:h-11"
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={queue.syncNow}
+            >
               <RefreshCw aria-hidden="true" />
               Try sending now
             </Button>
@@ -1079,6 +1113,7 @@ export function MovePage() {
           {draftUnits(batch.items).length > 0 ||
           batch.items.some((item) => item.kind === 'shelf') ? (
             <Button
+              className="pointer-coarse:h-11"
               type="button"
               variant="ghost"
               size="sm"
