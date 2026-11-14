@@ -4,20 +4,26 @@ import {
   type PersonSnapshot,
 } from '@materialmule/shared';
 import type { ReactNode } from 'react';
-import { FactCells } from '../concrete/ledger';
+import { cn } from '@/lib/utils';
 import { shortDateTime } from '../dashboard/format';
 
-// MM-V2-C28: the interim review preview of one submitted version, built from its frozen snapshot
-// (never the live report). It is not the issued format: C32 owns the final layout. Changed fields
-// since the previous version carry a visible "Changed" mark and the previous value (AC3); every
-// field is still shown, so the full record stays available.
-// Field Ledger (ConcreteReport board, only for what this preview already shows): the project as
-// fact cells, framed tables for specification / ticket and readings, specimens as letter cards.
+// MM-V2-C28 / STRATA-96: the review preview of one submitted version, built from its frozen
+// snapshot (never the live report), drawn as paper in the report's printed order. It is not the
+// issued file: the page labels it, and template P1 is provisional (report templates are an open
+// item). Changed fields since the previous version are highlighted with a visible "Changed" mark
+// and the previous value (AC3); every field is still shown, so the full record stays available.
+// Exception markers (numbered) sit on the sections their exceptions point at and link to the
+// exception in the review panel. Tables here are plain HTML: they are the print preview.
 
 type Snapshot = Record<string, unknown>;
 
-const FIELD_SECTIONS: { title: string; fields: [string, string][] }[] = [
+/** Sections of the paper; `key` is what an exception's field path maps to (markers). */
+export type PaperSectionKey =
+  'load' | 'location' | 'tests' | 'notes' | 'spec' | 'readings' | 'specimens' | 'attachments';
+
+const FIELD_SECTIONS: { key: PaperSectionKey; title: string; fields: [string, string][] }[] = [
   {
+    key: 'load',
     title: 'Project and load',
     fields: [
       ['reportDate', 'Report date'],
@@ -34,6 +40,7 @@ const FIELD_SECTIONS: { title: string; fields: [string, string][] }[] = [
     ],
   },
   {
+    key: 'location',
     title: 'Location and times',
     fields: [
       ['locationElements', 'Elements'],
@@ -55,6 +62,7 @@ const FIELD_SECTIONS: { title: string; fields: [string, string][] }[] = [
     ],
   },
   {
+    key: 'tests',
     title: 'Field tests',
     fields: [
       ['material', 'Material'],
@@ -68,6 +76,7 @@ const FIELD_SECTIONS: { title: string; fields: [string, string][] }[] = [
     ],
   },
   {
+    key: 'notes',
     title: 'Notes',
     fields: [
       ['specimensCast', 'Specimens cast'],
@@ -89,9 +98,58 @@ const SPEC_ROWS: [string, string][] = [
   ['cementType', 'Cement type'],
 ];
 
+const SECTION_TITLE: Record<PaperSectionKey, string> = {
+  load: 'Project and load',
+  location: 'Location and times',
+  tests: 'Field tests',
+  notes: 'Notes',
+  spec: 'Specification and ticket',
+  readings: 'Slump and air readings',
+  specimens: 'Specimens',
+  attachments: 'Attachments',
+};
+
+/** The paper section an exception's (or a change's) field path belongs to, or null. */
+// eslint-disable-next-line react-refresh/only-export-components -- paper helpers beside the paper
+export function paperSectionOf(path: string | null): PaperSectionKey | null {
+  if (!path) return null;
+  const [head, second] = path.replace(/^fields\./, '').split('.');
+  if (head === 'readings') return 'readings';
+  if (head === 'projectSpec' || head === 'ticketSpec') return 'spec';
+  if (head === 'specimenSets') return 'specimens';
+  if (head === 'attachmentRefs') return 'attachments';
+  if (head === 'mixSnapshot') return 'load';
+  const key = head === 'fields' ? second : head;
+  return FIELD_SECTIONS.find((s) => s.fields.some(([k]) => k === key))?.key ?? null;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- paper helpers beside the paper
+export function paperSectionTitle(key: PaperSectionKey): string {
+  return SECTION_TITLE[key];
+}
+
+/** "Project and load › Ticket number" for a change's path (the panel's change list). */
+// eslint-disable-next-line react-refresh/only-export-components -- paper helpers beside the paper
+export function changeLabel(path: string): string {
+  const section = paperSectionOf(path);
+  const rest = path.replace(/^fields\./, '');
+  const [head, key] = rest.split('.');
+  let field: string | undefined;
+  if (head === 'projectSpec' || head === 'ticketSpec') {
+    const row = SPEC_ROWS.find(([k]) => k === key)?.[1];
+    field = `${head === 'projectSpec' ? 'Project specification' : 'Ticket'}${row ? `, ${row}` : ''}`;
+  } else if (head === 'readings') field = 'a reading';
+  else if (head === 'specimenSets') field = 'a specimen set';
+  else if (head === 'mixSnapshot') field = 'Registry mix';
+  else field = FIELD_SECTIONS.flatMap((s) => s.fields).find(([k]) => k === head)?.[1];
+  if (!section) return field ?? rest;
+  return field ? `${SECTION_TITLE[section]} › ${field}` : SECTION_TITLE[section];
+}
+
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
-function formatValue(value: unknown): string {
+// eslint-disable-next-line react-refresh/only-export-components -- paper helpers beside the paper
+export function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'string') {
@@ -112,10 +170,12 @@ const obj = (value: unknown): Record<string, unknown> =>
 const list = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.map(obj) : [];
 
+const CHANGED_BG = 'rounded-sm bg-stage-due-bg px-1';
+
 function Changed({ change }: { change: ConcreteSnapshotChange | undefined }) {
   return (
     // `review-changed-mark` is the hook the E2E specs count changed fields by.
-    <span className="review-changed-mark">
+    <span className="review-changed-mark ml-1 text-xs font-semibold text-stage-due-fg">
       Changed{change ? <> (was {formatValue(change.before)})</> : null}
     </span>
   );
@@ -135,24 +195,98 @@ function Field({
   const changed = concreteSnapshotChanged(changes, path);
   const exact = changes.find((c) => c.path === path);
   return (
-    <div className={changed ? 'crv-field crv-changed' : 'crv-field'} data-path={path}>
-      <dt>{label}</dt>
-      <dd>
-        {value}
+    <div className="contents" data-path={path}>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words">
+        <span className={changed ? CHANGED_BG : undefined}>{value}</span>
         {changed ? <Changed change={exact} /> : null}
       </dd>
     </div>
   );
 }
 
+/** A numbered exception marker on a section, linking to that exception in the review panel. */
+export interface PaperMarker {
+  n: number;
+  section: PaperSectionKey;
+  /** The exception's name, for the marker's accessible name. */
+  label: string;
+}
+
+function SectionHead({
+  section,
+  markers,
+  onMarker,
+  changed,
+}: {
+  section: PaperSectionKey;
+  markers: readonly PaperMarker[];
+  onMarker?: (n: number) => void;
+  changed?: boolean;
+}) {
+  const mine = markers.filter((m) => m.section === section);
+  return (
+    <div className="mb-2 flex items-center gap-2 border-b border-foreground/20 pb-1">
+      {changed ? (
+        <span
+          aria-hidden="true"
+          className="size-1.5 shrink-0 rounded-full bg-stage-due-mark"
+          title="Changed on this version"
+        />
+      ) : null}
+      <h3 className="text-xs font-semibold tracking-wide uppercase">{SECTION_TITLE[section]}</h3>
+      <span className="ml-auto flex gap-1">
+        {mine.map((m) =>
+          onMarker ? (
+            <a
+              key={m.n}
+              href={`#exception-${m.n}`}
+              data-slot="exception-marker"
+              aria-label={`Exception ${m.n} on ${SECTION_TITLE[section]}: ${m.label}`}
+              onClick={(event) => {
+                event.preventDefault();
+                onMarker(m.n);
+              }}
+              className="flex size-5 items-center justify-center rounded-full bg-stage-due-bg text-[11px] font-semibold text-stage-due-fg no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {m.n}
+            </a>
+          ) : (
+            <span
+              key={m.n}
+              aria-label={`Exception ${m.n}: ${m.label}`}
+              className="flex size-5 items-center justify-center rounded-full bg-stage-due-bg text-[11px] font-semibold text-stage-due-fg"
+            >
+              {m.n}
+            </span>
+          ),
+        )}
+      </span>
+    </div>
+  );
+}
+
+const DL = 'grid grid-cols-[minmax(8rem,12rem)_1fr] gap-x-4 gap-y-1 text-sm';
+const TABLE =
+  'w-full border-collapse text-sm [&_td]:border-t [&_td]:border-foreground/15 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_thead_th]:border-b [&_thead_th]:border-foreground/40 [&_thead_th]:text-xs [&_thead_th]:font-semibold';
+
 export function ReportPreview({
   snapshot,
   changes,
   versionNo,
+  reportNumber = null,
+  issuedAt = null,
+  markers = [],
+  onMarker,
 }: {
   snapshot: Snapshot;
   changes: readonly ConcreteSnapshotChange[];
   versionNo: number;
+  /** The CF number once issued; before that the paper says "CF number at issue". */
+  reportNumber?: string | null;
+  issuedAt?: string | null;
+  markers?: readonly PaperMarker[];
+  onMarker?: (n: number) => void;
 }) {
   const fields = obj(snapshot.fields);
   const technician = snapshot.technician as PersonSnapshot | null | undefined;
@@ -161,36 +295,62 @@ export function ReportPreview({
   const attachments = list(fields.attachmentRefs);
   const mix = obj(snapshot.mixSnapshot);
   const mixSpec = obj(mix.spec);
+  const sectionChanged = (key: PaperSectionKey) =>
+    changes.some((c) => paperSectionOf(c.path) === key);
+  const head = (key: PaperSectionKey) => (
+    <SectionHead
+      section={key}
+      markers={markers}
+      onMarker={onMarker}
+      changed={sectionChanged(key)}
+    />
+  );
   return (
-    <article className="crv-preview" aria-labelledby="review-preview-heading">
-      <header className="crv-preview-head">
-        <h2 id="review-preview-heading">Review preview · version {versionNo}</h2>
-        <p className="crv-preview-notice">
-          Interim review preview of the version as submitted. This is not the issued report format.
-        </p>
-        <FactCells
-          label="Project"
-          cells={[
-            {
-              key: 'project',
-              label: 'Project',
-              value: (
-                <>
-                  <span className="mono">{String(snapshot.projectNumber ?? '')}</span>{' '}
-                  {String(snapshot.projectName ?? '')}
-                </>
-              ),
-            },
-            { key: 'client', label: 'Client', value: String(snapshot.client ?? '') || '—' },
-            { key: 'technician', label: 'Technician', value: technician?.name ?? '—' },
-          ]}
-        />
+    <article
+      className="flex flex-col gap-6 text-foreground"
+      aria-labelledby="review-preview-heading"
+    >
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-foreground pb-3">
+        <div>
+          <p className="text-sm font-semibold">Material Mule Testing Laboratory</p>
+          <p className="text-lg font-semibold">Concrete field report</p>
+          <h2 id="review-preview-heading" className="text-xs text-muted-foreground">
+            Review preview · version {versionNo}
+          </h2>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-sm font-semibold">{reportNumber ?? 'CF number at issue'}</p>
+          <p className="text-xs text-muted-foreground">
+            {reportNumber
+              ? issuedAt
+                ? `Issued ${issuedAt.slice(0, 10)}`
+                : 'Issued'
+              : 'Not issued'}
+          </p>
+        </div>
       </header>
 
+      <section>
+        <h3 className="mb-2 border-b border-foreground/20 pb-1 text-xs font-semibold tracking-wide uppercase">
+          Project
+        </h3>
+        <dl className={DL}>
+          <dt className="text-muted-foreground">Project</dt>
+          <dd>
+            <span className="font-mono">{String(snapshot.projectNumber ?? '')}</span>{' '}
+            {String(snapshot.projectName ?? '')}
+          </dd>
+          <dt className="text-muted-foreground">Client</dt>
+          <dd>{String(snapshot.client ?? '') || '—'}</dd>
+          <dt className="text-muted-foreground">Field technician</dt>
+          <dd>{technician?.name ?? '—'}</dd>
+        </dl>
+      </section>
+
       {FIELD_SECTIONS.map((section) => (
-        <section key={section.title} className="crv-preview-section">
-          <h3>{section.title}</h3>
-          <dl className="crv-fields">
+        <section key={section.key}>
+          {head(section.key)}
+          <dl className={DL}>
             {section.fields.map(([key, label]) => (
               <Field
                 key={key}
@@ -200,7 +360,7 @@ export function ReportPreview({
                 changes={changes}
               />
             ))}
-            {section.title === 'Project and load' ? (
+            {section.key === 'load' ? (
               <Field
                 label="Registry mix"
                 path="mixSnapshot"
@@ -216,15 +376,15 @@ export function ReportPreview({
         </section>
       ))}
 
-      <section className="crv-preview-section">
-        <h3>Specification and ticket</h3>
+      <section>
+        {head('spec')}
         <div
-          className="table-scroll table-frame"
+          className="overflow-x-auto"
           role="region"
           aria-label="Specification and ticket"
           tabIndex={0}
         >
-          <table className="crv-table">
+          <table className={TABLE}>
             <thead>
               <tr>
                 <th scope="col">Item</th>
@@ -235,13 +395,17 @@ export function ReportPreview({
             <tbody>
               {SPEC_ROWS.map(([key, label]) => (
                 <tr key={key}>
-                  <th scope="row">{label}</th>
+                  <th scope="row" className="font-normal">
+                    {label}
+                  </th>
                   {(['projectSpec', 'ticketSpec'] as const).map((column) => {
                     const path = `fields.${column}.${key}`;
                     const changed = concreteSnapshotChanged(changes, path);
                     return (
-                      <td key={column} className={changed ? 'mono crv-changed' : 'mono'}>
-                        {formatValue(obj(fields[column])[key])}
+                      <td key={column} className="font-mono">
+                        <span className={changed ? CHANGED_BG : undefined}>
+                          {formatValue(obj(fields[column])[key])}
+                        </span>
                         {changed ? <Changed change={changes.find((c) => c.path === path)} /> : null}
                       </td>
                     );
@@ -253,18 +417,13 @@ export function ReportPreview({
         </div>
       </section>
 
-      <section className="crv-preview-section">
-        <h3>Slump and air readings</h3>
+      <section>
+        {head('readings')}
         {readings.length === 0 ? (
-          <p>No readings.</p>
+          <p className="text-sm">No readings.</p>
         ) : (
-          <div
-            className="table-scroll table-frame"
-            role="region"
-            aria-label="Readings"
-            tabIndex={0}
-          >
-            <table className="crv-table">
+          <div className="overflow-x-auto" role="region" aria-label="Readings" tabIndex={0}>
+            <table className={TABLE}>
               <thead>
                 <tr>
                   <th scope="col">Test</th>
@@ -279,14 +438,14 @@ export function ReportPreview({
                   const path = `fields.readings.${String(r.id)}`;
                   const changed = concreteSnapshotChanged(changes, path);
                   return (
-                    <tr key={String(r.id)} className={changed ? 'crv-row-changed' : undefined}>
+                    <tr key={String(r.id)} className={changed ? 'bg-stage-due-bg' : undefined}>
                       <td>
                         {r.test === 'slump' ? 'Slump (mm)' : 'Air (%)'}
                         {changed ? <Changed change={undefined} /> : null}
                       </td>
                       <td>{formatValue(r.context)}</td>
-                      <td className="mono">{formatValue(r.value)}</td>
-                      <td className="mono">{formatValue(r.measuredAt)}</td>
+                      <td className="font-mono">{formatValue(r.value)}</td>
+                      <td className="font-mono">{formatValue(r.measuredAt)}</td>
                       <td>{formatValue(r.note)}</td>
                     </tr>
                   );
@@ -297,30 +456,25 @@ export function ReportPreview({
         )}
       </section>
 
-      <section className="crv-preview-section">
-        <h3>Specimens</h3>
+      <section>
+        {head('specimens')}
         {sets.length === 0 ? (
-          <p>No specimen sets.</p>
+          <p className="text-sm">No specimen sets.</p>
         ) : (
-          <ul className="crv-sets">
+          <ul className="flex flex-col gap-1 text-sm">
             {sets.map((set) => {
               const changed = concreteSnapshotChanged(changes, `specimenSets.${String(set.id)}`);
               const specimens = list(set.specimens);
               const letters = specimens.map((s) => formatValue(s.letter));
               return (
-                <li key={String(set.id)} className={changed ? 'crv-set crv-changed' : 'crv-set'}>
-                  <span>
-                    {formatValue(set.specimenType)} · mould {formatValue(set.mouldSize)} ·{' '}
-                    {specimens.length} {specimens.length === 1 ? 'specimen' : 'specimens'}
-                  </span>
+                <li key={String(set.id)} className={cn(changed && CHANGED_BG)}>
+                  {formatValue(set.specimenType)} · mould {formatValue(set.mouldSize)} ·{' '}
+                  {specimens.length} {specimens.length === 1 ? 'specimen' : 'specimens'}
                   {letters.length > 0 ? (
-                    <ul className="crv-letters" aria-label={`Specimens ${letters.join(', ')}`}>
-                      {letters.map((letter, i) => (
-                        <li key={i} className="specimen-letter">
-                          {letter}
-                        </li>
-                      ))}
-                    </ul>
+                    <span aria-label={`Specimens ${letters.join(', ')}`}>
+                      {' '}
+                      ({letters.join(', ')})
+                    </span>
                   ) : null}
                   {changed ? <Changed change={undefined} /> : null}
                 </li>
@@ -330,12 +484,12 @@ export function ReportPreview({
         )}
       </section>
 
-      <section className="crv-preview-section">
-        <h3>Attachments</h3>
+      <section>
+        {head('attachments')}
         {attachments.length === 0 ? (
-          <p>No ticket attachments recorded.</p>
+          <p className="text-sm">No ticket attachments recorded.</p>
         ) : (
-          <ul className="crv-list">
+          <ul className="flex flex-col gap-1 text-sm">
             {attachments.map((a) => (
               <li key={String(a.id)}>
                 {a.kind === 'ticket_photo' ? 'Ticket photo' : 'Ticket file'}:{' '}
@@ -345,6 +499,11 @@ export function ReportPreview({
           </ul>
         )}
       </section>
+
+      <footer className="flex flex-wrap justify-between gap-2 border-t border-foreground/20 pt-2 text-xs text-muted-foreground">
+        <span>Field report template P1 · Provisional template</span>
+        <span>Results relate only to the items tested.</span>
+      </footer>
     </article>
   );
 }
