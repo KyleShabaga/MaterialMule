@@ -89,24 +89,36 @@ export function StorageUnitTable({
         width: '15ch',
         sortKey: 'id',
         cell: (item) => (
-          <Link
-            to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
-            state={linkState}
-            className="font-semibold whitespace-nowrap text-foreground underline-offset-4 hover:underline"
-            onClick={(event: MouseEvent) => {
-              if (!onOpenRow || event.metaKey || event.ctrlKey || event.shiftKey) return;
-              event.preventDefault();
-              onOpenRow(item);
-            }}
-          >
-            {item.readableId}
-          </Link>
+          <>
+            <Link
+              to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
+              state={linkState}
+              className="font-semibold whitespace-nowrap text-foreground underline-offset-4 hover:underline"
+              onClick={(event: MouseEvent) => {
+                if (!onOpenRow || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                event.preventDefault();
+                onOpenRow(item);
+              }}
+            >
+              {item.readableId}
+            </Link>
+            <span
+              className="hidden truncate font-mono text-[13px] text-muted-foreground @max-[28rem]/table:block"
+              title={`${item.project.projectNumber} · ${item.project.name}`}
+              data-testid="unit-project-fold"
+            >
+              {item.project.projectNumber}
+            </span>
+          </>
         ),
       },
       {
         id: 'project',
         header: 'Project',
-        priority: 'identity',
+        // Always shown: a column on wide lists; under 28rem (a phone) the ID cell shows it on its
+        // own line instead, so Stage keeps room. ID + Project + Stage can't fit side by side at 375 px.
+        priority: 'attribute',
+        hideBelow: '28rem',
         mono: true,
         width: '10ch',
         sortKey: 'project',
@@ -168,8 +180,7 @@ export function StorageUnitTable({
         id: 'stage',
         header: 'Stage',
         priority: 'state',
-        // Fits the longest tag, "Disposed after testing": a status is never cut off.
-        width: '12rem',
+        // No fixed width: it shares the free space with Where; a clipped tag keeps its words in the cell's title.
         wrap: true,
         sortKey: 'stage',
         cell: (item) => <StageCell item={item} />,
@@ -273,7 +284,10 @@ function StageCell({ item }: { item: InventoryItem }) {
         : storageUnitStatusLabel(item.status);
   return (
     // The title keeps the words readable should a narrow list ever clip the tag.
-    <span className="flex min-w-0 flex-col items-start gap-0.5" title={words}>
+    <span
+      className="flex w-full min-w-0 flex-col items-start gap-0.5 overflow-hidden"
+      title={words}
+    >
       {status === 'disposed' && item.testedRemovalReason ? (
         // MM-T36: removed through the post-testing route.
         <StageTag stage="closed" label={DISPOSED_AFTER_TESTING_LABEL} />

@@ -103,9 +103,15 @@ test('MTR-58: Standard view scrolls inside its card or wraps; nothing is clipped
 
       expect(await pageOverflow(page), what).toBeLessThanOrEqual(0);
       expect(await tableProblems(page), what).toEqual([]);
-      // Identity and state columns never hide; the IDs show in full.
-      for (const heading of ['ID', 'Project', 'Stage']) {
+      // ID and Stage columns never hide; the IDs show in full. Project is always shown: as a
+      // column, or on a phone-width list folded under each ID.
+      for (const heading of ['ID', 'Stage']) {
         await expect(units.getByRole('columnheader', { name: heading }), what).toBeVisible();
+      }
+      if (width >= 820) {
+        await expect(units.getByRole('columnheader', { name: 'Project' }), what).toBeVisible();
+      } else {
+        await expect(units.getByTestId('unit-project-fold').first(), what).toBeVisible();
       }
       for (const link of await units.locator('tbody tr a[href^="/sample-storage/"]').all()) {
         await expect(link, what).toBeVisible();

@@ -212,9 +212,10 @@ test('T7: at phone width the table keeps ID, project and stage with no horizonta
   // The list is under 40rem: the Stage select stands in for the tabs.
   await expect(page.getByRole('combobox', { name: 'Stage' })).toBeVisible();
 
-  // Attribute columns hide by the list's width; identity and state (ID, project, stage) stay.
+  // Attribute columns hide by the list's width; ID, project (under the ID here) and stage stay.
   const row = table.locator('tbody tr').filter({ hasText: data.a1 });
-  await expect(row.getByText(data.projectA)).toBeVisible();
+  // Project folds under the ID on a phone (its column hides below 28rem); it's still shown.
+  await expect(row.getByText(data.projectA).filter({ visible: true })).toBeVisible();
   await expect(row.getByText(data.a1)).toBeVisible();
   await expect(row.getByText('Short-term')).toBeVisible();
   const overflow = await page.evaluate(
