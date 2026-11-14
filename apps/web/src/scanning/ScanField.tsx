@@ -52,9 +52,7 @@ export function ScanField({
             {...scanner.inputProps}
           />
         </InputGroup>
-        <FieldDescription id={`${id}-hint`}>
-          {paused ? 'Scanning paused: the field isn’t focused.' : description}
-        </FieldDescription>
+        <FieldDescription id={`${id}-hint`}>{description}</FieldDescription>
       </Field>
       {/* Always laid out, hidden while scanning: the button appearing must never move what sits
           below it, or a click that blurs the field (Remove on a row) lands somewhere else. */}
@@ -70,7 +68,14 @@ export function ScanField({
           <ScanLine aria-hidden="true" />
           Resume scanning
         </Button>
+        <span aria-hidden="true" className="ml-3 text-[13px] text-muted-foreground">
+          Scanning paused: the field isn’t focused.
+        </span>
       </div>
+      {/* Said once when scanning pauses; the visible line above is hidden from assistive tech. */}
+      <span className="sr-only" role="status">
+        {paused ? 'Scanning paused: the field isn’t focused.' : ''}
+      </span>
       {children}
     </div>
   );
