@@ -251,8 +251,13 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   await expect(page.getByRole('region', { name: 'Testing and removal' })).toContainText(
     'Available for testing',
   );
-  await page.goto(`/sample-storage?search=${tubeA!.readableId}`);
-  await expect(page.getByText(/No storage units match/)).toBeVisible();
+  // Gone from stock: neither storage tab lists it (the All tab includes disposed units).
+  for (const stage of ['short_term', 'long_term']) {
+    await page.goto(`/sample-storage?search=${tubeA!.readableId}&stage=${stage}`);
+    await expect(
+      page.getByText('No storage units match this search and these filters.'),
+    ).toBeVisible();
+  }
   await page.goto(`/sample-storage?search=${tubeA!.readableId}&status=disposed`);
   await expect(page.getByRole('row', { name: new RegExp(tubeA!.readableId) })).toContainText(
     'Disposed after testing',
