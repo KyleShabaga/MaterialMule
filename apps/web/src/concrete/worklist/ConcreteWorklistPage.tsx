@@ -198,7 +198,10 @@ export function ConcreteWorklistPage() {
         </Alert>
       ) : null}
 
+      {/* Manual activation: arrow keys move between the views and Enter opens one, so a quick run
+          of arrows never loads every list on the way (keyboard-first, DESIGN.md round 7). */}
       <Tabs
+        activationMode="manual"
         value={shownView}
         onValueChange={(next) => {
           setPendingView(next as ConcreteWorklistView);

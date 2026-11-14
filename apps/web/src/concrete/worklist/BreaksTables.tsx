@@ -237,26 +237,39 @@ export function HoldGroup({ group }: { group: ConcreteWorklistGroup }) {
           <TableCaption className="sr-only">{group.projectNumber} specimens</TableCaption>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={cn(HEAD, 'w-[12rem] pl-5')}>Set</TableHead>
+              <TableHead className={cn(HEAD, 'w-[8rem] pl-5')}>Set</TableHead>
               <TableHead className={HEAD}>Specimens on HOLD</TableHead>
               <TableHead className={cn(HEAD, 'w-[8.5rem]')}>Hold until</TableHead>
               <TableHead className={cn(HEAD, 'w-[12rem] @max-[40rem]/table:hidden')}>
                 Kind
               </TableHead>
-              <TableHead className={cn(HEAD, 'w-[9rem]')}>
+              <TableHead className={cn(HEAD, 'w-[9rem] @max-[34rem]/table:hidden')}>
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sets.map((set) => {
+              const kind = set.rows.some((row) => row.holdKind === 'ordinary')
+                ? 'Ordinary HOLD'
+                : 'HOLD';
               const due = set.rows.some((row) => row.flags.includes('hold_review_due'));
               return (
                 <TableRow key={set.key}>
-                  <TableCell className={cn(CELL, 'relative pl-5')}>
+                  <TableCell className={cn(CELL, 'relative pl-5 whitespace-normal')}>
                     <StageStripe stage="danger" />
                     <span className="font-mono font-semibold">{set.setLabel}</span>
                     <span className="sr-only"> On HOLD</span>
+                    {/* Narrow tables (phones): the kind and the Holds link fold in here. */}
+                    <span className="block text-[13px] text-muted-foreground @min-[40rem]/table:hidden">
+                      {kind}
+                    </span>
+                    <Link
+                      to="/lab-testing/concrete/holds"
+                      className="text-[13px] underline underline-offset-2 @min-[34rem]/table:hidden"
+                    >
+                      Open in Holds
+                    </Link>
                   </TableCell>
                   <TableCell className={cn(CELL, 'whitespace-normal')}>
                     <span className="flex flex-wrap gap-x-3 gap-y-1">
@@ -278,9 +291,9 @@ export function HoldGroup({ group }: { group: ConcreteWorklistGroup }) {
                     </span>
                   </TableCell>
                   <TableCell className={cn(CELL, 'whitespace-normal @max-[40rem]/table:hidden')}>
-                    {set.rows.some((row) => row.holdKind === 'ordinary') ? 'Ordinary HOLD' : 'HOLD'}
+                    {kind}
                   </TableCell>
-                  <TableCell className={CELL}>
+                  <TableCell className={cn(CELL, '@max-[34rem]/table:hidden')}>
                     <Button asChild variant="outline" size="sm">
                       <Link
                         to="/lab-testing/concrete/holds"

@@ -115,15 +115,21 @@ test('T3: Today, Overdue and HOLD for one project; a technician reads but cannot
   // Keyboard: arrow keys move between the views (Overdue, Today, Next 7 days, On HOLD).
   // AC3: HOLD shows its hold-until date.
   await tabs.getByRole('tab', { name: /Overdue/ }).focus();
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('ArrowRight');
+  // Radix moves focus a moment after each key, so each step is checked before the next press.
+  for (const name of [/Today/, /Next 7 days/]) {
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.getByRole('tab', { name })).toBeFocused();
+  }
   await page.keyboard.press('ArrowRight');
   const holdTab = tabs.getByRole('tab', { name: /On HOLD/ });
   await expect(holdTab).toBeFocused();
+  // Manual activation: Enter opens the focused view.
+  await page.keyboard.press('Enter');
   await expect(holdTab).toHaveAttribute('aria-selected', 'true');
   await expect(group.getByText('26-01D')).toBeVisible();
   await expect(group.getByText(labDate(28))).toBeVisible();
-  await expect(group.getByText('Ordinary HOLD')).toBeVisible();
+  // The Kind column, or its copy folded under the set on narrow tables (one is hidden).
+  await expect(group.getByText('Ordinary HOLD').filter({ visible: true })).toBeVisible();
 
   await tabs.getByRole('tab', { name: /Exceptions/ }).click();
   await expect(page.getByText(/Not checked here yet/)).toBeVisible();

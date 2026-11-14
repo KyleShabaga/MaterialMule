@@ -241,12 +241,15 @@ describe('Concrete → Breaks (MM-V2-C22, STRATA-95 variant A)', () => {
     await user.keyboard('{ArrowLeft}');
     const hold = screen.getByRole('tab', { name: /On HOLD/ });
     expect(hold).toHaveFocus();
+    // Manual activation: Enter opens the focused view (arrows alone load nothing).
+    await user.keyboard('{Enter}');
     // The view is kept in the URL, which the router updates a moment later.
     await vi.waitFor(() => expect(hold).toHaveAttribute('aria-selected', 'true'));
     const table = await screen.findByRole('table', { name: 'DEMO-2601 specimens' });
     expect(within(table).getByRole('columnheader', { name: 'Hold until' })).toBeInTheDocument();
     expect(within(table).getByText('2027-01-02')).toBeInTheDocument();
-    expect(within(table).getByText('Ordinary HOLD')).toBeInTheDocument();
+    // The Kind cell, and its copy folded under the set for narrow tables (CSS shows one).
+    expect(within(table).getAllByText('Ordinary HOLD')).toHaveLength(2);
     expect(within(table).getByText('HOLD review due')).toBeInTheDocument();
     // HOLD specimens aren't broken, rescheduled or ticked here: Holds owns them.
     expect(within(table).queryByRole('checkbox')).toBeNull();
