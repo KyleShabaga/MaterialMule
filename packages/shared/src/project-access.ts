@@ -449,7 +449,7 @@ export const PROJECT_CAPABILITY_ACTION_LABEL: Record<ProjectCapabilityAction, st
   'report.issue': 'Issue concrete field reports',
   'concrete_specimen.reschedule': 'Reschedule concrete specimen tests',
   'concrete_receiving_exception.resolve': 'Resolve missing, extra or unmatched concrete specimens',
-  'concrete_ordinary_hold.manage': 'Release ordinary concrete HOLD specimens',
+  'concrete_ordinary_hold.manage': 'Hold or release ordinary concrete HOLD specimens',
   'concrete_hold.manage': 'Release failed concrete specimen holds',
 };
 

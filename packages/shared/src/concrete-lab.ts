@@ -60,7 +60,11 @@ export const concreteReceivingQueueRowSchema = z.object({
   projectNumber: z.string(),
   projectName: z.string(),
   identity: z.object({ temporaryId: z.string().nullable(), permanentId: z.string().nullable() }),
-  castAt: z.string(),
+  /**
+   * Null: casting time not recorded (STRATA-120). The set is listed and can be received; its test
+   * dates stay unscheduled until the casting time is recorded.
+   */
+  castAt: z.string().nullable(),
   /** The person who did the field test (never LAB). */
   technician: personSnapshotSchema.nullable(),
   /** The caller did the field test: listed under My reports. */
@@ -82,7 +86,10 @@ export const concreteReceivingQueueSchema = z.object({
   total: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
-  /** My reports first, then the rest, each oldest casting first. */
+  /**
+   * My reports first, then the rest, each oldest casting first and sets without a casting time
+   * last (then project number, set number, temporary ID, set ID: a stable page order).
+   */
   items: z.array(concreteReceivingQueueRowSchema),
 });
 export type ConcreteReceivingQueue = z.infer<typeof concreteReceivingQueueSchema>;

@@ -20,9 +20,17 @@ export async function fetchTestingTable(query: {
   includeOverdue: boolean;
   /** Read one project on the server, so the row limit applies within it. */
   projectId?: string | null;
+  /**
+   * STRATA-95: just these specimens (a Breaks selection's Record breaks), whatever their target
+   * date; at most 200.
+   */
+  specimenIds?: readonly string[] | null;
 }): Promise<LoadResult<ConcreteTestingTable>> {
   const params = new URLSearchParams({ includeOverdue: String(query.includeOverdue) });
   if (query.projectId) params.set('projectId', query.projectId);
+  if (query.specimenIds && query.specimenIds.length > 0) {
+    params.set('specimenIds', query.specimenIds.join(','));
+  }
   try {
     const response = await apiFetch(`/api/concrete/testing-table?${params.toString()}`);
     if (!response.ok) return { ok: false, message: "The testing table couldn't load." };
