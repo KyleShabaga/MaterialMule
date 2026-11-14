@@ -452,19 +452,19 @@ describe('Sample Storage inventory (STRATA-79)', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select BKT-2026-000016' }));
     expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('3 selected');
 
-    // Disposed units are left out of Move.
+    // Disposed units are left out of Move. The Move screen takes the units out of its URL once
+    // applied, so the link it was opened with is read from the navigation itself.
+    const opened: { pathname: string; search: string; state: unknown }[] = [];
+    const unsubscribe = router.subscribe((state) => opened.push(state.location));
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Selection' })).getByRole('button', {
         name: 'Move',
       }),
     );
-    expect(router.state.location.pathname).toBe('/sample-storage/move');
-    expect(new URLSearchParams(router.state.location.search).get('units')).toBe(
-      'BKT-2026-000015,BKT-2026-000031',
-    );
-    expect(router.state.location.state).toEqual({
-      units: ['BKT-2026-000015', 'BKT-2026-000031'],
-    });
+    unsubscribe();
+    const move = opened.find((location) => location.pathname === '/sample-storage/move')!;
+    expect(new URLSearchParams(move.search).get('units')).toBe('BKT-2026-000015,BKT-2026-000031');
+    expect(move.state).toEqual({ units: ['BKT-2026-000015', 'BKT-2026-000031'] });
   });
 
   it('Print labels goes to the chosen-units print view; a tab change clears the selection', async () => {

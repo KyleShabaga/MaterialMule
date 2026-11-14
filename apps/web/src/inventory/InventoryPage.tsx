@@ -472,7 +472,12 @@ export function InventoryPage() {
   }
 
   const list = (
-    <div className="flex min-h-full flex-col gap-3 px-6 pt-5 pb-24 @max-[40rem]/list:px-4">
+    <div
+      // 44 px targets on touch screens only (coarse pointer, Kyle: 44 px is touch-only): every
+      // button in the list (toolbar, chips, tabs' Stage select, sort headings, pager, selection
+      // bar, row checkboxes). StorageUnitTable widens the checkbox column to fit.
+      className="flex min-h-full flex-col gap-3 px-6 pt-5 pb-24 @max-[40rem]/list:px-4 pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11"
+    >
       <h1 className="sr-only">Inventory</h1>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <StageTabs stage={stage} counts={counts} onChange={setStage} />
@@ -674,7 +679,12 @@ function StageTabs({
       >
         <TabsList aria-label="Stage" className="h-auto max-w-full justify-start">
           {INVENTORY_STAGE_TABS.map((tab) => (
-            <TabsTrigger key={tab} value={tab} className="flex-none gap-1.5">
+            <TabsTrigger
+              key={tab}
+              value={tab}
+              // Forced colours drop the active tab's fill: an underline marks it instead (MTR-131).
+              className="flex-none gap-1.5 forced-colors:data-[state=active]:border-[Highlight] forced-colors:data-[state=active]:underline forced-colors:data-[state=active]:underline-offset-4"
+            >
               {INVENTORY_STAGE_TAB_LABELS[tab]} {count(tab)}
             </TabsTrigger>
           ))}

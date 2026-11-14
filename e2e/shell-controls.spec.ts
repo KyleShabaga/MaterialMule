@@ -108,7 +108,12 @@ test('Ctrl B collapses to a 60 px rail with 44 px icons, is remembered, and leav
 
   // In a text field Ctrl B is the field's (bold), not the sidebar's.
   await page.goto('/sample-storage');
-  const search = page.getByRole('main').getByRole('textbox').first();
+  // STRATA-79: Inventory's search box opens from the table tools' Search button.
+  await page
+    .getByRole('toolbar', { name: 'Storage unit tools' })
+    .getByRole('button', { name: 'Search', exact: true })
+    .click();
+  const search = page.getByRole('searchbox', { name: 'Search storage units' });
   await search.focus();
   await search.press('Control+b');
   await expect(sidebar).toHaveAttribute('data-state', 'collapsed');

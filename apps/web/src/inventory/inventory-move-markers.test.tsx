@@ -265,14 +265,16 @@ describe('Sample Storage rows after an offline move settles in another tab (revi
       const requests = openInventory('/sample-storage?conflict=open&page=2', () =>
         refused ? [item(U1, { openConflict: true })] : [item(U2, { openConflict: true })],
       );
-      expect(await screen.findByRole('link', { name: U2.readableId })).toBeVisible();
+      // The list can re-render while it settles; look the link up again on each try.
+      await waitFor(() => expect(screen.getByRole('link', { name: U2.readableId })).toBeVisible());
       // Queued and refused between two of tab A's reads: still a settlement to show.
       const move = await indexedDbMoveStore.add(newMove(U1, C1));
       refused = true;
       await indexedDbMoveStore.update(move.clientMoveId, { state: 'conflict' });
       announce();
       await screen.findByRole('link', { name: U1.readableId });
-      expect(row(U1.readableId).getByText('Location conflict')).toBeVisible();
+      // The rows can re-render while settling; look the tag up again on each try.
+      await waitFor(() => expect(row(U1.readableId).getByText('Location conflict')).toBeVisible());
       expect(requests).toHaveLength(2);
       expect(requests[1]!.searchParams.get('stage')).toBe('conflicts');
       expect(requests[1]!.searchParams.get('page')).toBe('2');

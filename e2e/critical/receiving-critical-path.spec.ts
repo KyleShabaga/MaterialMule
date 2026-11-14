@@ -459,9 +459,20 @@ test('inventory search and filters find newly received units', critical, async (
   });
   const ids = units.map((u) => u.suNumber);
 
+  // STRATA-79: the toolbar's search opens from its Search button; filters are chips, each with
+  // its own picker, added from "+ Add filter".
   await page.goto('/sample-storage');
-  await page.getByRole('searchbox', { name: 'Search' }).fill(projectNumber);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  const searchBox = page.getByRole('searchbox', { name: 'Search storage units' });
+  const search = async (text: string) => {
+    if (!(await searchBox.isVisible())) {
+      await page
+        .getByRole('toolbar', { name: 'Storage unit tools' })
+        .getByRole('button', { name: 'Search', exact: true })
+        .click();
+    }
+    await searchBox.fill(text);
+  };
+  await search(projectNumber);
   const count = page.getByRole('status').filter({ hasText: 'storage unit' });
   await expect(count).toHaveText('2 storage units');
   const table = page.getByRole('table', { name: 'Storage units' });
@@ -469,25 +480,34 @@ test('inventory search and filters find newly received units', critical, async (
 
   // Narrow by project, location and type, one at a time as a person would (each applied before
   // the next; see defect D2 in docs/testing/receiving-regression-results.md): the new units stay.
-  const chips = page.getByRole('list', { name: 'Active filters' });
-  await page.getByRole('searchbox', { name: 'Project' }).fill(projectNumber);
-  await page.getByRole('button', { name: new RegExp(`^${projectNumber} ·`) }).click();
-  await expect(chips).toContainText(`Project: ${projectNumber}`);
-  await page.getByRole('combobox', { name: 'Location' }).selectOption({ label: 'Receiving lab' });
-  await expect(chips).toContainText('Location: Receiving lab');
-  await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Bucket' });
-  await expect(chips).toContainText('Type: Bucket');
-  await expect(chips).toContainText(`Project: ${projectNumber}`);
-  await expect(chips).toContainText('Location: Receiving lab');
+  const addFilter = async (field: string) => {
+    await page.getByRole('button', { name: 'Add filter' }).click();
+    await page.getByRole('menuitem', { name: field }).click();
+  };
+  const chip = (field: string) => page.getByRole('group', { name: `Filter ${field}` });
+  await addFilter('Project');
+  await page.getByRole('combobox', { name: 'Project' }).fill(projectNumber);
+  await page.getByRole('option', { name: new RegExp(`^${projectNumber} ·`) }).click();
+  await expect(chip('Project')).toContainText(projectNumber);
+  await addFilter('Location');
+  await page.getByRole('option', { name: 'Receiving lab' }).click();
+  await expect(chip('Location')).toContainText('Receiving lab');
+  await addFilter('Type');
+  await page.getByRole('option', { name: 'Bucket', exact: true }).click();
+  await expect(chip('Type')).toContainText('Bucket');
+  await expect(chip('Project')).toContainText(projectNumber);
+  await expect(chip('Location')).toContainText('Receiving lab');
   await expect(count).toHaveText('2 storage units');
   for (const id of ids) await expect(table.getByText(id)).toBeVisible();
 
   // And by ID alone, from a search by the readable ID.
-  await page.getByRole('button', { name: 'Clear filters' }).click();
-  await expect(chips).toHaveCount(0);
-  await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveValue('');
-  await page.getByRole('searchbox', { name: 'Search' }).fill(ids[1]!);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page
+    .getByRole('group', { name: 'Filters' })
+    .getByRole('button', { name: 'Clear filters' })
+    .click();
+  await expect(page.getByRole('group', { name: /^Filter / })).toHaveCount(0);
+  await expect(page).not.toHaveURL(/search=/);
+  await search(ids[1]!);
   await expect(count).toHaveText('1 storage unit');
   await expect(table.getByText(ids[1]!)).toBeVisible();
 });

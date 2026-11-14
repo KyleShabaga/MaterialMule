@@ -232,6 +232,13 @@ export function StorageUnitTable({
       caption={caption}
       loading={loading}
       freeColumnMin="9.5rem"
+      // Touch screens: the row and select-all checkboxes are 44 px targets, in a column wide
+      // enough for them (44 px is touch-only).
+      className={
+        onSelectedIdsChange
+          ? 'pointer-coarse:[&_[data-slot=checkbox]]:size-11 pointer-coarse:[&_th:first-child]:w-[4.25rem]!'
+          : undefined
+      }
     />
   );
 }
