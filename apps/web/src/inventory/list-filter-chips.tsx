@@ -10,7 +10,15 @@ import {
   type TestHole,
 } from '@materialmule/shared';
 import { Check, ChevronDown, Plus, X } from 'lucide-react';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import {
@@ -70,10 +78,16 @@ export function InventoryFilterChips({
   locations: readonly InventoryLocation[];
   /** The chip whose picker is open (page state, so "+ Add filter" can open the new chip's). */
   openFilter: InventoryFilter | null;
-  onOpenFilterChange: (filter: InventoryFilter | null) => void;
+  /**
+   * Sets the open chip (a state setter, so a close can be conditional on the latest value: a
+   * picker only ever closes itself, never the one opened after it).
+   */
+  onOpenFilterChange: Dispatch<SetStateAction<InventoryFilter | null>>;
   onClearFilters: () => void;
   filtered: boolean;
 }) {
+  /** The chip whose picker opens when the "+ Add filter" menu has closed. */
+  const openAfterMenu = useRef<InventoryFilter | null>(null);
   const projectId = params.get('projectId');
   const project = useProject(projectId);
   const holes = useTestHoles(projectId);
@@ -121,7 +135,7 @@ export function InventoryFilterChips({
   };
 
   const picker = (filter: InventoryFilter): ReactNode => {
-    const close = () => onOpenFilterChange(null);
+    const close = () => onOpenFilterChange((current) => (current === filter ? null : current));
     switch (filter) {
       case 'project':
         return (
@@ -243,7 +257,14 @@ export function InventoryFilterChips({
           <ButtonGroup key={filter} aria-label={`Filter ${label}`}>
             <Popover
               open={openFilter === filter}
-              onOpenChange={(open) => onOpenFilterChange(open ? filter : null)}
+              // A picker still playing its close animation keeps dismissing on outside focus and
+              // clicks; that late "close" must not shut the picker opened after it (it did: pick
+              // a Location, then "+ Add filter" › Type, and the Type picker shut as it opened).
+              onOpenChange={(open) =>
+                onOpenFilterChange((current) =>
+                  open ? filter : current === filter ? null : current,
+                )
+              }
             >
               <PopoverTrigger asChild>
                 <Button
@@ -261,20 +282,15 @@ export function InventoryFilterChips({
               <PopoverContent
                 align="start"
                 className="w-72 p-0"
-                // A picker that just closed returns focus to its chip only after its exit
-                // animation. If another chip's picker opened meanwhile (pick a Location, then
-                // "+ Add filter" › Type at once), that late focus would land outside the new
-                // picker and close it under the person's pointer. So: no focus return while
-                // another picker is open, and focus moving to a chip never closes a picker.
+                // Pickers close on a choice, Escape, a click outside or their chip, never on focus
+                // moving: menus and pickers hand focus around as they animate out (a closing
+                // picker returning focus to its chip, the "+ Add filter" menu unmounting), and a
+                // late focus move shut the picker just opened under the person's pointer. No
+                // focus return while another picker is open, either.
                 onCloseAutoFocus={(event) => {
                   if (openFilter !== null && openFilter !== filter) event.preventDefault();
                 }}
-                onFocusOutside={(event) => {
-                  const target = event.target as Element | null;
-                  if (target?.closest?.('[data-slot="inventory-filter-chips"]')) {
-                    event.preventDefault();
-                  }
-                }}
+                onFocusOutside={(event) => event.preventDefault()}
               >
                 {picker(filter)}
               </PopoverContent>
@@ -302,15 +318,21 @@ export function InventoryFilterChips({
           <DropdownMenuContent
             align="start"
             className="w-48"
-            // The new chip's picker takes focus instead of this button.
-            onCloseAutoFocus={(event) => event.preventDefault()}
+            // The new chip's picker opens once this menu has finished closing (its exit
+            // animation), so the two never overlap, and it takes focus instead of this button.
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              const next = openAfterMenu.current;
+              openAfterMenu.current = null;
+              if (next) onOpenFilterChange(next);
+            }}
           >
             {available.map((filter) => (
               <DropdownMenuItem
                 key={filter}
                 onSelect={() => {
                   update((prev) => withPendingFilter(prev, filter, true));
-                  onOpenFilterChange(filter);
+                  openAfterMenu.current = filter;
                 }}
               >
                 {INVENTORY_FILTER_LABELS[filter]}

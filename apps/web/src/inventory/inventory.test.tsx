@@ -10,7 +10,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
 import { pickStationPerson } from '../session/station-test-person';
@@ -403,6 +403,57 @@ describe('Sample Storage inventory (STRATA-79)', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Bucket' }));
     await waitFor(() =>
       expect(screen.getByRole('group', { name: 'Filter Type' })).toHaveTextContent('Bucket'),
+    );
+  });
+
+  it('a picker opened from "+ Add filter" opens once the menu has finished closing, and stays open', async () => {
+    // Radix keeps a closing menu (with its focus trap) and popover mounted until the exit
+    // animation ends. jsdom has no animations, so give menus and popovers an enter and an exit
+    // animation, read live: Radix keeps the style object from mount and reads it on each change.
+    const realStyle = window.getComputedStyle.bind(window);
+    const animated = new Set(['popover-content', 'dropdown-menu-content']);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      if (!(element instanceof HTMLElement) || !animated.has(element.dataset.slot ?? '')) {
+        return style;
+      }
+      return new Proxy(style, {
+        get: (target, key) =>
+          key === 'animationName'
+            ? element.dataset.state === 'closed'
+              ? 'exit'
+              : 'enter'
+            : Reflect.get(target, key, target),
+      });
+    });
+    const finishAnimations = () =>
+      act(() => {
+        for (const closing of document.querySelectorAll(
+          '[data-state="closed"][data-slot$="-content"]',
+        )) {
+          // jsdom's events carry no animationName; Radix matches it to the running animation.
+          const end = new Event('animationend', { bubbles: true });
+          Object.defineProperty(end, 'animationName', { value: 'exit' });
+          closing.dispatchEvent(end);
+        }
+      });
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    stubApi((url) => (url.pathname === '/api/inventory' ? json(200, twoRows()) : undefined));
+    const router = renderAt(`/sample-storage?locationId=${WAREHOUSE.id}`);
+    await screen.findByText('42 storage units');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Type' }));
+    // The menu is still closing; then its animation ends.
+    finishAnimations();
+    expect(await screen.findByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    finishAnimations();
+    expect(screen.getByRole('option', { name: 'Bucket' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Bucket' }));
+    await waitFor(() =>
+      expect(query(router.state.location)).toEqual({ locationId: WAREHOUSE.id, type: 'bucket' }),
     );
   });
 
