@@ -252,7 +252,7 @@ describe('route guard', () => {
 });
 
 describe('dashboard', () => {
-  it('AC1/AC3: shows identity, Receive samples and the latest activity with links', async () => {
+  it('AC1/AC3: shows identity, the shortcuts and the latest activity with links', async () => {
     renderAt(
       '/',
       { status: 'active', me: me() },
@@ -260,7 +260,8 @@ describe('dashboard', () => {
         '/api/activity/recent': [
           {
             id: 'e1',
-            occurredAt: '2026-10-25T16:42:00.000Z',
+            // Today keeps only the last 24 hours.
+            occurredAt: new Date(Date.now() - 3_600_000).toISOString(),
             action: 'receipt.confirmed',
             actorInitials: 'AT',
             actorName: 'Alex Tester',
@@ -276,10 +277,12 @@ describe('dashboard', () => {
     expect(within(account).getByText('Lab Manager')).toBeInTheDocument();
     expect(within(account).getByText('TEST')).toBeInTheDocument();
     expect(within(account).getByRole('button', { name: /Account menu$/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Receive samples' })).toHaveAttribute(
-      'href',
-      '/receiving-log/new',
-    );
+    // Strata Today (STRATA-23): the Lab Manager's shortcuts.
+    expect(
+      within(screen.getByRole('navigation', { name: 'Shortcuts' })).getByRole('link', {
+        name: 'Retention due',
+      }),
+    ).toHaveAttribute('href', '/disposal-retention');
     const link = await screen.findByRole('link', {
       name: 'AT received BKT-2026-000014 for DEMO-2601',
     });
@@ -353,9 +356,9 @@ describe('dashboard', () => {
 
   it('shows a retryable error when activity fails to load', async () => {
     renderAt('/', { status: 'active', me: me() });
-    expect(await screen.findByText(/The ledger couldn't load/)).toBeInTheDocument();
-    const activity = screen.getByRole('region', { name: 'Ledger' });
-    expect(within(activity).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(await screen.findByText(/The last 24 hours couldn’t load/)).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'Last 24 hours' });
+    expect(within(activity).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
   it('shows a not-found page for unknown paths inside the app', async () => {

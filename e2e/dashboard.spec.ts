@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { receiveThroughApi } from './support/receiving';
 
-// Today (Field Ledger; replaces the dashboard at /) and search through the Ctrl K menu, at
-// desktop and phone width. Fictional data only.
+// Today (Strata, the page at /) and search through the Ctrl K menu, at desktop and phone width.
+// Fictional data only.
 
 async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(
@@ -11,11 +11,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
   );
 }
 
-function isPhone(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 1280) <= 640;
-}
-
-test('Today shows the queue, the ledger and the storage room, and fits the screen', async ({
+test('Today shows the welcome, shortcuts, Needs you and the last 24 hours, and fits the screen', async ({
   page,
 }) => {
   await signInAs(page, 'at');
@@ -23,33 +19,32 @@ test('Today shows the queue, the ledger and the storage room, and fits the scree
 
   await page.goto('/');
   await expect(page).toHaveTitle('Today · Material Mule');
+  // DESIGN.md "Today with an own account": the welcome greets the person by first name, and one
+  // line says how many things need them.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    /^Good (morning|afternoon|evening), Alex$/,
+  );
+  await expect(
+    // The summary under the greeting (a clear day repeats it in the Needs you panel).
+    page.getByText(/^(Nothing needs you right now\.|\d+ things? needs? you\..*)$/).first(),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
-  // Something was received just now, so the 24-hour ledger has rows (dashboard-activity.spec.ts
+  await expect(page.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute('href', '/inbox');
+  // Alex has no lab role and leads no project: the technician's shortcuts.
+  const shortcuts = page.getByRole('navigation', { name: 'Shortcuts' });
+  await expect(shortcuts.getByRole('link', { name: 'Receive', exact: true })).toHaveAttribute(
+    'href',
+    '/receiving-log/new',
+  );
+  await expect(shortcuts.getByRole('link', { name: 'Move storage units' })).toHaveAttribute(
+    'href',
+    '/sample-storage/move',
+  );
+  // Something was received just now, so the last 24 hours have rows (dashboard-activity.spec.ts
   // checks the order).
   await expect(
-    page.getByRole('region', { name: 'Ledger' }).getByRole('listitem').first(),
+    page.getByRole('region', { name: 'Last 24 hours' }).getByRole('listitem').first(),
   ).toBeVisible();
-
-  if (isPhone(page)) {
-    await expect(page.getByRole('heading', { level: 1, name: 'Today' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Scan a label/ })).toHaveAttribute(
-      'href',
-      '/sample-storage/scan',
-    );
-  } else {
-    // The ink greeting block greets the person by first name and counts what needs them.
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      /^Good (morning|afternoon|evening), Alex\. .+ (needs|need) you today\.$/,
-    );
-    await expect(page.getByRole('link', { name: 'Receive samples' })).toHaveAttribute(
-      'href',
-      '/receiving-log/new',
-    );
-    const room = page.getByRole('region', { name: 'Storage room' });
-    await expect(
-      room.getByRole('img', { name: /Receiving lab: \d+ storage units?/ }),
-    ).toBeVisible();
-  }
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 

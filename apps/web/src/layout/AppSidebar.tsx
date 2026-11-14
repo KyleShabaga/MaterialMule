@@ -252,38 +252,18 @@ function ItemRow({
 }
 
 /**
- * Inbox (notifications for now) with its unread badge, and Action requests under it until the
- * unified Inbox (STRATA-25) holds both. The count is one value shared with the bell; hidden
- * when null or zero (LAB has no Inbox count).
+ * Inbox (STRATA-24: requests and updates in one place) with its unread badge. The count is one
+ * value shared with the bell; hidden when null or zero (LAB has no Inbox count).
  */
-function InboxRow({ item, requests }: { item: NavItem; requests: SubPage | null }) {
+function InboxRow({ item }: { item: NavItem }) {
   const { pathname } = useLocation();
-  const iconMode = useIconMode();
   const count = useInboxUnreadCount();
   const countId = useId();
-  const onRequests = requests ? activeSubPage(pathname, [requests]) !== null : false;
   const current = activeNavKey(pathname) === 'inbox';
   const shown = count !== null && count > 0;
-  if (iconMode && requests) {
-    return (
-      <Flyout icon={item.icon} label={item.label} current={current}>
-        <FlyoutLink to={item.to} current={current && !onRequests}>
-          {item.label}
-          {shown ? <span className="ml-auto font-mono text-[13px]">{count} unread</span> : null}
-        </FlyoutLink>
-        <FlyoutLink to={requests.to} current={onRequests}>
-          {requests.label}
-        </FlyoutLink>
-      </Flyout>
-    );
-  }
   return (
     <SidebarMenuItem>
-      <NavRow
-        item={item}
-        current={current && !onRequests}
-        describedBy={shown ? countId : undefined}
-      />
+      <NavRow item={item} current={current} describedBy={shown ? countId : undefined} />
       {shown ? (
         <SidebarMenuBadge className="top-1/2 right-2 -translate-y-1/2 rounded-full bg-primary px-1.5 font-mono text-[11px] text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-[active=true]/menu-button:text-primary-foreground">
           <span aria-hidden="true">{count > 9 ? '9+' : count}</span>
@@ -293,7 +273,6 @@ function InboxRow({ item, requests }: { item: NavItem; requests: SubPage | null 
           </span>
         </SidebarMenuBadge>
       ) : null}
-      {requests ? <SubRows pages={[requests]} current={onRequests ? requests.to : null} /> : null}
     </SidebarMenuItem>
   );
 }
@@ -642,7 +621,7 @@ export function AppSidebar({
                       <NavRow item={item} current={active === item.key} />
                     </SidebarMenuItem>
                   ))}
-                  {inbox ? <InboxRow item={inbox} requests={nav.inboxRequests} /> : null}
+                  {inbox ? <InboxRow item={inbox} /> : null}
                 </SidebarMenu>
               </SidebarGroup>
               {shown.map((id) => {

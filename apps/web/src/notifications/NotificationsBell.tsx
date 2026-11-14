@@ -8,38 +8,64 @@ import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { formatAge, formatExpiry } from '../lib/format';
 import { notificationsLabel } from './api';
-import { inboxFeedSource, setInboxUnreadCount, useInboxUnreadCount } from './inbox-count';
+import { inboxFeedSource, setInboxUnreadCount, useInboxBadge } from './inbox-count';
 import {
   BELL_PREVIEW_SIZE,
   bellBadgeText,
   INBOX_HREF,
   inboxHeading,
+  toPreviewItem,
   type InboxPreviewItem,
 } from './inbox-feed';
+import { fetchStationInboxSummary } from './station-inbox/api';
 
-type Preview =
+/** Each preview remembers whose Inbox it shows (`me` or `station:<person ID>`). */
+type Preview = { owner: string } & (
   | { state: 'idle' }
   | { state: 'loading' }
   | { state: 'error' }
-  | { state: 'ready'; items: InboxPreviewItem[]; now: number };
+  | { state: 'private'; name: string }
+  | { state: 'ready'; items: InboxPreviewItem[]; now: number }
+);
+
+/** "Pat Example's notifications stay private on this computer." */
+// eslint-disable-next-line react-refresh/only-export-components -- wording shared with tests
+export function stationPrivateText(name: string): string {
+  return `${name}’s notifications stay private on this computer.`;
+}
+
+/** The station preview's heading: "Pat Example's Inbox · 3 unread". */
+// eslint-disable-next-line react-refresh/only-export-components -- wording shared with tests
+export function stationInboxHeading(name: string, count: number | null): string {
+  return count ? `${name}’s Inbox · ${count} unread` : `${name}’s Inbox`;
+}
 
 /**
  * The top bar's bell (STRATA-13, DESIGN.md › Shell › Notifications): a 44 px outline icon button
  * that is a link to Inbox, with a 20 px primary count badge when anything is unread ("9+" past
  * nine). Hovering it, or focusing it from the keyboard, previews Inbox after 150 ms (closing 200 ms
  * after leaving): the unread heading, the newest three items in Inbox's words, Mark all read and
- * Open Inbox. The count is the shared Inbox count (useInboxUnreadCount), so the badge, the heading
- * and the sidebar's Inbox badge always agree. Personal accounts only (`notification.read`); the
- * shell decides whether to render it.
+ * Open Inbox. The count is the shared Inbox count (useInboxBadge), so the badge, the heading
+ * and the sidebar's Inbox badge always agree. The shell decides whether to render it.
+ *
+ * On a shared LAB station (STRATA-27) it shows the picked person's Inbox, read-only, when they
+ * chose to share it (no Mark all read); when they keep it private there is no badge and the
+ * preview only says so. Switching person or signing off drops what was shown.
  */
 export function NotificationsBell({ inert = false }: { inert?: boolean } = {}) {
-  const count = useInboxUnreadCount();
+  const badge = useInboxBadge();
+  const { count } = badge;
+  const stationPerson = badge.station ? badge.person : null;
+  const stationPersonId = stationPerson?.id ?? null;
+  const owner = badge.station ? `station:${stationPersonId ?? ''}` : 'me';
   const location = useLocation();
   const [open, setOpen] = useState(false);
   // A hover preview has no place on a touch screen: a tap would open it over the page and leave
   // it there (lane F: it covered the Staff tabs after a drawer's Close on a phone).
   const noHover = useMediaQuery('(hover: none)');
-  const [preview, setPreview] = useState<Preview>({ state: 'idle' });
+  const [stored, setPreview] = useState<Preview>({ owner, state: 'idle' });
+  // A preview read for someone else (before a switch of person) is never shown.
+  const preview: Preview = stored.owner === owner ? stored : { owner, state: 'idle' };
   const [marking, setMarking] = useState<'idle' | 'busy' | 'failed'>('idle');
   const mounted = useRef(true);
   /**
@@ -57,19 +83,43 @@ export function NotificationsBell({ inert = false }: { inert?: boolean } = {}) {
     };
   }, []);
 
+  const station = badge.station;
   const loadPreview = useCallback(() => {
-    setPreview((current) => (current.state === 'ready' ? current : { state: 'loading' }));
-    inboxFeedSource()
-      .fetchNewest(BELL_PREVIEW_SIZE)
-      .then(
-        (items) => {
-          if (mounted.current) setPreview({ state: 'ready', items, now: Date.now() });
-        },
-        () => {
-          if (mounted.current) setPreview({ state: 'error' });
-        },
-      );
-  }, []);
+    setPreview((current) =>
+      current.owner === owner && current.state === 'ready' ? current : { owner, state: 'loading' },
+    );
+    // An answer counts only for the owner it was read for (a switch of person drops it).
+    const settle = (next: Preview) => {
+      if (!mounted.current) return;
+      setPreview((current) => (current.owner === next.owner ? next : current));
+    };
+    if (!station) {
+      inboxFeedSource()
+        .fetchNewest(BELL_PREVIEW_SIZE)
+        .then(
+          (items) => settle({ owner, state: 'ready', items, now: Date.now() }),
+          () => settle({ owner, state: 'error' }),
+        );
+      return;
+    }
+    if (!stationPersonId) {
+      settle({ owner, state: 'error' });
+      return;
+    }
+    void fetchStationInboxSummary(stationPersonId).then((summary) => {
+      if (!summary) settle({ owner, state: 'error' });
+      else if (summary.state === 'private') {
+        settle({ owner, state: 'private', name: summary.person.name });
+      } else {
+        settle({
+          owner,
+          state: 'ready',
+          items: summary.summary.preview.slice(0, BELL_PREVIEW_SIZE).map(toPreviewItem),
+          now: Date.now(),
+        });
+      }
+    });
+  }, [owner, station, stationPersonId]);
 
   async function markAll() {
     setMarking('busy');
@@ -148,13 +198,24 @@ export function NotificationsBell({ inert = false }: { inert?: boolean } = {}) {
         </Button>
       </HoverCardTrigger>
       <HoverCardContent align="end" className="w-80 p-0" aria-label="Inbox preview">
-        <BellPreview
-          count={count}
-          preview={preview}
-          marking={marking}
-          onMarkAll={() => void markAll()}
-          onNavigate={() => setOpen(false)}
-        />
+        {badge.privateName || preview.state === 'private' ? (
+          // The picked person keeps their Inbox private on stations: this line and nothing else.
+          <p className="px-4 py-3 text-sm">
+            {stationPrivateText(
+              badge.privateName ??
+                (preview.state === 'private' ? preview.name : (stationPerson?.name ?? '')),
+            )}
+          </p>
+        ) : (
+          <BellPreview
+            count={count}
+            preview={preview}
+            marking={marking}
+            station={stationPerson ? stationPerson.name : null}
+            onMarkAll={() => void markAll()}
+            onNavigate={() => setOpen(false)}
+          />
+        )}
       </HoverCardContent>
     </HoverCard>
   );
@@ -164,31 +225,38 @@ function BellPreview({
   count,
   preview,
   marking,
+  station,
   onMarkAll,
   onNavigate,
 }: {
   count: number | null;
   preview: Preview;
   marking: 'idle' | 'busy' | 'failed';
+  /** The picked person's name on a LAB station (read-only there: no Mark all read). */
+  station: string | null;
   onMarkAll: () => void;
   onNavigate: () => void;
 }) {
   const nothingUnread = count === 0;
+  const whose = station ? `${station}’s Inbox` : 'your Inbox';
   return (
     <div className="flex flex-col">
-      <p className="border-b px-4 py-3 text-sm font-semibold">{inboxHeading(count)}</p>
+      <p className="border-b px-4 py-3 text-sm font-semibold">
+        {station ? stationInboxHeading(station, count) : inboxHeading(count)}
+      </p>
       <div className="px-2 py-2">
         {nothingUnread ? (
-          <p className="px-2 py-2 text-sm text-muted-foreground">Nothing unread in your Inbox.</p>
+          <p className="px-2 py-2 text-sm text-muted-foreground">Nothing unread in {whose}.</p>
         ) : preview.state === 'error' ? (
           <p className="px-2 py-2 text-sm text-muted-foreground">
-            Your Inbox couldn’t be loaded. Open Inbox to try again.
+            {station ? `${station}’s Inbox` : 'Your Inbox'} couldn’t be loaded. Open Inbox to try
+            again.
           </p>
         ) : preview.state === 'ready' ? (
           preview.items.length === 0 ? (
-            <p className="px-2 py-2 text-sm text-muted-foreground">Nothing in your Inbox.</p>
+            <p className="px-2 py-2 text-sm text-muted-foreground">Nothing in {whose}.</p>
           ) : (
-            <ul className="flex flex-col" aria-label="Newest in your Inbox">
+            <ul className="flex flex-col" aria-label={`Newest in ${whose}`}>
               {preview.items.map((item) => (
                 <PreviewRow key={item.id} item={item} now={preview.now} onNavigate={onNavigate} />
               ))}
@@ -206,7 +274,7 @@ function BellPreview({
         </p>
       ) : null}
       <div className="flex items-center justify-between gap-2 border-t px-2 py-2">
-        {count ? (
+        {count && !station ? (
           <Button
             type="button"
             variant="ghost"

@@ -200,6 +200,7 @@ async function loadRequests(db: Db, userId: string): Promise<FeedEntry[]> {
       href: hrefOf(row),
       status: row.status,
       resolution: row.resolution,
+      resolvedBy: resolver(row),
       waitingOnMe: fact.waiting_on_me,
       raisedByMe,
       reason: row.reason,
@@ -348,6 +349,7 @@ async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
           href: hrefOf(request),
           aboutMyRequest: request.requester_id === userId,
           linkedRequestStatus: request.status,
+          linkedResolution: request.resolution,
         };
       }
     }

@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
+import { involvementSql } from '../project-access/involvement.js';
 
 export type ActorAccountType = 'personal' | 'shared_lab' | 'test' | 'system';
 
@@ -165,14 +166,48 @@ export async function listRecentAudit(
   actions: string[],
   limit = 20,
   since: Date | null = null,
+  scope: RecentAuditScope = {},
 ): Promise<AuditEvent[]> {
   const { rows } = await pool.query<AuditRow>(
     `${SELECT_EVENT}
      WHERE action = ANY($1::text[])
        AND ($3::timestamptz IS NULL OR occurred_at >= $3)
+       AND ($4::uuid IS NULL OR actor_user_id = $4)
+       AND ($5::uuid IS NULL OR ${EVENT_PROJECT_SQL} IN (
+             SELECT i.project_id FROM (${involvementSql('$5::uuid')}) i))
      ORDER BY occurred_at DESC, id DESC
      LIMIT $2`,
-    [actions, Math.min(limit, MAX_PAGE), since],
+    [
+      actions,
+      Math.min(limit, MAX_PAGE),
+      since,
+      scope.actorUserId ?? null,
+      scope.projectsOfUserId ?? null,
+    ],
   );
   return rows.map(toEvent);
 }
+
+/**
+ * Narrowing for `listRecentAudit` (STRATA-23). Applied in SQL before the limit, so a narrowed
+ * ledger is still the newest `limit` matching events.
+ */
+export interface RecentAuditScope {
+  /** Only events this account performed (the recorded actor, never a credited receiver). */
+  actorUserId?: string;
+  /** Only events on projects this person is involved in (D12 "My projects"). */
+  projectsOfUserId?: string;
+}
+
+/**
+ * The project an audit event is about, for the dashboard event types: a receipt's project, a
+ * storage unit's current project, or a print job's units' project. Location label jobs and other
+ * events name no project (NULL), so a project-narrowed ledger leaves them out.
+ */
+const EVENT_PROJECT_SQL = `(CASE entity_type
+    WHEN 'receipt' THEN (SELECT r.project_id FROM receipt r WHERE r.id = entity_id)
+    WHEN 'storage_unit' THEN (SELECT su.project_id FROM storage_unit su WHERE su.id = entity_id)
+    WHEN 'print_job' THEN (SELECT su.project_id FROM print_job_item i
+                           JOIN storage_unit su ON su.id = i.storage_unit_id
+                           WHERE i.print_job_id = entity_id ORDER BY i.position LIMIT 1)
+  END)`;

@@ -104,6 +104,11 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'concrete_test.enter',
   'concrete_specimen.dispose_record',
   'concrete_sync_conflict.resolve_lab',
+  // Strata lane A: station counts (LAB, lab staff), the station Inbox (LAB only) and customizing
+  // a station (Lab Manager only; the web shows the editable Customize popover from it).
+  'station.today.read',
+  'station.inbox.read',
+  'station.configure',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */

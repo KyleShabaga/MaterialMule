@@ -12,6 +12,11 @@ import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionContext } from '../session/context';
+import {
+  PERSONAL_CONTROLLER,
+  RecordingPersonContext,
+  type RecordingPersonController,
+} from '../session/recording-person-store';
 import { NOTIFICATIONS_CHANGED_EVENT } from './api';
 import { useInboxUnreadCount } from './inbox-count';
 import { bellBadgeText, inboxHeading } from './inbox-feed';
@@ -184,7 +189,7 @@ describe('NotificationsBell (STRATA-13)', () => {
   it('is a link to Inbox with a count badge', async () => {
     renderBell(me(), (url) => (url === SUMMARY ? json(200, summary(2)) : json(404, {})));
     const bell = await screen.findByRole('link', { name: 'Notifications, 2 unread' });
-    expect(bell).toHaveAttribute('href', '/notifications');
+    expect(bell).toHaveAttribute('href', '/inbox');
     expect(bell.querySelector('[data-slot="bell-count"]')).toHaveTextContent('2');
   });
 
@@ -258,10 +263,7 @@ describe('NotificationsBell (STRATA-13)', () => {
     expect(rows[1]).toHaveAttribute('href', '/lab-testing/programs/p2');
     expect(rows[2]).toHaveTextContent('Update:Failed testFailed concrete test');
     expect(rows[2]).not.toHaveTextContent('Unread');
-    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute(
-      'href',
-      '/notifications',
-    );
+    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute('href', '/inbox');
 
     await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
     expect(await screen.findByText('Nothing unread in your Inbox.')).toBeVisible();
@@ -284,10 +286,7 @@ describe('NotificationsBell (STRATA-13)', () => {
     expect(await screen.findByText('Nothing unread in your Inbox.')).toBeVisible();
     expect(screen.getByText('Inbox')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute(
-      'href',
-      '/notifications',
-    );
+    expect(screen.getByRole('link', { name: 'Open Inbox' })).toHaveAttribute('href', '/inbox');
   });
 
   it('closes the preview when the bell is clicked, until the pointer comes back', async () => {
@@ -338,5 +337,131 @@ describe('NotificationsBell (STRATA-13)', () => {
     expect(
       await screen.findByText('Your Inbox couldn’t be loaded. Open Inbox to try again.'),
     ).toBeVisible();
+  });
+});
+
+describe('NotificationsBell on a LAB station (STRATA-27)', () => {
+  const PAT = '11111111-1111-4111-8111-111111111111';
+  const ALEX = '22222222-2222-4222-8222-222222222222';
+  const LAB = me({ id: 'u-lab', accountType: 'shared_lab', permissions: ['inventory.read'] });
+  const stationOf = (id: string, name: string): RecordingPersonController => ({
+    ...PERSONAL_CONTROLLER,
+    isStation: true,
+    person: { id, displayName: name, initials: 'XX', roleLine: 'Technician' },
+  });
+  const STATION_SUMMARY = '/api/station/inbox/summary';
+
+  function personOf(url: string): string | null {
+    const parsed = new URL(url, 'http://localhost');
+    return parsed.pathname === STATION_SUMMARY ? parsed.searchParams.get('personId') : null;
+  }
+
+  function renderStation(
+    controller: RecordingPersonController,
+    api: (personId: string) => Response | Promise<Response>,
+  ) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const personId = personOf(String(input));
+      return personId ? api(personId) : json(404, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const router = createMemoryRouter(
+      [
+        {
+          path: '*',
+          element: (
+            <>
+              <NotificationsBell />
+              <SidebarProbe />
+            </>
+          ),
+        },
+      ],
+      { initialEntries: ['/'] },
+    );
+    const tree = (value: RecordingPersonController) => (
+      <SessionContext.Provider
+        value={{
+          session: { status: 'active', me: LAB },
+          refresh: vi.fn(async () => undefined),
+          signOut: vi.fn(async () => undefined),
+        }}
+      >
+        <RecordingPersonContext.Provider value={value}>
+          <RouterProvider router={router} />
+        </RecordingPersonContext.Provider>
+      </SessionContext.Provider>
+    );
+    const view = render(tree(controller));
+    return { fetchMock, switchTo: (next: RecordingPersonController) => view.rerender(tree(next)) };
+  }
+
+  const privateFor = (userId: string, name: string) =>
+    json(200, { state: 'private', person: { userId, name } });
+  const sharedFor = (userId: string, name: string, badge: number, preview: InboxItem[] = []) =>
+    json(200, { state: 'shared', person: { userId, name }, summary: summary(badge, preview) });
+
+  it('hides every count when the person keeps their Inbox private', async () => {
+    const { fetchMock } = renderStation(stationOf(PAT, 'Pat Example'), () =>
+      privateFor(PAT, 'Pat Example'),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    // The station reads only the consent-based summary, never LAB's own feed.
+    for (const [input] of fetchMock.mock.calls) {
+      expect(new URL(String(input), 'http://localhost').pathname).toBe(STATION_SUMMARY);
+    }
+    const bell = screen.getByRole('link', { name: 'Notifications' });
+    expect(bell.querySelector('[data-slot="bell-count"]')).toBeNull();
+    expect(screen.getByRole('status', { name: 'Sidebar Inbox count' })).toHaveTextContent('hidden');
+
+    await userEvent.hover(bell);
+    const card = await screen.findByLabelText('Inbox preview');
+    await waitFor(() =>
+      expect(card).toHaveTextContent(
+        /^Pat Example’s notifications stay private on this computer\.$/,
+      ),
+    );
+    expect(within(card).queryByRole('link')).toBeNull();
+    expect(within(card).queryByRole('button')).toBeNull();
+    expect(personOf(String(fetchMock.mock.calls[0]![0]))).toBe(PAT);
+  });
+
+  it('shows a sharing person’s count and preview, read-only', async () => {
+    renderStation(stationOf(PAT, 'Pat Example'), () =>
+      sharedFor(PAT, 'Pat Example', 2, NEWEST.slice(0, 2)),
+    );
+    const bell = await screen.findByRole('link', { name: 'Notifications, 2 unread' });
+    expect(bell.querySelector('[data-slot="bell-count"]')).toHaveTextContent('2');
+    expect(screen.getByRole('status', { name: 'Sidebar Inbox count' })).toHaveTextContent('2');
+
+    await userEvent.hover(bell);
+    expect(await screen.findByText('Pat Example’s Inbox · 2 unread')).toBeVisible();
+    const list = await screen.findByRole('list', { name: 'Newest in Pat Example’s Inbox' });
+    expect(within(list).getAllByRole('link')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Open Inbox' })).toBeVisible();
+  });
+
+  it('drops the count at once on a switch of person, and on sign off', async () => {
+    let answerAlex: (response: Response) => void = () => undefined;
+    const { switchTo } = renderStation(stationOf(PAT, 'Pat Example'), (personId) =>
+      personId === PAT
+        ? sharedFor(PAT, 'Pat Example', 3)
+        : new Promise<Response>((resolve) => {
+            answerAlex = resolve;
+          }),
+    );
+    expect(await screen.findByRole('link', { name: 'Notifications, 3 unread' })).toBeVisible();
+
+    switchTo(stationOf(ALEX, 'Alex Tester'));
+    // Pat's count is gone before Alex's answer arrives.
+    expect(screen.getByRole('link', { name: 'Notifications' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Sidebar Inbox count' })).toHaveTextContent('hidden');
+    answerAlex(sharedFor(ALEX, 'Alex Tester', 1));
+    expect(await screen.findByRole('link', { name: 'Notifications, 1 unread' })).toBeVisible();
+
+    switchTo({ ...stationOf(ALEX, 'Alex Tester'), person: null });
+    expect(screen.getByRole('link', { name: 'Notifications' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Sidebar Inbox count' })).toHaveTextContent('hidden');
   });
 });

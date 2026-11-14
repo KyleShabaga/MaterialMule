@@ -267,7 +267,7 @@ function PreferenceGroups({ prefs, station }: { prefs: PersonPreferences; statio
         <SettingsRow
           labelId={ids.share}
           label="Show my Inbox on shared LAB computers"
-          description="Off by default. When you’re picked at a LAB station, your requests and updates open there, and anyone at that station can see them while you’re picked."
+          description="Off by default. When on, anyone at a shared LAB station can open your requests and updates there by picking you. They can’t act on them, and you can turn this off at any time."
           control={
             <Switch
               aria-labelledby={ids.share}

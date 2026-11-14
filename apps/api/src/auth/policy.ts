@@ -120,6 +120,9 @@ export type Permission =
   // Strata 1C (STRATA-11/29/40/41/51): one's own sidebar layout, pins, recents, preferences and
   // table columns (never LAB: a station reads defaults, or a picked person's layout, read-only)
   | 'personal_settings.manage'
+  // Strata lane A (STRATA-56): one's own Today "Needs you" list (never LAB: a station has no
+  // requests or authority of its own and never borrows the picked person's)
+  | 'today.read'
   // Lab Manager (and Lead Project Engineer of the project where marked project-scoped)
   | 'test_catalog.manage'
   | 'program.priority.set'
@@ -232,7 +235,18 @@ export type Permission =
   | 'reviewer_eligibility.manage'
   | 'staff_capability.manage'
   // Operations (MM-T21): Settings → System status
-  | 'system.status.read';
+  | 'system.status.read'
+  // Strata lane A (STRATA-20/21/63): the "At this station" counts. The shared LAB account and lab
+  // staff (Lab Technician, Lab Manager) by role; lab-wide counts, never anyone's own data.
+  | 'station.today.read'
+  // STRATA-27: a picked person's Inbox on a LAB station, read-only and only with that person's
+  // consent (shareInboxOnStations). The shared LAB account only: a personal account reads its own
+  // Inbox through /api/inbox.
+  | 'station.inbox.read'
+  // Strata lane A (Kyle 2026-11-12/13, STRATA-36): a station's row order and visibility. A Lab
+  // Manager signed in with their own account on the station computer; never the LAB session,
+  // whoever it picks.
+  | 'station.configure';
 
 /**
  * Lab-staff actions (MM-V2-C36, Kyle 2026-11-08): granted by the lab_technician and lab_manager
@@ -287,6 +301,10 @@ const LAB_STAFF_PERSONAL_ONLY: ReadonlySet<Permission> = new Set<Permission>([
 export const LAB_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   ...LAB_AND_INTERNAL,
   ...[...LAB_STAFF_PERMISSIONS].filter((p) => !LAB_STAFF_PERSONAL_ONLY.has(p)),
+  // Strata lane A: the station's own counts, and a picked person's Inbox with their consent
+  // (read-only; never their roles or anything else of theirs).
+  'station.today.read',
+  'station.inbox.read',
 ]);
 
 /** Any active personal (or test) account. */
@@ -319,6 +337,9 @@ const ANY_INTERNAL_USER: ReadonlySet<Permission> = new Set<Permission>([
   // Strata 1C: personal settings, pins and recents are the person's own; LAB saves none and
   // never reads the selected person's (except their sidebar layout, read-only).
   'personal_settings.manage',
+  // STRATA-56: Today's Needs you lists the account's own requests and the system work its own
+  // authority covers; LAB has neither.
+  'today.read',
 ]);
 
 /** Granted by the lab_manager role regardless of project. */
@@ -354,6 +375,10 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   // feedback.read; never through LAB, a position or a picked performer.
   'staff.manage',
   'printer.manage',
+  // Strata lane A: the station counts, and customizing a station (Kyle 2026-11-12: Lab Managers
+  // only, with their own account).
+  'station.today.read',
+  'station.configure',
 ]);
 
 /**
@@ -364,6 +389,8 @@ const LAB_MANAGER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
 const LAB_TECHNICIAN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   ...LAB_STAFF_PERMISSIONS,
   'concrete_settings.air_meter.manage',
+  // Strata lane A: the "At this station" counts (read-only, lab-wide).
+  'station.today.read',
 ]);
 
 /** Granted by the admin role. Admin never implies project authority or Lab Manager rights. */

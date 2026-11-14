@@ -52,6 +52,7 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | notification.read (T91)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | retention.request (T29)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | personal_settings.manage (Strata 1C)                                                                                                                     |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
+| today.read (STRATA-56)                                                                                                                                   |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | test_catalog.manage (D37)                                                                                                                                |     |                   |      ✓      |                |   ✓   |                       |                     |
 | program.priority.set (D50)                                                                                                                               |     |                   |      ✓      |                |       |           ✓           |                     |
 | program.reopen                                                                                                                                           |     |                   |      ✓      |                |       |           ✓           |                     |
@@ -100,6 +101,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | staff_capability.manage (AO03, D01)                                                                                                                      |     |                   |             |                |   ✓   |                       |                     |
 | project.lead_project_engineer.change (T35)                                                                                                               |     |                   |             |                |   ✓   |                       |                     |
 | system.status.read (T21)                                                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
+| station.today.read (STRATA-20/21/63)                                                                                                                     |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
+| station.inbox.read (STRATA-27; picked person's consent, read-only)                                                                                       |  ✓  |                   |             |                |       |                       |                     |
+| station.configure (STRATA-36; own account only)                                                                                                          |     |                   |      ✓      |                |       |                       |                     |
 
 "Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account. `report.issue` is also held
@@ -1510,13 +1514,14 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Inbox (STRATA-25, STRATA-55)
 
-| Route                                  | Policy                                                                 |
-| -------------------------------------- | ---------------------------------------------------------------------- |
-| `GET /api/inbox?tab=&filter=&q=&sort=` | `notification.read`; the signed-in person's own feed                   |
-| `GET /api/inbox/summary`               | `notification.read`                                                    |
-| `POST /api/inbox/read-all`             | `notification.read`; own feed only                                     |
-| `POST /api/inbox/requests/:id/read`    | `action_item.read`; routed to me now or in my history, or raised by me |
-| `POST /api/inbox/requests/:id/unread`  | `action_item.read`; as above                                           |
+| Route                                  | Policy                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/inbox?tab=&filter=&q=&sort=` | `notification.read`; the signed-in person's own feed                                             |
+| `GET /api/inbox/summary`               | `notification.read`                                                                              |
+| `POST /api/inbox/read-all`             | `notification.read`; own feed only                                                               |
+| `POST /api/inbox/requests/:id/read`    | `action_item.read`; routed to me now or in my history, or raised by me                           |
+| `POST /api/inbox/requests/:id/unread`  | `action_item.read`; as above                                                                     |
+| `POST /api/inbox/bulk`                 | `notification.read`; `{ action: read, unread or dismiss, keys }`, own feed keys only (STRATA-48) |
 
 - **One feed, no new authority.** Requests appear as `GET /api/action-items` shows them to the
   person (open: routed to them now; resolved in the last 90 days: their history), plus requests
@@ -1525,7 +1530,40 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   log. Resolution stays with each workflow.
 - **Someone else's request** (not routed to them, not resolved by them, not raised by them), a
   missing id or a malformed one is 404 `action_item_not_found`, and nothing changes.
+- **Bulk (STRATA-48).** Up to 100 feed keys (`request:<id>`, `update:<id>`). Each key is checked
+  as the person's own (a request in their Inbox, an update addressed to them); another person's,
+  a missing or a malformed key goes to `failed` and the rest still apply. Requests are never
+  decided in bulk: read and unread change read state only. Dismiss is for updates only: any
+  request key is 400 `dismiss_requests` and nothing changes. An update stays read once read (the
+  notification guard), so `unread` on a read update lands in `failed`.
 - **LAB and pending accounts:** 403 on every route above.
+
+## Today (STRATA-56, STRATA-23)
+
+| Route                                                              | Policy                                                                                           |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `GET /api/today/needs-you`                                         | `today.read`; the signed-in person's own requests and the system work their own authority covers |
+| `GET /api/activity/recent?scope=lab\|projects\|mine&limit=&hours=` | `inventory.read`; `projects` and `mine` from LAB are 400 `scope_not_available`                   |
+
+- **Needs you** lists the Inbox requests waiting on the person (word for word as Inbox shows
+  them) and system work each included only when the account holds the authority for it now:
+  concrete HOLDs (`concrete_ordinary_hold.manage` by role, i.e. a Lab Manager), concrete reports to
+  review (the review queue's own `canAct`: the lead or a routed designated reviewer, never one's
+  own report), breaks due today (`concrete_test.enter`: lab staff), units at the end of retention
+  on projects they lead, units approved for disposal (`disposal.approve` by role: a Lab Manager),
+  their own labels that didn't print, open location conflicts (the Lab Manager role) and lab
+  programs ready to close on projects they're involved in. Job titles grant nothing. Links grant
+  nothing: each target page checks again. Reading changes nothing.
+- **Not listed yet:** tests assigned to me and lab requests not assigned (lab tests have no
+  assignee), and draft receipts not confirmed (the draft registry doesn't record confirmation).
+  A request is never listed again as system work: units an open retention request waiting on the
+  person covers leave the retention row, and a program with an open closure request leaves the
+  finished-programs row.
+- **Last 24 hours** `scope`: `lab` (default) is every dashboard event; `projects` keeps events on
+  projects the person is involved in (D12 "My projects"); `mine` keeps events their own account
+  performed. Each row says `byMe`. LAB has no projects and no "mine" (a picked person is
+  attribution only), so it may ask for `lab` only.
+- **LAB and pending accounts:** 403 on `GET /api/today/needs-you`.
 
 ## Retention (MM-T29)
 
@@ -1622,3 +1660,44 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 - **Received by** is staff attribution chosen per receipt (STRATA-107): editable, separate from
   the account that entered it; the receipt shows "Entered by X, for Y" when they differ. It
   grants no permissions.
+
+## LAB station: Today, configuration and Inbox (Strata lane A)
+
+| Route                                                  | Policy                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| `GET /api/station/today`                               | `station.today.read` (LAB, Lab Manager, Lab Technician)   |
+| `GET /api/station/config/:stationId`                   | any active session, LAB included                          |
+| `PUT /api/station/config/:stationId {rows, version}`   | `station.configure` (Lab Manager, own account; never LAB) |
+| `GET /api/station/inbox?personId=&tab=&filter=&q=&...` | `station.inbox.read` (the shared LAB account only)        |
+| `GET /api/station/inbox/summary?personId=`             | `station.inbox.read` (the shared LAB account only)        |
+
+- **Station counts.** Lab-wide numbers, never a person's own data, so lab staff with their own
+  accounts may read them too (a Lab Manager previews a station while customizing it); an
+  ordinary internal user gets 403. Each count is read on its own: one that fails answers `null`
+  and the others still come back. `draftReceipts` = rows in the receipt draft registry (0044)
+  started on the shared LAB account that are not deleted, whoever calls. The registry has no
+  "confirmed" mark (a confirmed draft is removed only in the browser), so a confirmed draft stays
+  counted until it is deleted.
+  `breaksDueToday` = concrete specimens whose target date is today (America/Edmonton), not HOLD,
+  with no complete test entry, on the worklist's scheduled set (set and report not void, cast
+  time known, not authorized for disposal). `labelsToPrint` = storage units not disposed,
+  received in the last `LABELS_TO_CHECK_DAYS` (30) days in the business time zone, whose newest
+  print job is missing (never printed) or `failed`.
+- **Configuration.** One row per station ID (`^[A-Za-z0-9_-]{8,64}$`); an unsaved station reads
+  the defaults (`version` 0, `updatedBy` null). Saving needs `station.configure`, which only the
+  Lab Manager role grants, checked again on the account as it stands in the transaction; the
+  shared LAB account is refused whoever it picks (Kyle 2026-11-13, STRATA-36: a Lab Manager signs
+  in with their own account on the station computer to customize it). A stale `version` answers
+  409 `version_conflict` with the current configuration and saves nothing; a save adds one to
+  the version and is audited as `station_config.saved` (station ID, before and after rows).
+- **Station Inbox (STRATA-27).** Consent-based and read-only. `personId` must be an active staff
+  member (else 404 `person_not_found`, no detail). When that person's `shareInboxOnStations`
+  preference is off or never saved, the answer is `{state: 'private', person}` with no items or
+  counts. When on, it is that person's Inbox page or summary, built for them by user ID: LAB
+  never gains their roles or permissions anywhere, nothing is cached across people, no read state
+  changes, and there is no station route that reads, dismisses or decides anything. Personal
+  accounts get 403 (they read their own Inbox at `/api/inbox`). Item content is never logged.
+  The LAB picker is attribution only and the route accepts any active staff `personId`, so the
+  server can't limit reading to "while you're picked": off by default; when on, anyone at a shared
+  LAB station can open the person's requests and updates there by picking them. They can't act on
+  them, and the person can turn this off at any time (Settings › Preferences › Privacy).

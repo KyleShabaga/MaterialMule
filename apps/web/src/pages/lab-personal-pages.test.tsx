@@ -1,5 +1,5 @@
 import type { MeResponse } from '@materialmule/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -62,6 +62,13 @@ function renderAsLab(path: string) {
     vi.fn(async (input: RequestInfo | URL) => {
       const pathname = new URL(String(input), 'http://localhost').pathname;
       urls.push(pathname);
+      // STRATA-27: the picked person keeps their Inbox private (the default).
+      if (pathname.startsWith('/api/station/inbox')) {
+        return new Response(
+          JSON.stringify({ state: 'private', person: { userId: 'p1', name: 'Alex Tester' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
       // The project page's layout (STRATA-84) loads the project before its Team tab renders.
       if (pathname === `/api/projects/${PROJECT}`) {
         return new Response(JSON.stringify(PROJECT_DETAIL), {
@@ -96,27 +103,23 @@ afterEach(() => {
 });
 
 describe('MTR-2: LAB on personal-account pages', () => {
-  it('Action requests shows a plain refusal and loads nothing', async () => {
-    const urls = renderAsLab('/action-requests');
-    expect(
-      await screen.findByText(
-        'Action requests are for personal accounts. Sign in with your own account.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-    expect(personalCalls(urls)).toEqual([]);
-  });
-
-  it('Notifications shows a plain refusal and loads nothing (MM-T91)', async () => {
-    const urls = renderAsLab('/notifications');
-    expect(
-      await screen.findByText(
-        'Notifications are for personal accounts. Sign in with your own account.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-    expect(personalCalls(urls)).toEqual([]);
-  });
+  // STRATA-24: the old Action requests and Notifications pages are the Inbox now; on a station it
+  // shows the station Inbox (STRATA-27) and never reads the shared account's own Inbox.
+  it.each(['/action-requests', '/notifications', '/inbox'])(
+    '%s on a LAB station reads no personal Inbox, requests or notifications',
+    async (path) => {
+      const urls = renderAsLab(path);
+      expect(await screen.findByRole('main')).toBeInTheDocument();
+      await waitFor(() => expect(urls.length).toBeGreaterThan(0));
+      // Not the personal Inbox page (its tabs); the station Inbox has none.
+      expect(screen.queryByRole('tablist', { name: 'Inbox' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+      expect(personalCalls(urls)).toEqual([]);
+      expect(urls.filter((url) => url === '/api/inbox' || url === '/api/inbox/summary')).toEqual(
+        [],
+      );
+    },
+  );
 
   it('My access describes the shared account without asking the server (STRATA-119)', async () => {
     const urls = renderAsLab('/settings/access');

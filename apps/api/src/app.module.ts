@@ -69,6 +69,10 @@ import { UndoController } from './undo/undo.controller.js';
 import { UndoService } from './undo/undo.service.js';
 import { ReceiptDraftsController } from './receiving-drafts/receipt-drafts.controller.js';
 import { ReceiptDraftsService } from './receiving-drafts/receipt-drafts.service.js';
+import { StationConfigService } from './station/station-config.service.js';
+import { StationController } from './station/station.controller.js';
+import { StationInboxService } from './station/station-inbox.service.js';
+import { StationTodayService } from './station/station-today.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
@@ -149,6 +153,8 @@ import { ConcreteStrengthReportsService } from './concrete/concrete-strength-rep
 import { ConcreteTestingTableController } from './concrete/concrete-testing-table.controller.js';
 import { ConcreteTestingTableService } from './concrete/concrete-testing-table.service.js';
 import { UsersService } from './users/users.service.js';
+import { TodayController } from './today/today.controller.js';
+import { TodayService } from './today/today.service.js';
 
 @Module({})
 export class AppModule {
@@ -196,8 +202,10 @@ export class AppModule {
         ActionItemsController,
         NotificationsController,
         InboxController,
+        TodayController,
         UndoController,
         ReceiptDraftsController,
+        StationController,
         RetentionController,
         DisposalController,
         SystemStatusController,
@@ -291,8 +299,12 @@ export class AppModule {
         ActionItemsService,
         NotificationsService,
         InboxService,
+        TodayService,
         UndoService,
         ReceiptDraftsService,
+        StationTodayService,
+        StationConfigService,
+        StationInboxService,
         EmailWorkerService,
         BusinessClock,
         RetentionService,

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { inboxRow, inboxUrl, openInboxItem } from './support/inbox';
 
 // MISC-07 / STRATA-85: anyone signed in with a personal account joins a project team themselves, pending
 // the Lead Project Engineer's acceptance. Fictional data only: a project unique per run and
@@ -56,10 +57,12 @@ test('self-join: pending, accepted by the lead; a declined person may ask again'
 
   // Pat is told, opens it and accepts.
   await signInAs(page, 'pe');
-  await page.goto('/action-requests');
-  const request = page.getByRole('listitem', { name: `Team join request on ${projectNumber}` });
+  const title = `Team join request on ${projectNumber}`;
+  await page.goto(inboxUrl(projectNumber, { tab: 'requests' }));
+  const request = inboxRow(page, title);
   await expect(request).toBeVisible();
-  await request.getByRole('link', { name: 'Open' }).click();
+  const item = await openInboxItem(page, request, title);
+  await item.getByRole('link', { name: 'Review the join request' }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/team`));
   // Accepting needs no reason (MISC-07).
   await review.getByRole('button', { name: 'Accept Jamie Song' }).click();

@@ -233,6 +233,8 @@ export const inboxRequestItemSchema = z.object({
   /** Live workflow state; reading never changes it. */
   status: z.enum(['open', 'resolved']),
   resolution: z.enum(ACTION_REQUEST_RESOLUTIONS).nullable(),
+  /** Who resolved it (the drawer's "Resolved by Pat Example · Program closed"); null while open. */
+  resolvedBy: personSnapshotSchema.nullable().optional(),
   /** Open and routed to the signed-in person now (D10 routing). */
   waitingOnMe: z.boolean(),
   /** The signed-in person raised it. */
@@ -250,6 +252,8 @@ export const inboxUpdateItemSchema = z.object({
   aboutMyRequest: z.boolean(),
   /** For action-request updates: the request's live state. */
   linkedRequestStatus: z.enum(['open', 'resolved']).nullable(),
+  /** For action-request updates: how the request was resolved; null while open or not linked. */
+  linkedResolution: z.enum(ACTION_REQUEST_RESOLUTIONS).nullable().optional(),
 });
 export type InboxUpdateItem = z.infer<typeof inboxUpdateItemSchema>;
 
@@ -365,3 +369,36 @@ export function inboxBadgeText(count: number): string | null {
   if (count <= 0) return null;
   return count > 9 ? '9+' : String(count);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Bulk actions for checked rows (STRATA-48, Kyle 2026-11-13).
+
+/** `read` and `unread` work on requests and updates; `dismiss` on updates only. */
+export const INBOX_BULK_ACTIONS = ['read', 'unread', 'dismiss'] as const;
+export type InboxBulkAction = (typeof INBOX_BULK_ACTIONS)[number];
+
+/** Most rows one bulk call takes. */
+export const INBOX_BULK_MAX = 100;
+
+/**
+ * `POST /api/inbox/bulk`. `keys` are feed keys (`request:<id>` / `update:<id>`). Requests are
+ * never decided in bulk: only the person's read state changes. Dismiss with any request key is
+ * refused whole (400 `dismiss_requests`).
+ */
+export const inboxBulkSchema = z.strictObject({
+  action: z.enum(INBOX_BULK_ACTIONS),
+  keys: z.array(z.string()).min(1).max(INBOX_BULK_MAX),
+});
+export type InboxBulk = z.output<typeof inboxBulkSchema>;
+
+/**
+ * `updated`: keys now in the asked-for state (already being in it counts). `failed`: keys that
+ * aren't the signed-in person's (another person's, missing, malformed) or can't take the action;
+ * the rest still apply ("n of m updated").
+ */
+export const inboxBulkResultSchema = z.object({
+  updated: z.number().int().min(0),
+  failed: z.array(z.string()),
+  summary: inboxSummarySchema,
+});
+export type InboxBulkResult = z.infer<typeof inboxBulkResultSchema>;

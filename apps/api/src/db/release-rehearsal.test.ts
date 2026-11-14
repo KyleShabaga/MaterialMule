@@ -166,6 +166,8 @@ const INTERNAL_PERMISSIONS = [
   'test.progress',
   'test.review',
   'test_hole.create',
+  // Strata lane A: Needs you on one's own Today.
+  'today.read',
 ];
 
 interface ExpectedGrant {
@@ -194,6 +196,9 @@ const EXPECTED_GRANTS: ExpectedGrant[] = [
       'project.create',
       'receipt.confirm',
       'receipt.draft',
+      // Strata lane A: the station's counts, and a picked person's Inbox only with consent.
+      'station.inbox.read',
+      'station.today.read',
       'storage_unit.move',
       'test.progress',
       'test_hole.create',
@@ -296,6 +301,9 @@ const EXPECTED_GRANTS: ExpectedGrant[] = [
       'retention.manage',
       'settings.drafts.manage',
       'staff.manage',
+      // Strata lane A (STRATA-21, 36): Customize this station from their own account.
+      'station.configure',
+      'station.today.read',
       'test.cancel',
       'test.correction_done',
       'test_catalog.manage',

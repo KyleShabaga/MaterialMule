@@ -1,6 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import {
+  expectInboxItemRead,
+  inboxKeyFor,
+  inboxRowByKey,
+  inboxUrl,
+  openInboxItem,
+} from './support/inbox';
 
 // MM-V2-C29 T3: a returned concrete field report reaches the one header bell as an unread
 // notification, on desktop and phone. Opening it goes to the report and marks it read. Fictional
@@ -124,23 +131,38 @@ test('MM-V2-C29: a returned field report reaches the technician’s bell and ope
   expect(await bell.getAttribute('aria-label')).not.toBe('Notifications, none unread');
 
   await bell.click();
-  await expect(page).toHaveURL(/\/notifications$/);
-  const row = page.getByRole('listitem').filter({ hasText: comment });
+  await expect(page).toHaveURL(/\/inbox$/);
+  // The Inbox feed carries no return comment (STRATA-24), so the row is found by its link to
+  // this report.
+  const title = 'Field report returned for correction';
+  const key = await inboxKeyFor(
+    page,
+    title,
+    (item) => item.href.startsWith(`/concrete/review/${reportId}`),
+    'updates',
+  );
+  await page.goto(inboxUrl(title, { tab: 'updates' }));
+  const row = inboxRowByKey(page, key);
   await expect(row).toContainText('Unread');
-  await expect(row).toContainText('Field report returned for correction');
+  await expect(row).toContainText(title);
   await expect(row).toContainText('DEMO-2601');
   await expect(row).toContainText('Returned for correction');
-  await expect(row).toContainText('Returned by Pat Example');
+  await expect(row).toContainText('Pat Example');
 
-  const open = row.getByRole('link', { name: 'Open report' });
+  const item = await openInboxItem(page, page.getByRole('listitem').filter({ has: row }), title);
+  await expect(item).toContainText('From Pat Example');
+  await expect(item).toContainText('A reviewer returned this field report for correction.');
+  // Opening it read it.
+  await expectInboxItemRead(page, title, key, 'updates');
+  const open = item.getByRole('link', { name: 'Open the report' });
   await expect(open).toHaveAttribute('href', `/concrete/review/${reportId}?version=1`);
   await open.click();
   await expect(page).toHaveURL(
     (url) => url.pathname === `/concrete/review/${reportId}` && url.search === '?version=1',
   );
 
-  // Opening read it; the bell follows the server.
-  await page.goto('/notifications');
+  // The list shows it read; the bell follows the server.
+  await page.goto(inboxUrl(title, { tab: 'updates' }));
   await expect(row).toBeVisible();
   await expect(row).not.toContainText('Unread');
   await expectBellMatchesServer(page);

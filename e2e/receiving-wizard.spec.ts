@@ -19,7 +19,9 @@ async function noHorizontalScroll(page: Page) {
 /** The project (DEMO-2601) and an optional description; the unit rows are on the same page. */
 async function startReceipt(page: Page, description?: string) {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Receive samples' }).click();
+  // Strata Today has role-based shortcuts; the top bar's Quick actions open Receive for anyone.
+  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('menuitem', { name: 'Receive', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Receive samples' })).toBeVisible();
   await page.getByRole('combobox', { name: /Find project/ }).fill('DEMO-2601');
   await page

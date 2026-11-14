@@ -159,6 +159,7 @@ describe.runIf(testDatabaseUrl)('receiving schema (MM-T02)', () => {
       'session',
       'sign_in_throttle',
       'staff_capability_grant',
+      'station_config',
       'storage_unit',
       'storage_unit_annual_counter',
       'storage_unit_hole_summary',

@@ -195,8 +195,10 @@ describe.runIf(testDatabaseUrl)('Inbox feed (STRATA-25/54/55/57)', () => {
     expect(find(done, ids.approved)).toMatchObject({
       status: 'resolved',
       resolution: 'approved',
+      resolvedBy: { userId: h.users.pe, name: 'Pat Example' },
       stage: 'closed',
     });
+    expect(hold).toMatchObject({ resolvedBy: null });
     // Hold, join, and the four open join requests of the bulk block (Pat leads both projects).
     expect(page.summary.counts).toMatchObject({
       openRequests: BULK_OPEN + 2,
@@ -220,6 +222,7 @@ describe.runIf(testDatabaseUrl)('Inbox feed (STRATA-25/54/55/57)', () => {
       dismissed: false,
       aboutMyRequest: true,
       linkedRequestStatus: 'resolved',
+      linkedResolution: 'approved',
     });
     const mine = await everything('tech', { filter: 'about_my_requests' });
     expect(mine.map((item) => item.key).sort()).toEqual(

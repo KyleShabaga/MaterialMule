@@ -1,7 +1,8 @@
 import { Navigate, type RouteObject } from 'react-router';
 import { FEATURES } from './features';
-import { ActionRequestsPage } from './action-requests/ActionRequestsPage';
-import { NotificationsPage } from './notifications/NotificationsPage';
+import { InboxItemPage } from './notifications/InboxItemPage';
+import { InboxPage } from './notifications/InboxPage';
+import { InboxRedirect } from './notifications/InboxRedirect';
 import { DisposalPage } from './disposal/DisposalPage';
 import { DisposalScanPage } from './disposal/DisposalScanPage';
 import { InventoryPage } from './inventory/InventoryPage';
@@ -211,11 +212,19 @@ export const routes: RouteObject[] = [
                           },
                           { path: 'inventory', element: <InventoryRedirect /> },
                           { path: 'storage-units/:suNumber', element: <StorageUnitRedirect /> },
-                          // Action requests inbox (MM-T27): personal accounts; the header bell links here.
-                          { path: 'action-requests', element: <ActionRequestsPage /> },
-                          // Notification center (MM-T91): personal accounts; the header Notifications control
-                          // links here. Separate from action requests; nothing here resolves one.
-                          { path: 'notifications', element: <NotificationsPage /> },
+                          // Inbox (STRATA-24): every action request and update in one place; the bell and
+                          // the sidebar's Inbox row link here. Nothing in it resolves a request. The old
+                          // Action requests (MM-T27) and Notifications (MM-T91) pages redirect here.
+                          { path: 'inbox', element: <InboxPage /> },
+                          { path: 'inbox/:key', element: <InboxItemPage /> },
+                          {
+                            path: 'action-requests',
+                            element: <InboxRedirect from="action-requests" />,
+                          },
+                          {
+                            path: 'notifications',
+                            element: <InboxRedirect from="notifications" />,
+                          },
                           // Help and how-tos (STRATA-103); signed out, PublicHelpGate shows it instead.
                           { path: 'help', element: <HelpPage /> },
                           // Field Ledger search across units, samples, projects and programs (top bar, Find).
