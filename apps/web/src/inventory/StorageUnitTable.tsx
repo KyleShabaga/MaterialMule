@@ -135,8 +135,8 @@ export function StorageUnitTable({
         id: 'hole',
         header: 'Test hole',
         priority: 'attribute',
-        width: '9rem',
-        hideBelow: '40rem',
+        width: '7.5rem',
+        hideOrder: 4,
         cell: (item) => {
           const text = unitContentsText(item);
           // A bulk soil bucket names its bucket of the bulk sample (MM-T36); never its ID.
@@ -159,8 +159,8 @@ export function StorageUnitTable({
         id: 'type',
         header: 'Type',
         priority: 'attribute',
-        width: '8rem',
-        hideBelow: '52rem',
+        width: '6rem',
+        hideOrder: 3,
         sortKey: 'type',
         cell: (item) => (
           <span className="block truncate" title={storageUnitTypeLabel(item.unitType)}>
@@ -172,7 +172,8 @@ export function StorageUnitTable({
         id: 'where',
         header: 'Where',
         priority: 'attribute',
-        hideBelow: '34rem',
+        hideOrder: 5,
+        width: '10rem',
         sortKey: 'where',
         cell: (item) => <WhereCell item={item} pending={pendingMoves?.get(item.id)} />,
       },
@@ -180,7 +181,8 @@ export function StorageUnitTable({
         id: 'stage',
         header: 'Stage',
         priority: 'state',
-        // No fixed width: it shares the free space with Where; a clipped tag keeps its words in the cell's title.
+        // The free column (no width): the table hides attribute columns before it drops below
+        // 9.5rem, so status tags show in full; a clipped tag keeps its words in the cell's title.
         wrap: true,
         sortKey: 'stage',
         cell: (item) => <StageCell item={item} />,
@@ -191,7 +193,7 @@ export function StorageUnitTable({
         priority: 'attribute',
         mono: true,
         width: '10ch',
-        hideBelow: '58rem',
+        hideOrder: 1,
         sortKey: 'received',
         cell: (item) => (
           <span className="whitespace-nowrap" title={item.receivedDate}>
@@ -205,7 +207,7 @@ export function StorageUnitTable({
         priority: 'attribute',
         mono: true,
         width: '10ch',
-        hideBelow: '58rem',
+        hideOrder: 2,
         sortKey: 'retain_until',
         cell: (item) => <RetainUntil item={item} />,
       },
@@ -229,7 +231,7 @@ export function StorageUnitTable({
       openRowId={openRowId}
       caption={caption}
       loading={loading}
-      freeColumnMin="9rem"
+      freeColumnMin="9.5rem"
     />
   );
 }
