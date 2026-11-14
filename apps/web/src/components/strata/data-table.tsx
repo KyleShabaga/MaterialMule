@@ -475,6 +475,14 @@ export function DataTable<Row>({
 
   const visibleColumns = table.getVisibleLeafColumns();
   const columnCount = visibleColumns.length + (selectable ? 1 : 0);
+  // The empty row must have exactly as many shown cells as the header row: hidden header cells
+  // are display:none, so a colSpan over every column would add phantom columns that squeeze the
+  // header (seen on phones). The message cell spans the columns that never hide; each column
+  // that can hide gets its own blank cell with the same hide class.
+  const hideableColumns = visibleColumns
+    .map((col) => byId.get(col.id)!)
+    .filter((column) => effectiveHide(column, plan));
+  const alwaysShownCount = columnCount - hideableColumns.length;
   const firstPad = dense ? 'pl-5' : 'pl-4';
 
   /** Classes shared by a column's th and td. */
@@ -639,13 +647,20 @@ export function DataTable<Row>({
               </TableRow>
             ))
           ) : rows.length === 0 ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell
-                colSpan={columnCount}
-                className="h-24 px-4 text-center whitespace-normal text-muted-foreground"
-              >
-                {empty ?? 'Nothing to show.'}
+            <TableRow className="relative hover:bg-transparent">
+              <TableCell colSpan={alwaysShownCount} className="h-24 p-0">
+                {/* Laid across the whole row, so it stays centred whichever columns show. */}
+                <span className="absolute inset-0 flex items-center justify-center px-4 text-center whitespace-normal text-muted-foreground">
+                  {empty ?? 'Nothing to show.'}
+                </span>
               </TableCell>
+              {hideableColumns.map((column) => (
+                <TableCell
+                  key={column.id}
+                  aria-hidden="true"
+                  className={cn('h-24 p-0', HIDE_BELOW[effectiveHide(column, plan)!])}
+                />
+              ))}
             </TableRow>
           ) : (
             rows.map((row, rowIndex) => {

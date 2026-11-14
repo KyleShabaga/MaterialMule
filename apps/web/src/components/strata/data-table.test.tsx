@@ -363,7 +363,60 @@ describe('DataTable', () => {
     expect(rows).toHaveLength(1);
     const cell = within(rows[0]!).getByRole('cell');
     expect(cell).toHaveTextContent('No units match these filters.');
-    expect(cell).toHaveAttribute('colspan', String(COLUMNS.length));
+    // Full width: the message cell plus a blank cell per hideable column cover every column.
+    const spans = Array.from(rows[0]!.querySelectorAll('td')).map((td) => td.colSpan);
+    expect(spans.reduce((sum, n) => sum + n, 0)).toBe(COLUMNS.length);
+  });
+
+  it('keeps the empty row to the header’s shown columns when some columns hide', () => {
+    // Hidden header cells are display:none; a colSpan over every column would add phantom
+    // columns and squeeze the header. Each hideable column gets its own blank cell instead,
+    // hidden by the same container query as its header.
+    const columns: DataTableColumn<Unit>[] = [
+      { id: 'id', header: 'Unit', priority: 'identity', cell: (u) => u.id },
+      { id: 'status', header: 'Status', priority: 'state', width: '8rem', cell: (u) => u.id },
+      {
+        id: 'place',
+        header: 'Location',
+        priority: 'attribute',
+        hideBelow: '40rem',
+        width: '10rem',
+        cell: (u) => u.id,
+      },
+      {
+        id: 'project',
+        header: 'Project',
+        priority: 'attribute',
+        hideBelow: '30rem',
+        width: '8rem',
+        cell: (u) => u.id,
+      },
+    ];
+    render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        getRowId={(u) => u.id}
+        rowLabel={(u) => u.id}
+        caption="Storage units"
+        empty="No units match these filters."
+      />,
+    );
+    const header = screen.getAllByRole('columnheader');
+    expect(header.map((h) => h.textContent)).toEqual(['Unit', 'Status', 'Location', 'Project']);
+    const row = bodyRows()[0]!;
+    const message = within(row).getByRole('cell');
+    expect(message).toHaveTextContent('No units match these filters.');
+    // The message spans only the columns that never hide.
+    expect(message).toHaveAttribute('colspan', '2');
+    const cells = Array.from(row.querySelectorAll('td'));
+    expect(cells).toHaveLength(3);
+    // Each blank cell hides with its column's header, so the shown cell count always matches.
+    const location = header[2]!.className.match(/@max-\[40rem\]\/table:hidden/)![0];
+    const project = header[3]!.className.match(/@max-\[30rem\]\/table:hidden/)![0];
+    expect(cells[1]).toHaveClass(location);
+    expect(cells[2]).toHaveClass(project);
+    expect(cells[1]).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('shows skeleton rows while loading', () => {
