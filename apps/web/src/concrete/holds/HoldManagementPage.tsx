@@ -201,8 +201,14 @@ export function HoldManagementPage() {
       header: 'Specimen',
       priority: 'identity',
       width: '9rem',
+      // A set without its permanent number is named in words; it wraps rather than being cut.
+      wrap: true,
       cell: (r) => (
-        <Button variant="link" asChild className="h-auto p-0 font-mono font-semibold">
+        <Button
+          variant="link"
+          asChild
+          className="h-auto justify-start p-0 text-left font-mono font-semibold whitespace-normal"
+        >
           <Link to={setLookupPath(r.setId, r.letter)}>{holdName(r)}</Link>
         </Button>
       ),
@@ -248,6 +254,9 @@ export function HoldManagementPage() {
       id: 'until',
       header: 'Hold until',
       priority: 'attribute',
+      // An ISO date in mono: 10 mono characters, never cut ("No expiry" wraps if it must).
+      mono: true,
+      wrap: true,
       width: '10ch',
       cell: (r) =>
         r.holdKind === 'failed' ? (
@@ -311,7 +320,10 @@ export function HoldManagementPage() {
       <h1 className="sr-only">Concrete holds</h1>
       <Tabs value={tab} onValueChange={chooseTab}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList aria-label="Hold kind" className="max-w-full justify-start overflow-x-auto">
+          <TabsList
+            aria-label="Hold kind"
+            className="max-w-full justify-start overflow-x-auto overflow-y-hidden"
+          >
             {HOLD_TABS.map((t) => {
               const count = ready?.lists[t.id];
               return (

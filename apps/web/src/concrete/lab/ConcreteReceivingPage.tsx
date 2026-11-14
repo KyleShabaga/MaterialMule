@@ -5,7 +5,7 @@ import {
   type ConcreteReceivingQueueRow,
   type ConcreteReceivingStage,
 } from '@materialmule/shared';
-import { Inbox, RotateCw, ScanLine } from 'lucide-react';
+import { CircleAlert, FileText, Inbox, RotateCw, ScanLine } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -257,7 +257,18 @@ export function ConcreteReceivingPage() {
       priority: 'attribute',
       hideBelow: '48rem',
       width: '9rem',
-      fold: (g) => <span className="mt-1 flex">{reportCell(g)}</span>,
+      // Folds sit beside the sets, so they stay icon-sized and the project number is never cut.
+      foldInto: 'sets',
+      fold: (g) => (
+        <Link
+          to={fieldReportPath(g.fieldReportId)}
+          aria-label={`Field report, ${workflowLabel(g.reportState)}`}
+          title={`Field report · ${workflowLabel(g.reportState)}`}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <FileText aria-hidden="true" className="size-4" />
+        </Link>
+      ),
       cell: (g) => reportCell(g),
     },
     {
@@ -327,15 +338,30 @@ export function ConcreteReceivingPage() {
       hideBelow: '48rem',
       width: '10rem',
       wrap: true,
-      fold: (g) => <span className="mt-1 flex">{castCell(g)}</span>,
+      foldInto: 'sets',
+      fold: (g) =>
+        g.castAt ? (
+          <span className="sr-only">
+            Cast {labDate(g.castAt)} {labTime(g.castAt)}
+          </span>
+        ) : (
+          <span className="text-stage-due-fg" title={`${UNCAST_NOTE} · ${UNCAST_DETAIL}`}>
+            <CircleAlert aria-hidden="true" className="size-4" />
+            <span className="sr-only">
+              {UNCAST_NOTE} · {UNCAST_DETAIL}
+            </span>
+          </span>
+        ),
       cell: (g) => castCell(g),
     },
     {
       id: 'action',
       header: <span className="sr-only">Actions</span>,
-      priority: 'state',
+      // Phones: the set link opens the set page, whose main action is Receive (or Record pickup).
+      priority: 'attribute',
+      hideBelow: '30rem',
       control: true,
-      width: '9rem',
+      width: '7.5rem',
       align: 'end',
       cell: (g) =>
         canReceive ? (
@@ -423,7 +449,7 @@ export function ConcreteReceivingPage() {
             void onScan();
           }}
         >
-          <InputGroup className="h-11 max-w-[520px] flex-1">
+          <InputGroup className="h-11 max-w-[520px] min-w-64 flex-1">
             <InputGroupAddon>
               <ScanLine aria-hidden="true" />
             </InputGroupAddon>

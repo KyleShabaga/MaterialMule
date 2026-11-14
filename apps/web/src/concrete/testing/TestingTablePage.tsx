@@ -674,7 +674,7 @@ export function TestingTablePage() {
                           </TableHead>
                         ) : null}
                         {show('testedOn') ? (
-                          <TableHead className={cn(HEAD, 'w-[7.25rem]')}>Test date</TableHead>
+                          <TableHead className={cn(HEAD, 'w-[8rem]')}>Test date</TableHead>
                         ) : null}
                         {show('tester') ? (
                           <TableHead className={cn(HEAD, 'w-[4rem]')}>Tested by</TableHead>
@@ -685,12 +685,12 @@ export function TestingTablePage() {
                           </TableHead>
                         ) : null}
                         {show('height') ? (
-                          <TableHead className={cn(HEAD, 'w-[6rem]')}>
+                          <TableHead className={cn(HEAD, 'w-[5.5rem]')}>
                             <TwoLine top="Height" bottom={DIMENSION_UNIT} />
                           </TableHead>
                         ) : null}
                         {show('diameter') ? (
-                          <TableHead className={cn(HEAD, 'w-[6rem]')}>
+                          <TableHead className={cn(HEAD, 'w-[5.5rem]')}>
                             <TwoLine top="Diameter" bottom={DIMENSION_UNIT} />
                           </TableHead>
                         ) : null}
@@ -702,8 +702,10 @@ export function TestingTablePage() {
                             <TwoLine top="Strength" bottom="MPa" />
                           </TableHead>
                         ) : null}
-                        {show('flags') ? <TableHead className={HEAD}>Flags</TableHead> : null}
-                        <TableHead className={cn(HEAD, 'w-[9.5rem]')}>Status</TableHead>
+                        {show('flags') ? (
+                          <TableHead className={cn(HEAD, FLAGS_HIDE)}>Flags</TableHead>
+                        ) : null}
+                        <TableHead className={cn(HEAD, 'w-[9rem]')}>Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -758,6 +760,9 @@ const CELL = 'px-2 py-1.5 align-top';
  * column, already named by the group heading, gives way first.
  */
 const PROJECT_HIDE = '@max-[66rem]/table:hidden';
+/** The Flags column hides below 70rem and its tags fold into the Status cell instead. */
+const FLAGS_HIDE = '@max-[70rem]/table:hidden';
+const FLAGS_FOLD = 'hidden @max-[70rem]/table:flex';
 
 /** A heading with its unit (or detail) on a second line (DESIGN.md › Tables). */
 function TwoLine({ top, bottom }: { top: string; bottom: string }) {
@@ -891,6 +896,36 @@ function TestingRow({
     status === 'saved' && !row.complete ? 'Saved · incomplete' : STATUS_LABEL[status];
   const stage: StageKey = status === 'saved' && !row.complete ? 'due' : STATUS_STAGE[status];
 
+  const hasFlags =
+    row.flags.length > 0 || (row.result?.strengthFlags?.length ?? 0) > 0 || !!row.result?.excluded;
+  const flagsContent = (
+    <>
+      {row.flags.map((flag) =>
+        flag === 'overdue' ? (
+          <StageTag
+            key={flag}
+            stage="danger"
+            label={row.daysOverdue ? `Overdue ${row.daysOverdue} d` : 'Overdue'}
+          />
+        ) : (
+          <StageTag key={flag} variant="outline" label={CONCRETE_WORKLIST_FLAG_LABEL[flag]} />
+        ),
+      )}
+      {(row.result?.strengthFlags ?? []).map((flag) => (
+        <StageTag key={flag} stage="due" label={CONCRETE_STRENGTH_FLAG_LABEL[flag]} />
+      ))}
+      {row.result?.excluded ? <StageTag variant="outline" label="Excluded" /> : null}
+      {row.flags.length > 0 ? (
+        <Link
+          className="text-[13px] underline underline-offset-2"
+          to={`/concrete/specimens/${row.setId}`}
+          aria-label={`Details for ${label}`}
+        >
+          Details
+        </Link>
+      ) : null}
+    </>
+  );
   return (
     <TableRow
       className={cn(
@@ -942,38 +977,17 @@ function TestingRow({
         <StrengthCell result={row.result} complete={row.complete} label={label} />
       ) : null}
       {show('flags') ? (
-        <TableCell className={cn(CELL, 'whitespace-normal')}>
-          <div className="flex flex-wrap items-center gap-1">
-            {row.flags.map((flag) =>
-              flag === 'overdue' ? (
-                <StageTag
-                  key={flag}
-                  stage="danger"
-                  label={row.daysOverdue ? `Overdue ${row.daysOverdue} d` : 'Overdue'}
-                />
-              ) : (
-                <StageTag key={flag} variant="outline" label={CONCRETE_WORKLIST_FLAG_LABEL[flag]} />
-              ),
-            )}
-            {(row.result?.strengthFlags ?? []).map((flag) => (
-              <StageTag key={flag} stage="due" label={CONCRETE_STRENGTH_FLAG_LABEL[flag]} />
-            ))}
-            {row.result?.excluded ? <StageTag variant="outline" label="Excluded" /> : null}
-            {row.flags.length > 0 ? (
-              <Link
-                className="text-[13px] underline underline-offset-2"
-                to={`/concrete/specimens/${row.setId}`}
-                aria-label={`Details for ${label}`}
-              >
-                Details
-              </Link>
-            ) : null}
-          </div>
+        <TableCell className={cn(CELL, 'whitespace-normal', FLAGS_HIDE)}>
+          <div className="flex flex-wrap items-center gap-1">{flagsContent}</div>
         </TableCell>
       ) : null}
       <TableCell className={cn(CELL, 'testing-status whitespace-normal')}>
         <span className="flex flex-col items-start gap-1">
           <StageTag stage={stage} label={statusText} />
+          {show('flags') && hasFlags ? (
+            // Below 70rem the Flags column folds in here, so Status keeps its width (1024 px).
+            <span className={cn('flex-wrap items-center gap-1', FLAGS_FOLD)}>{flagsContent}</span>
+          ) : null}
           {status === 'saved' && row.result ? (
             <span className="text-[13px] text-muted-foreground">
               entered {timeFormat.format(new Date(row.result.enteredAt))}

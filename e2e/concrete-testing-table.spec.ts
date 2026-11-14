@@ -196,7 +196,8 @@ test('T2: keyboard entry of 30 rows, a failed save, a correction needing a reaso
   await page.getByRole('checkbox', { name: 'Include overdue' }).check();
   await expect(group.getByRole('rowheader')).toHaveCount(45);
   const overdueRow = group.getByRole('row', { name: /26-03A/ });
-  await expect(overdueRow.getByText('Overdue 21 d')).toBeVisible();
+  // The flag shows in the Flags column, or folded into Status on narrow tables (one is hidden).
+  await expect(overdueRow.getByText('Overdue 21 d').filter({ visible: true })).toBeVisible();
   await expect(overdueRow.getByText(`target ${labDate(-21)}`)).toBeVisible();
   await expect(overdueRow.getByRole('link', { name: 'Details for 26-03A' })).toBeVisible();
   await expect(page.getByText('30 of 45 completed')).toBeVisible();

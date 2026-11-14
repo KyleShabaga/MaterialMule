@@ -419,9 +419,10 @@ describe('Testing table (MM-V2-C23)', () => {
       (put) => ok(put),
     );
     await screen.findByRole('rowheader', { name: '26-01A' });
-    expect(screen.getByText('Overdue 21 d')).toBeInTheDocument();
+    // The Flags cell, and its copy folded into Status below 70rem (CSS shows one).
+    expect(screen.getAllByText('Overdue 21 d')).toHaveLength(2);
     expect(screen.getByText('target 2026-11-09')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Details for 26-01A' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Details for 26-01A' })[0]).toHaveAttribute(
       'href',
       '/concrete/specimens/00000000-0000-4000-8000-000000000501',
     );
@@ -469,7 +470,7 @@ describe('Testing table (MM-V2-C23)', () => {
       'title',
       expect.stringContaining('Calculation method P1 (provisional)'),
     );
-    expect(screen.getByText('Diameters differ by more than 2%')).toBeVisible();
+    expect(screen.getAllByText('Diameters differ by more than 2%')[0]).toBeVisible();
   });
 
   it('keeps a failed overdue edit and its retry key while Include overdue is off', async () => {
