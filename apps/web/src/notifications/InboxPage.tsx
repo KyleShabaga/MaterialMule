@@ -1037,7 +1037,7 @@ function InboxTable({
       priority: drawerOpen ? 'attribute' : 'identity',
       hideBelow: drawerOpen ? '30rem' : undefined,
       mono: true,
-      width: '7rem',
+      width: '8rem',
       sortKey: 'job_number',
       cell: (item) => item.jobNumber ?? <span className="text-muted-foreground">—</span>,
     };
@@ -1045,6 +1045,9 @@ function InboxTable({
       id: 'record',
       header: <Heading icon={Hash}>Record</Heading>,
       priority: 'attribute',
+      // Narrow lists (1024 px with the sidebar open) drop Received, then From, then Record, so
+      // Title keeps its room (DESIGN.md › Inbox).
+      hideOrder: 3,
       width: '9rem',
       sortKey: 'record',
       cell: (item) =>
@@ -1060,6 +1063,7 @@ function InboxTable({
       id: 'from',
       header: <Heading icon={User}>From</Heading>,
       priority: 'attribute',
+      hideOrder: 2,
       width: '8rem',
       sortKey: 'from',
       cell: (item) => (
@@ -1075,6 +1079,7 @@ function InboxTable({
       id: 'received',
       header: <Heading icon={Clock}>Received</Heading>,
       priority: 'attribute',
+      hideOrder: 1,
       width: '7rem',
       sortKey: 'received',
       cell: (item) => <Age item={item} now={now} dateFormat={dateFormat} />,
