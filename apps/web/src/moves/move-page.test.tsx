@@ -267,7 +267,10 @@ describe('Move storage units (STRATA-80)', () => {
     stubApi();
     const user = userEvent.setup();
     renderAt('/sample-storage/move?units=BKT-2026-000124');
-    await waitFor(() => expect(row('BKT-2026-000124')).toHaveTextContent('Scan a shelf label'));
+    // The linked unit is looked up first; CI runners can take longer than the 1 s default.
+    await waitFor(() => expect(row('BKT-2026-000124')).toHaveTextContent('Scan a shelf label'), {
+      timeout: 5000,
+    });
     await scan(user, 'LOC-WH-C1');
     await scan(user, 'BKT-2026-000125');
     await waitFor(() => expect(screen.getAllByTestId('move-row')).toHaveLength(2));

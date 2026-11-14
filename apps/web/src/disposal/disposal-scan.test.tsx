@@ -4,7 +4,7 @@ import type {
   DisposalScanOutcome,
   MeResponse,
 } from '@materialmule/shared';
-import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -158,6 +158,8 @@ const rows = () => screen.findByRole('list', { name: 'Scanned units, newest firs
 configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
+  // Unmount first, so a page still checking can't reach the next test's fetch stub.
+  cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -268,6 +270,10 @@ describe('Disposal scan-out (STRATA-92)', () => {
     await scan(user, 'BKT-2026-000001');
     await within(await rows()).findByRole('listitem', { name: 'BKT-2026-000001' });
     expect(screen.queryByText('Already scanned. Counted once.')).toBeNull();
+    // The rescan is checked afresh; let that finish so nothing is in flight when the test ends.
+    await waitFor(() =>
+      expect(calls(fetchMock, '/api/disposal/scan/check').length).toBeGreaterThan(1),
+    );
   }, 15_000);
 
   it('offline, scans queue as intents and nothing is sent or disposed; on reconnect they are checked, never recorded without the confirmation', async () => {
