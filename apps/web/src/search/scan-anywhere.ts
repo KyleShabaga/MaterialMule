@@ -138,7 +138,9 @@ export function useScanAnywhere({ onScan, enabled = true, now }: ScanAnywhereOpt
       }
       const scanned = detector.feed({
         key: event.key,
-        at: clock(),
+        // The key's own time, not the handler's: a page still loading can hold the main thread
+        // for longer than the gap, and the queued keys would otherwise look like slow typing.
+        at: optionsRef.current.now ? clock() : event.timeStamp,
         ctrlKey: event.ctrlKey,
         metaKey: event.metaKey,
         altKey: event.altKey,

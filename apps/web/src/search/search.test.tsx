@@ -336,12 +336,17 @@ describe('scan-anywhere detection', () => {
   });
 
   it('a slow typist on the page is never treated as a scanner', async () => {
-    let clock = 0;
-    vi.spyOn(performance, 'now').mockImplementation(() => (clock += 300));
     const { router, fetchMock } = renderAt('/');
     await screen.findByRole('heading', { name: 'Today' });
-    for (const key of 'BKT-2026-000101') fireEvent.keyDown(document.body, { key });
-    fireEvent.keyDown(document.body, { key: 'Enter' });
+    // Scan-anywhere times each key by the event's own timeStamp: 300 ms apart is a person.
+    let at = 0;
+    const press = (key: string) => {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'timeStamp', { value: (at += 300) });
+      fireEvent(document.body, event);
+    };
+    for (const key of 'BKT-2026-000101') press(key);
+    press('Enter');
     expect(router.state.location.pathname).toBe('/');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/scan/resolve'))).toBe(
       false,
