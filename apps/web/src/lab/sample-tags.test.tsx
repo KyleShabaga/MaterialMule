@@ -141,7 +141,7 @@ describe('sample ID tags (MM-T69, STRATA-89)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Print sample ID tags', level: 1 }),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'LP-2026-0012' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'LP-2026-0012' })).toHaveAttribute(
       'href',
       `/lab-testing/programs/${PROGRAM}`,
     );

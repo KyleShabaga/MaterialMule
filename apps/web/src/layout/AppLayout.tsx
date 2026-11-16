@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { usePageRowKeys } from '../components/strata/page-row-keys';
@@ -19,6 +19,7 @@ import {
   useSidebarPrefs,
   writeCollapsed,
 } from './sidebar-prefs';
+import { PageLoading } from './route-loading';
 import { useFocusPageHeading } from './useFocusPageHeading';
 import { SettingsOutlet } from '../settings/modal/SettingsOutlet';
 import './shell.css';
@@ -130,7 +131,10 @@ export function AppLayout() {
           <TopBar />
           <main id="main" className="app-main" tabIndex={-1}>
             <ProfileNotice />
-            <SettingsOutlet />
+            {/* A page's code loading (STRATA-132): a skeleton in the page area, shell unchanged. */}
+            <Suspense fallback={<PageLoading />}>
+              <SettingsOutlet />
+            </Suspense>
           </main>
           <HelpDrawerSlot />
         </SidebarInset>

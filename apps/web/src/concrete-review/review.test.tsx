@@ -223,17 +223,20 @@ describe('Review queue page', () => {
     );
     const table = await screen.findByRole('table', { name: /Waiting for review/ });
     const tabs = screen.getByRole('tablist', { name: 'Queue status' });
-    expect(
-      within(tabs)
-        .getAllByRole('tab')
-        .map((t) => t.textContent),
-    ).toEqual([
-      'Waiting for review1',
-      'Returned2',
-      'Reviewed, not issued0',
-      'Exceptions3',
-      'Issued5',
-    ]);
+    // The counts arrive with their own request, after the table.
+    await waitFor(() =>
+      expect(
+        within(tabs)
+          .getAllByRole('tab')
+          .map((t) => t.textContent),
+      ).toEqual([
+        'Waiting for review1',
+        'Returned2',
+        'Reviewed, not issued0',
+        'Exceptions3',
+        'Issued5',
+      ]),
+    );
     expect(within(tabs).getByRole('tab', { name: /Waiting for review/ })).toHaveAttribute(
       'aria-selected',
       'true',

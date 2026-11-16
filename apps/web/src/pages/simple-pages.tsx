@@ -1,5 +1,6 @@
 import { profileResponseSchema } from '@materialmule/shared';
 import {
+  CloudOff,
   House,
   LogOut,
   RefreshCw,
@@ -36,6 +37,7 @@ import {
 import { Kbd } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
 import { useOptionalFeedbackDialog } from '../feedback/feedback-context';
+import { isChunkLoadError } from '../lib/lazy-page';
 import { usePageTitle } from '../layout/page-title';
 import { useCommandMenu, type CommandMenuController } from '../search/command-menu';
 import '../settings/settings.css';
@@ -311,6 +313,53 @@ function CrashContent() {
 }
 
 /**
+ * A page's code didn't download (STRATA-132): the network dropped before this part of the app was
+ * opened on this device, or the server was updated since this tab loaded. Reloading fixes both;
+ * nothing the person entered is lost (queued scans and moves stay on the device).
+ */
+function ChunkLoadFailed({ inShell }: { inShell: boolean }) {
+  const title = 'This page couldn’t be loaded.';
+  const body =
+    'Check that this device is on the office network, then reload. Material Mule may also have been updated since this page was opened. Anything already saved is kept.';
+  const reload = (
+    <Button
+      size={inShell ? 'default' : 'lg'}
+      className={inShell ? undefined : 'w-full'}
+      onClick={() => window.location.reload()}
+    >
+      <RotateCw aria-hidden="true" />
+      Reload
+    </Button>
+  );
+  if (inShell) {
+    return (
+      <Empty role="alert" className="min-h-[60vh] flex-1">
+        <EmptyHeader className="max-w-[520px]">
+          <EmptyMedia variant="icon">
+            <CloudOff aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>
+            <h1 className="text-2xl font-semibold">{title}</h1>
+          </EmptyTitle>
+          <EmptyDescription>{body}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>{reload}</EmptyContent>
+      </Empty>
+    );
+  }
+  return (
+    <SignInLayout>
+      <section role="alert" aria-labelledby="error-title" className="flex flex-col gap-6">
+        <SignInCardHeading id="error-title" icon={CloudOff} title={title}>
+          {body}
+        </SignInCardHeading>
+        {reload}
+      </section>
+    </SignInLayout>
+  );
+}
+
+/**
  * Route error boundary. With `inShell`, it renders in the shell's content area (a pathless route
  * under AppLayout), so the sidebar and top bar keep working; at the root it uses the sign-in
  * layout. Never shows the error itself: no messages, codes or stack traces.
@@ -337,6 +386,7 @@ export function ErrorPage({ inShell = false }: { inShell?: boolean }) {
       </SignInLayout>
     );
   }
+  if (isChunkLoadError(error)) return <ChunkLoadFailed inShell={inShell} />;
   if (inShell) return <CrashContent />;
   return (
     <SignInLayout>
