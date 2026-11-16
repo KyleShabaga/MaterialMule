@@ -248,6 +248,8 @@ describe('Receive samples on one page (STRATA-76)', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
+  // The longest walk-through in the file (two units, three holes, confirm, print, reprint): it
+  // took 2.7–4.3 s on CI runners before any change, against Vitest's 5 s default.
   it('AC1/AC2: two buckets, one holding two test holes, confirmed in one request', async () => {
     const user = userEvent.setup();
     const posts: unknown[] = [];
@@ -326,7 +328,7 @@ describe('Receive samples on one page (STRATA-76)', () => {
     await user.click(screen.getByRole('button', { name: 'Receive more' }));
     expect(screen.getByRole('combobox', { name: /Find project/ })).toHaveValue('');
     expect(screen.getByRole('combobox', { name: 'Received by' })).toHaveValue('AT · Alex Tester');
-  });
+  }, 15_000);
 
   it('STRATA-77: labels sent: each ID says "Sent to printer" and Put away is the primary', async () => {
     const user = userEvent.setup();
