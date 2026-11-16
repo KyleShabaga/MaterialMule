@@ -1,28 +1,14 @@
-import type { ReceiptLogItem } from '@materialmule/shared';
+import { formatClockTime, type ReceiptLogItem } from '@materialmule/shared';
+import { formatDateTime } from '../lib/format';
 
-const timeFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
-/** Confirmation time in the firm's local time, e.g. "Jan 15, 2026, 2:05 p.m.". */
+/** Confirmation time in the firm's local time, e.g. "2026-01-15 2:05 PM". */
 export function formatConfirmedAt(iso: string): string {
-  return timeFormat.format(new Date(iso));
+  return formatDateTime(iso);
 }
 
-const clockFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
-/** Time of day in the firm's local time, e.g. "2:05 p.m.". */
+/** Time of day in the firm's local time, e.g. "2:05 PM". */
 export function formatClock(iso: string): string {
-  return clockFormat.format(new Date(iso));
+  return formatClockTime(iso);
 }
 
 /** "JS · Jordan Smith": initials with the name, so people sharing initials are told apart. */

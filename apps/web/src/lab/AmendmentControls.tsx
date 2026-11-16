@@ -724,8 +724,8 @@ function AddTestingLine({
             </ul>
           ) : null}
           <p className="text-[13px] text-muted-foreground">
-            The new tests start as Requested. Coverage is frozen when you add the line; later
-            receipts join it only by another amendment.
+            The new tests start as Waiting. Coverage is frozen when you add the line; later receipts
+            join it only by another amendment.
           </p>
         </div>
       ) : null}
@@ -891,7 +891,7 @@ export function ChangeAcceptedTest({
         Change {request.code}
       </p>
       <p className="text-[13px] text-muted-foreground">
-        This test returns to Requested and needs a fresh review and acceptance. Other tests stay as
+        This test returns to Waiting and needs a fresh review and acceptance. Other tests stay as
         they are; the earlier acceptance stays in the history.
       </p>
       <div className="grid gap-1.5">
@@ -996,7 +996,7 @@ export function ChangeAcceptedTest({
           className="pointer-coarse:h-11"
           disabled={busy || !reason.trim()}
         >
-          Change and reset to Requested
+          Change and reset to Waiting
         </Button>
       </div>
       {history}

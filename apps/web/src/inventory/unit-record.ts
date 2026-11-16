@@ -138,9 +138,12 @@ export function unitPrimaryAction(status: StorageUnitRecordStatus): UnitPrimaryA
   }
 }
 
-/** "Short-term storage", "Long-term storage" or "Storage term not set". */
+/**
+ * "Short-term storage", "Long-term storage", or for a location with no term (DESIGN.md › Choices
+ * made: units there read Short-term) the reason the tag still says Short-term (STRATA-134).
+ */
 export function storageTermText(term: EffectiveStorageTerm | undefined | null): string {
-  if (!term?.term) return 'Storage term not set';
+  if (!term?.term) return 'Storage term not set, so units here read Short-term';
   return STORAGE_TERM_LABELS[term.term];
 }
 

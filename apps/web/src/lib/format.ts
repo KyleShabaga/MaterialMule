@@ -1,8 +1,17 @@
-const DATE_TIME = new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
+import { formatClockTime, formatRecordDate } from '@materialmule/shared';
+
+/**
+ * An instant as a record date and a clock time in the lab's time zone, "2026-11-15 7:19 PM": the
+ * one date-and-time format on screen (DESIGN.md › Dates; STRATA-134 replaced the locale mixes
+ * such as "Nov 15, 2026, 7:19 p.m.").
+ */
+export function formatDateTime(iso: string): string {
+  return `${formatRecordDate(iso)} ${formatClockTime(iso)}`.trim();
+}
 
 /** A date and time for people, e.g. the fixed end of a LAB session (MM-T06). */
 export function formatExpiry(iso: string): string {
-  return DATE_TIME.format(new Date(iso));
+  return formatDateTime(iso);
 }
 
 /** Printable size, e.g. 12.3 GB (decimal units, as used for disk space). */

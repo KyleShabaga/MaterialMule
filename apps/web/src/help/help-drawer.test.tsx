@@ -231,7 +231,7 @@ describe('Help drawer', () => {
       'Collapse or expand the sidebar',
       'Open or close Help',
       'Close a drawer, menu or dialog',
-      'Next and previous record in a drawer',
+      'Next and previous row in a list or drawer',
     ]) {
       expect(within(help).getByText(what)).toBeInTheDocument();
     }

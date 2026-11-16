@@ -71,9 +71,9 @@ describe('UnitStatusTag', () => {
     expect(tag.getAttribute('data-stage')).toBe('danger');
   });
 
-  it('shows a confirmed unit not yet put away as Received in the draft hue', async () => {
+  it('shows a confirmed unit not yet put away as Received in the storage hue (STRATA-134)', async () => {
     const { UnitStatusTag } = await import('./stage-tag');
     render(<UnitStatusTag status="received" />);
-    expect(screen.getByText('Received').getAttribute('data-stage')).toBe('draft');
+    expect(screen.getByText('Received').getAttribute('data-stage')).toBe('storage');
   });
 });

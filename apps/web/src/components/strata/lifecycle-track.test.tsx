@@ -45,7 +45,9 @@ describe('LifecycleTrack', () => {
     );
     const li = items();
     expect(li[1]?.textContent).toBe('In lab, skipped');
-    expect(li[1]?.querySelector('svg')).toBeNull();
+    // A minus, never the done check (STRATA-134).
+    expect(li[1]?.querySelector('svg.lucide-minus')).not.toBeNull();
+    expect(li[1]?.querySelector('svg.lucide-check')).toBeNull();
     expect(li[2]?.textContent).toContain('Short-term storage, done');
   });
 

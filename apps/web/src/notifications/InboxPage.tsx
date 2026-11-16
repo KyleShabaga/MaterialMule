@@ -57,6 +57,7 @@ import {
 } from '../components/strata/peek';
 import { PersonCell } from '../components/strata/person-avatar';
 import { StageStripe } from '../components/strata/stage-stripe';
+import { StageTag } from '../components/strata/stage-tag';
 import { notifyError, notifySuccess } from '../components/strata/toast';
 import { TableToolbar } from '../components/strata/table-toolbar';
 import { useTableQuery, type TableQuery } from '../components/strata/table-query';
@@ -876,6 +877,8 @@ function InboxRow({
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <KindLabel item={item} />
+            {/* The same "<Stage> · <domain>" tag Today shows for this item (STRATA-134). */}
+            <StageTag stage={item.stage} domain={item.domain} className="shrink-0" />
             {item.jobNumber ? <span className="shrink-0 font-mono">{item.jobNumber}</span> : null}
           </span>
           <span className={cn('min-w-0 text-sm text-foreground', item.unread && 'font-semibold')}>

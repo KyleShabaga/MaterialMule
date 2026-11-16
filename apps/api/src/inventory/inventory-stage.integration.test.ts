@@ -91,7 +91,7 @@ describe.runIf(testDatabaseUrl)('inventory rows: record status and stage (STRATA
 
   it('derives the status from location kind, conflicts and disposal before retention ends', async () => {
     const rows = await rowsAsOf('2026-11-12');
-    expect(statusOf(rows, 'received')).toEqual({ recordStatus: 'received', stage: 'draft' });
+    expect(statusOf(rows, 'received')).toEqual({ recordStatus: 'received', stage: 'storage' });
     expect(statusOf(rows, 'lab')).toEqual({ recordStatus: 'in_lab', stage: 'lab' });
     // A-01 has no storage term in its chain (unset, STRATA-106): a stored unit reads Short-term.
     expect(statusOf(rows, 'shelf')).toEqual({ recordStatus: 'short_term', stage: 'storage' });

@@ -31,6 +31,7 @@ import { StageTag } from '../../components/strata/stage-tag';
 import { useTableQuery, type TableQuery } from '../../components/strata/table-query';
 import { TableToolbar } from '../../components/strata/table-toolbar';
 import { notifySuccess } from '../../components/strata/toast';
+import { formatDateTime } from '../../lib/format';
 import { useMe } from '../../session/context';
 import { setLookupPath } from '../lab/format';
 import { fetchHoldHistory, fetchHolds, type LoadResult } from './api';
@@ -72,7 +73,7 @@ function historyLine(e: ConcreteHoldHistory['events'][number]): string {
     case 'disposal_authorized':
       return 'Disposal authorized';
     case 'disposed':
-      return `Disposed (removed ${new Date(e.disposedAt!).toLocaleString()})`;
+      return `Disposed (removed ${formatDateTime(e.disposedAt!)})`;
     case 'hold_assigned':
       return `Held until ${e.holdUntil} (was ${e.previousAge} d, target ${e.previousTargetDate})`;
     default:
@@ -525,7 +526,7 @@ export function HoldManagementPage() {
                         {e.reason ? `: ${e.reason}` : ''}
                       </span>
                       <time dateTime={e.at} className="font-mono text-[13px] text-muted-foreground">
-                        {new Date(e.at).toLocaleString()}
+                        {formatDateTime(e.at)}
                       </time>
                     </li>
                   ))}

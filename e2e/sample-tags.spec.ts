@@ -157,6 +157,6 @@ test('T1–T4: tags group by the catalogue, preview and position on the sheet, a
     .getByRole('navigation', { name: 'breadcrumb' })
     .getByRole('link', { name: programNumber })
     .click();
-  await expect(page.getByRole('link', { name: 'Print sample ID tags' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Print tags' })).toBeVisible();
   await expect(page.getByText('Program submitted. Print sample ID tags')).toHaveCount(0);
 });

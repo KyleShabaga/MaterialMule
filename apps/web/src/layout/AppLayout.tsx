@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { usePageRowKeys } from '../components/strata/data-table';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { HelpDrawerSlot } from '../help/help-drawer';
 import { ShellOverlayProviders } from '../help/shell-providers';
@@ -94,6 +95,7 @@ export function AppLayout() {
   const me = useMe();
   const recording = useOptionalRecordingPerson();
   useFocusPageHeading();
+  usePageRowKeys();
 
   // Station: the controller's word (a picked person grants nothing); the account type as fallback.
   const station = recording?.isStation ?? me.accountType === 'shared_lab';

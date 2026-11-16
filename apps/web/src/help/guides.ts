@@ -308,7 +308,7 @@ export function helpShortcuts(mod: string): { anywhere: HelpShortcut[]; lists: H
       { keys: ['?'], what: 'Open or close Help' },
       { keys: ['Esc'], what: 'Close a drawer, menu or dialog' },
     ],
-    lists: [{ keys: ['J', 'K'], what: 'Next and previous record in a drawer' }],
+    lists: [{ keys: ['J', 'K'], what: 'Next and previous row in a list or drawer' }],
   };
 }
 

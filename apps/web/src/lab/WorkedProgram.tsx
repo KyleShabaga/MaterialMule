@@ -309,16 +309,23 @@ function StatusAction({
     onDone(result.ok ? null : problemText(result));
   }
 
+  // Outline: a row action. The page keeps one primary, in the header (STRATA-134).
   if (!open && !shared && !completing) {
     return (
-      <Button type="button" size="sm" onClick={() => void confirm()} disabled={busy}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => void confirm()}
+        disabled={busy}
+      >
         {next.action}
       </Button>
     );
   }
   if (!open) {
     return (
-      <Button type="button" size="sm" onClick={() => setOpen(true)}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
         {next.action}
       </Button>
     );
@@ -944,6 +951,8 @@ function SampleTagsPrompt({ program }: { program: LabProgram }) {
   const location = useLocation();
   const justSubmitted = (location.state as { submitted?: boolean } | null)?.submitted === true;
   if (!justSubmitted) {
+    // A submitted program's header already offers Print tags (STRATA-134: no duplicate link).
+    if (program.status === 'submitted') return null;
     return (
       <Button
         variant="link"

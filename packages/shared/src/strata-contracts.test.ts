@@ -58,7 +58,7 @@ describe('STRATA-58 stage', () => {
     expect(storageUnitStage({ ...shelf, storageTerm: 'long_term' }).recordStatus).toBe('long_term');
     expect(storageUnitStage({ ...shelf, awaitingPutAway: true })).toEqual({
       recordStatus: 'received',
-      stage: 'draft',
+      stage: 'storage',
     });
     expect(storageUnitStage({ ...shelf, inLab: true }).stage).toBe('lab');
     expect(storageUnitStage({ ...shelf, inLab: true, retentionDue: true }).recordStatus).toBe(

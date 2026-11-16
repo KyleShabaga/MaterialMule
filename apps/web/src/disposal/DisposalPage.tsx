@@ -39,7 +39,7 @@ import {
 } from './RetentionPipelineParts';
 
 const TAB_LABELS: Record<RetentionTab, string> = {
-  coming: 'Coming up',
+  coming: 'Due and coming up',
   eligible: 'Eligible',
   list: 'On disposal list',
   approved: 'Approved',
