@@ -345,40 +345,6 @@ function isTypingTarget(el: Element | null): boolean {
   );
 }
 
-const ROW_KEY_BLOCKERS =
-  '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"], [role="listbox"]';
-
-/**
- * J/K from anywhere on the page (STRATA-134): when no row has focus yet, J or K focuses the first
- * list's current row (its roving tab stop), so the keys work without clicking a row first. Rows
- * then move themselves; an open drawer (usePeekKeys, on `document`) and the review queue handle
- * the key first and mark it handled, so this `window` listener stays out of their way.
- */
-// eslint-disable-next-line react-refresh/only-export-components -- the row keys belong with the table
-export function usePageRowKeys(): void {
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.key !== 'j' && event.key !== 'J' && event.key !== 'k' && event.key !== 'K') return;
-      const target = event.target;
-      if (target instanceof HTMLElement) {
-        if (target.isContentEditable) return;
-        if (target.closest('input, textarea, select, [data-row-id]')) return;
-      }
-      if (document.querySelector(ROW_KEY_BLOCKERS)) return;
-      const table = document.querySelector<HTMLElement>('#main [data-slot="data-table"]');
-      const row =
-        table?.querySelector<HTMLElement>('tr[data-row-id][tabindex="0"]') ??
-        table?.querySelector<HTMLElement>('tr[data-row-id]');
-      if (!row) return;
-      event.preventDefault();
-      row.focus();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-}
-
 /**
  * A list table on TanStack Table (manual sorting and filtering: the server orders the rows).
  *

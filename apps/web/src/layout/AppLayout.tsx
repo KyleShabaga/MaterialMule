@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
-import { usePageRowKeys } from '../components/strata/data-table';
+import { usePageRowKeys } from '../components/strata/page-row-keys';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { HelpDrawerSlot } from '../help/help-drawer';
 import { ShellOverlayProviders } from '../help/shell-providers';
