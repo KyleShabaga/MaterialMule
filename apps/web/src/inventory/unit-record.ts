@@ -139,11 +139,19 @@ export function unitPrimaryAction(status: StorageUnitRecordStatus): UnitPrimaryA
 }
 
 /**
- * "Short-term storage", "Long-term storage", or for a location with no term (DESIGN.md › Choices
- * made: units there read Short-term) the reason the tag still says Short-term (STRATA-134).
+ * "Short-term storage", "Long-term storage" or "Storage term not set". With `readsShortTerm` (a
+ * unit or shelf whose units are tagged Short-term only because no term is set, DESIGN.md › Choices
+ * made) it says so, so the tag and the term never seem to disagree (STRATA-134).
  */
-export function storageTermText(term: EffectiveStorageTerm | undefined | null): string {
-  if (!term?.term) return 'Storage term not set, so units here read Short-term';
+export function storageTermText(
+  term: EffectiveStorageTerm | undefined | null,
+  readsShortTerm = false,
+): string {
+  if (!term?.term) {
+    return readsShortTerm
+      ? 'Storage term not set, so units here read Short-term'
+      : 'Storage term not set';
+  }
   return STORAGE_TERM_LABELS[term.term];
 }
 

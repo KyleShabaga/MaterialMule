@@ -13,7 +13,13 @@ import { StageStripe } from '../components/strata/stage-stripe';
 import { fetchConflict } from '../moves/api';
 import { PendingMoveNote } from '../moves/LocationConflictSection';
 import { fetchLocationActivity } from './api';
-import { formatEventTime, shelfPath, storageTermText } from './unit-record';
+import {
+  formatEventTime,
+  shelfPath,
+  storageTermText,
+  unitLifecycleStep,
+  unitRecordStatus,
+} from './unit-record';
 import { UnitFact, UnitFacts, UnitSection } from './UnitRecordParts';
 
 /** When this unit arrived at its saved location (the shelf's activity), if it ever moved there. */
@@ -119,7 +125,13 @@ export function UnitWhere({ unit }: { unit: StorageUnitDetail }) {
           <UnitFact term="Code">
             <span className="font-mono whitespace-nowrap">{unit.location.code}</span>
           </UnitFact>
-          <UnitFact term="Storage">{storageTermText(unit.storageTerm)}</UnitFact>
+          <UnitFact term="Storage">
+            {storageTermText(
+              unit.storageTerm,
+              unitLifecycleStep(unit.lifecycleStep, unitRecordStatus(unit), unit.storageTerm) ===
+                'short_term',
+            )}
+          </UnitFact>
           <UnitFact term="Here since">
             {hereSince === undefined ? (
               <span className="text-muted-foreground">Checking…</span>

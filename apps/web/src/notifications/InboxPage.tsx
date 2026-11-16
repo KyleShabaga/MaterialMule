@@ -875,7 +875,7 @@ function InboxRow({
         <StageStripe stage={item.stage} variant="row" />
         <KindIcon item={item} className="mt-0.5 size-6" />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <KindLabel item={item} />
             {/* The same "<Stage> · <domain>" tag Today shows for this item (STRATA-134). */}
             <StageTag stage={item.stage} domain={item.domain} className="shrink-0" />
