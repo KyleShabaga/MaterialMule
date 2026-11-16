@@ -2281,3 +2281,28 @@
     min-width: 0;
   }
 }
+
+/* Wave 3 accessibility pass (STRATA-32). Unlayered, so they win over Tailwind's utilities. */
+
+/* Reduced motion (DESIGN.md › Hover, focus and motion): every transition and animation (sheets,
+   menus, tw-animate-css enter/exit, hover fades) becomes instant. A tiny duration rather than none
+   keeps animationend firing, so Radix still unmounts closed sheets and menus. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Forced colours: Tailwind's outline-hidden keeps a transparent outline, which a contrast theme
+   paints solid, boxing every sidebar row. Keep it only for keyboard focus, where it is the focus
+   ring (box-shadow rings are dropped in forced colours). */
+@media (forced-colors: active) {
+  .outline-hidden:not(:focus-visible) {
+    outline-style: none;
+  }
+}
