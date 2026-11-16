@@ -53,7 +53,7 @@ describe.runIf(testDatabaseUrl)('inventory list: stage tabs and counts (STRATA-7
     const whLong = await addLocation('WH-L', 'warehouse', { term: 'long_term' });
     const bay = await addLocation('WH-L-B1', 'warehouse', { parent: whLong });
     const longShelf = await addLocation('WH-L-B1-S1', 'warehouse', { parent: bay });
-    Object.assign(ids, { p1, p2, shortShelf, longShelf });
+    Object.assign(ids, { user, p1, p2, shortShelf, longShelf });
     const hole = await insertTestHole(db.pool, p1, 'TH26-01');
     ids.hole = hole;
 
@@ -262,5 +262,37 @@ describe.runIf(testDatabaseUrl)('inventory list: stage tabs and counts (STRATA-7
     ]);
     const lab = await list({ stage: 'in_lab' });
     expect(lab.items[0]!.locationPath).toEqual(['Place LAB-01']);
+  });
+
+  it('MM-T28: names the other location an open conflict says the unit was also scanned on', async () => {
+    const { rows } = await db.pool.query<{ id: string }>(
+      `SELECT id FROM location_conflict WHERE storage_unit_id = $1 AND status = 'open'`,
+      [unit.conflict],
+    );
+    const contested = async (toLocationId: string, savedAt: string) =>
+      db.pool.query(
+        `INSERT INTO movement_event (storage_unit_id, kind, from_location_id, to_location_id,
+                                     base_version, actor_user_id, actor_account_type,
+                                     actor_name_snapshot, scanned_at, saved_at, source,
+                                     client_move_id, conflict_id)
+         VALUES ($1, 'contested', $2, $3, 1, $4, 'personal', 'Pat Example', $5, $5, 'online',
+                 gen_random_uuid(), $6)`,
+        [unit.conflict, ids.shortShelf, toLocationId, ids.user, savedAt, rows[0]!.id],
+      );
+    // The latest attempt names the saved shelf itself, so the earlier one is the other location.
+    await contested(ids.longShelf!, '2026-11-12T15:00:00Z');
+    await contested(ids.shortShelf!, '2026-11-12T16:00:00Z');
+
+    const page = await list({ stage: 'all' });
+    const byKey = (key: string) => page.items.find((item) => item.id === unit[key])!;
+    expect(byKey('conflict').openConflict).toBe(true);
+    expect(byKey('conflict').location.code).toBe('WH-S-S1');
+    expect(byKey('conflict').conflictLocation).toEqual({
+      code: 'WH-L-B1-S1',
+      name: 'Place WH-L-B1-S1',
+    });
+    expect(byKey('short1').openConflict).toBe(false);
+    expect(byKey('short1').conflictLocation).toBeNull();
+    expect(byKey('disposed').conflictLocation).toBeNull();
   });
 });

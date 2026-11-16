@@ -40,6 +40,8 @@ interface InventoryRow extends EffectiveTermRow {
   tested_removal_reason: InventoryItem['testedRemovalReason'];
   contents_destroyed: boolean;
   open_conflict: boolean;
+  conflict_location_code: string | null;
+  conflict_location_name: string | null;
   location_path: string[];
 }
 
@@ -101,6 +103,7 @@ export async function queryInventory(
              AND shelby_contents_destroyed_by_program(su.id) IS NOT NULL) AS contents_destroyed,
             EXISTS (SELECT 1 FROM location_conflict c
                     WHERE c.storage_unit_id = su.id AND c.status = 'open') AS open_conflict,
+            cf.code AS conflict_location_code, cf.name AS conflict_location_name,
             array_remove(ARRAY[l2.name, l1.name, l.name], NULL) AS location_path,
             ${effectiveTermColumns('et')}
      FROM (SELECT su.id, row_number() OVER (ORDER BY ${sql.orderBy}) AS ord
@@ -114,6 +117,18 @@ export async function queryInventory(
      LEFT JOIN location l2 ON l2.id = l1.parent_location_id
      ${effectiveTermJoin('et', 'l.id')}
      LEFT JOIN tested_unit_removal tr ON tr.storage_unit_id = su.id
+     -- MM-T28: where the open conflict says the unit was also scanned: the latest contested
+     -- attempt naming a location other than the saved one (movement_event_conflict_idx).
+     LEFT JOIN LATERAL (
+       SELECT cl.code, cl.name
+       FROM location_conflict c
+       JOIN movement_event e ON e.conflict_id = c.id AND e.kind = 'contested'
+                            AND e.to_location_id <> su.current_location_id
+       JOIN location cl ON cl.id = e.to_location_id
+       WHERE c.storage_unit_id = su.id AND c.status = 'open'
+       ORDER BY e.saved_at DESC, e.id DESC
+       LIMIT 1
+     ) cf ON true
      ORDER BY page.ord`,
     [...sql.params, sql.limit, sql.offset],
   );
@@ -151,6 +166,11 @@ export async function queryInventory(
       // STRATA-79: warehouse › bay › shelf names for the Where column.
       locationPath: row.location_path,
       openConflict: row.open_conflict,
+      // MM-T28: "Also scanned on …" for the Where column.
+      conflictLocation:
+        row.conflict_location_code === null
+          ? null
+          : { code: row.conflict_location_code, name: row.conflict_location_name! },
       // MM-T36: "Disposed after testing" and a tested Shelby tube's destroyed contents.
       testedRemovalReason: row.tested_removal_reason,
       contentsDestroyed: row.contents_destroyed,
