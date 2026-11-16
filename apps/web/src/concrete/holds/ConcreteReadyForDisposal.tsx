@@ -11,7 +11,7 @@ import {
   Notice,
   StatusBadge,
   type Column,
-} from '../../components/ui';
+} from '../../components/app-ui';
 import { SpecimenLabel } from '../worklist/specimen';
 import { fetchConcreteReady } from './api';
 import { HoldActionDialog } from './HoldActionDialog';

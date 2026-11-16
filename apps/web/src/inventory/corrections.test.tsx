@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { TEST_STATION_PERSON, pickStationPerson } from '../session/station-test-person';
 
 // Fictional data only (MM-T13): BKT-2026-000014 in DEMO-2601, test hole TH26-01, user KCS.
 
@@ -125,7 +126,11 @@ function stubApi(api: Api) {
     if (url.pathname === '/api/projects/search') {
       return json(200, api.projects?.(url.searchParams.get('q') ?? '') ?? [OTHER_PROJECT]);
     }
-    if (url.pathname === '/api/staff/active') return json(200, []);
+    if (url.pathname === '/api/staff/active') {
+      // The LAB station's picked person (STRATA-16) must still be active staff.
+      const { id, displayName, initials } = TEST_STATION_PERSON;
+      return json(200, [{ id, displayName, initials }]);
+    }
     if (url.pathname === `/api/projects/${OTHER_PROJECT.id}/test-holes`) return json(200, []);
     if (url.pathname === `/api/projects/${PROJECT.id}/test-holes`) {
       return json(200, [{ id: UNIT.holes[0]!.testHoleId, projectId: PROJECT.id, name: 'TH26-01' }]);
@@ -140,6 +145,7 @@ function renderUnit(user = me()) {
   const router = createMemoryRouter(routes, {
     initialEntries: [`/sample-storage/${UNIT.readableId}`],
   });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{
@@ -156,6 +162,12 @@ function renderUnit(user = me()) {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** Correct sits in the unit page's More menu (STRATA-72). */
+async function openCorrection(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Correct' }));
+}
 
 describe('storage unit corrections (MM-T13)', () => {
   it('AC1: corrects the received date with a reason, then shows the new values and history', async () => {
@@ -178,10 +190,10 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     // MM-T50: Correct details is its own view; focus moves to its heading.
     expect(screen.getByRole('heading', { level: 1, name: 'Correct details' })).toHaveFocus();
-    expect(screen.queryByRole('region', { name: 'Summaries' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Test hole summaries' })).not.toBeInTheDocument();
     const form = screen.getByRole('form', { name: 'Correct details' });
     expect(within(form).queryByText('Changed')).not.toBeInTheDocument();
     expect(within(form).getByText('Nothing changed yet')).toBeInTheDocument();
@@ -212,16 +224,17 @@ describe('storage unit corrections (MM-T13)', () => {
     await user.type(within(form).getByLabelText('Reason for the correction'), 'wrong date on tag');
     await user.click(within(form).getByRole('button', { name: 'Save correction' }));
 
-    expect(await screen.findByText('2027-10-21')).toBeInTheDocument();
+    expect(await screen.findByText('Details corrected.')).toBeInTheDocument();
     expect(patches).toEqual([
       { version: 1, reason: 'wrong date on tag', changes: { receivedDate: '2026-10-21' } },
     ]);
     expect(screen.queryByRole('form', { name: 'Correct details' })).not.toBeInTheDocument();
     expect(screen.getByText('Details corrected.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Correct details' })).toHaveFocus();
-    const summaries = screen.getByRole('region', { name: 'Summaries' });
-    expect(within(summaries).getByText('2026-10-21')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveFocus();
+    // The unit's received date is corrected; the receipt keeps the date it was confirmed with.
     const receipt = screen.getByRole('region', { name: 'Receipt' });
+    expect(within(receipt).getByText('2026-10-21')).toBeInTheDocument();
+    expect(within(receipt).getByText('(corrected)')).toBeInTheDocument();
     expect(within(receipt).getByText('2026-10-23')).toBeInTheDocument();
     const history = screen.getByRole('region', { name: 'History' });
     expect(
@@ -236,14 +249,14 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     await user.type(screen.getByLabelText('Storage unit note'), ' and wet');
-    await user.click(screen.getByRole('button', { name: '← Back to BKT-2026-000014' }));
+    await user.click(screen.getByRole('button', { name: 'Back to BKT-2026-000014' }));
 
     expect(screen.queryByRole('form', { name: 'Correct details' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Correct details' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveFocus();
     expect(
-      within(screen.getByRole('region', { name: 'Summaries' })).getByText('Lid taped'),
+      within(screen.getByRole('region', { name: 'Test hole summaries' })).getByText('Lid taped'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Details corrected.')).not.toBeInTheDocument();
     expect(patches).toHaveLength(0);
@@ -259,7 +272,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const form = screen.getByRole('form', { name: 'Correct details' });
     expect(
       within(form).getByText(
@@ -326,7 +339,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const form = screen.getByRole('form', { name: 'Correct details' });
     expect(within(form).queryByText(/can’t be corrected here yet/)).not.toBeInTheDocument();
     expect(within(form).queryByLabelText('Type')).not.toBeInTheDocument();
@@ -410,7 +423,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const form = screen.getByRole('form', { name: 'Correct details' });
     const source = within(form).getByRole('group', { name: 'Sampling source' });
     expect(within(source).getByText('None recorded')).toBeInTheDocument();
@@ -483,8 +496,14 @@ describe('storage unit corrections (MM-T13)', () => {
         permissions: ['inventory.read', 'label.print'],
       }),
     );
-    expect(await screen.findByText('Corrections need a personal account.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Correct details' })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    const correct = await screen.findByRole('menuitem', { name: 'Correct' });
+    // Shown disabled with its reason on its own line, linked by aria-describedby.
+    expect(correct).toHaveAttribute('aria-disabled', 'true');
+    expect(correct).toHaveAccessibleDescription('Corrections need a personal account.');
+    await user.click(correct);
+    expect(screen.queryByRole('form', { name: 'Correct details' })).not.toBeInTheDocument();
   });
 
   it('AC4: a version conflict shows the message and the latest values', async () => {
@@ -501,7 +520,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const note = screen.getByLabelText('Storage unit note');
     await user.clear(note);
     await user.type(note, 'My note');
@@ -523,7 +542,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const form = screen.getByRole('form', { name: 'Correct details' });
     await user.click(within(form).getByRole('button', { name: 'Change project' }));
     // Saving with no project chosen yet asks for one.
@@ -563,7 +582,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const form = screen.getByRole('form', { name: 'Correct details' });
     await user.click(within(form).getByRole('button', { name: 'Change project' }));
     const search = within(form).getByRole('combobox', { name: /Find project/ });
@@ -599,7 +618,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     // A summary change goes through the same save path as a project change.
     await user.selectOptions(screen.getByLabelText('Summary type'), 'custom');
     await user.type(screen.getByLabelText('Custom summary'), 'Bags 1-3');
@@ -628,7 +647,7 @@ describe('storage unit corrections (MM-T13)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     await user.selectOptions(screen.getByLabelText('Summary type'), 'custom');
     await user.type(screen.getByLabelText('Custom summary'), 'Bags 1-3');
     await user.type(screen.getByLabelText('Reason for the correction'), 'wrong project');
@@ -666,7 +685,7 @@ describe('core box corrections (Kyle, 2026-11-10)', () => {
     const user = userEvent.setup();
     renderUnit();
 
-    await user.click(await screen.findByRole('button', { name: 'Correct details' }));
+    await openCorrection(user);
     const form = screen.getByRole('form', { name: 'Correct details' });
     await user.selectOptions(within(form).getByLabelText('Type'), 'core_box');
     expect(

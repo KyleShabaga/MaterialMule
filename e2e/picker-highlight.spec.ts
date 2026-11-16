@@ -142,7 +142,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.goto(`/sample-storage/${data.a1}`);
     await expect(page.getByRole('heading', { level: 1, name: data.a1 })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Correct details' }).click();
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Correct' }).click();
     const form = page.getByRole('form', { name: 'Correct details' });
     await form.getByRole('button', { name: 'Change project' }).click();
     // The fixture's two projects share the tag, so both match and the first is highlighted.

@@ -184,6 +184,31 @@ describe.runIf(testDatabaseUrl)('concrete testing table (MM-V2-C23)', () => {
     expect(JSON.stringify(bad.body)).not.toContain('maybe');
   });
 
+  it('STRATA-95: specimenIds lists just that selection, whatever its target date', async () => {
+    const [a10, b10, c10, d10] = ten.specimens.map((sp) => sp.id);
+    // On 5 Nov nothing is due; the selection still lists its scheduled specimens (A 9 Nov,
+    // B 30 Nov), never the HOLD one (D), each with its own target.
+    const t = await table(`on=2026-11-05&specimenIds=${[a10, b10, d10].join(',')}`);
+    expect(labels(t)).toEqual(['26-10A', '26-10B']);
+    expect(t.groups[0]!.rows.map((r) => [r.targetDate, r.daysOverdue])).toEqual([
+      ['2026-11-09', null],
+      ['2026-11-30', null],
+    ]);
+    expect(t.total).toBe(2);
+    // An overdue selected specimen is flagged as usual; unselected ones stay out.
+    const late = await table(`on=2026-12-01&specimenIds=${c10}`);
+    expect(labels(late)).toEqual(['26-10C']);
+    expect(late.groups[0]!.rows[0]!.daysOverdue).toBe(1);
+    // The project list is the usual one; bad selections are 400.
+    expect(late.projects.map((p) => p.projectNumber)).toEqual(
+      t.projects.map((p) => p.projectNumber),
+    );
+    expect((await get(`/api/concrete/testing-table?specimenIds=not-an-id`)).status).toBe(400);
+    expect((await get(`/api/concrete/testing-table?specimenIds=,`)).status).toBe(400);
+    const tooMany = Array.from({ length: 201 }, () => randomUUID()).join(',');
+    expect((await get(`/api/concrete/testing-table?specimenIds=${tooMany}`)).status).toBe(400);
+  });
+
   it('lists every project whatever the row limit, and reads a chosen project on its own', async () => {
     // Cast Monday 7 Dec 2026: on 4 Jan 2027 (with overdue) each set lists A (7 d, overdue), B
     // and C (28 d). 168 sets in DEMO-2601 fill the 500-row limit; DEMO-2602 comes after it.

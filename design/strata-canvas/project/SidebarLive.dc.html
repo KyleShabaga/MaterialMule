@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar — live shadcn</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="bg-background text-foreground font-sans" style="{{shellStyle}}">
+<a href="#main" class="bg-primary text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-3">Skip to content</a>
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
+<x-import component-from-global-scope="Strata.Toaster" position="bottom-right" theme="{{toastTheme}}"></x-import>
+<x-import component-from-global-scope="Strata.SidebarProvider" default-open="{{sidebarOpen}}" class-name="min-h-0 {{shellHeight}} {{stationDensity}}">
+<x-import component-from-global-scope="Strata.Sidebar" collapsible="icon" class-name="{{shellHeight}}">
+
+<x-import component-from-global-scope="Strata.SidebarHeader">
+<x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem">
+<div class="flex h-12 items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg"><svg width="24" height="19" viewBox="150 230 960 760" aria-hidden="true" focusable="false"><defs><mask id="mm-donkey-live" maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760"><rect x="150" y="230" width="960" height="760" fill="#fff"></rect><g fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path></g></mask></defs><g fill="currentColor"><g mask="url(#mm-donkey-live)"><path d="M350,690 C360,730 380,745 395,765 C380,790 350,805 320,825 C290,850 272,880 268,920 C272,935 285,950 292,970 L232,970 L232,955 C238,945 230,930 240,915 C260,880 280,840 300,800 C320,780 340,760 350,690 Z"></path><path d="M715,700 L770,720 C760,770 740,800 725,840 C710,880 700,910 715,970 L655,970 C660,950 648,935 650,915 C665,870 690,820 705,780 C712,760 712,730 715,700 Z"></path></g><path d="M352,595 C335,615 320,640 300,665 C285,680 275,700 262,720 C240,752 200,768 165,772 C180,755 185,735 200,710 C220,680 250,660 280,655 C300,640 315,600 340,575 Z"></path><path d="M340,580 C365,535 425,503 500,500 C580,497 640,520 700,505 C760,490 805,465 845,435 C885,405 912,390 938,390 L1000,405 C1025,430 1042,452 1047,472 C1060,510 1080,545 1087,577 C1092,605 1074,628 1050,628 C1030,628 1018,614 1014,600 C980,582 945,568 925,540 C902,578 878,612 862,632 L850,700 L745,690 C700,715 640,728 590,722 C550,716 522,702 505,690 L495,700 C470,745 420,745 395,735 C355,690 330,640 340,580 Z"></path><path d="M765,490 C785,478 805,474 822,468 L812,490 Z"></path><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path><path d="M935,412 C928,360 945,300 995,255 C1002,300 992,360 975,405 Z"></path><path d="M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z"></path></g></svg></span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">Material Mule</span><span class="text-muted-foreground truncate text-[13px]">Receiving lab</span></span>
+</div>
+</x-import>
+<!-- Search or scan: clicking it or Ctrl K opens the command menu (Strata.NavSearch) -->
+<x-import component-from-global-scope="Strata.NavSearch"></x-import>
+</x-import>
+</x-import>
+
+<x-import component-from-global-scope="Strata.SidebarContent">
+<nav aria-label="Main" class="flex flex-col gap-2 in-data-[sidebar-editing=true]:hidden">
+<x-import component-from-global-scope="Strata.SidebarGroup">
+<x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{todayActive}}" aria-current="{{todayCurrent}}" tooltip="Today"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import><span>Today</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navProjects}}" aria-current="{{navProjectsCurrent}}" tooltip="Projects"><x-import component-from-global-scope="Strata.Icon" name="folder"></x-import><span>Projects</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{inboxActive}}" aria-current="{{inboxCurrent}}" tooltip="Inbox" aria-label="{{inboxLabel}}"><x-import component-from-global-scope="Strata.Icon" name="inbox"></x-import><span>Inbox</span></x-import><sc-if value="{{showCounts}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.SidebarMenuBadge" aria-hidden="true" class-name="bg-primary text-primary-foreground top-1/2 right-2 -translate-y-1/2 rounded-full px-1.5 font-mono text-[11px]">{{unreadCount}}</x-import></sc-if></x-import>
+</x-import>
+</x-import>
+
+<!-- Not on LAB stations: a shared computer shows no one's Pinned or Recent. -->
+<sc-if value="{{individual}}" hint-placeholder-val="{{ true }}">
+<!-- Pinned and Recent sit under the main pages. Recent starts folded; every fold is saved for the person. -->
+<x-import component-from-global-scope="Strata.NavSection" id="pinned" flyout="{{yes}}">
+<div><x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2601</span><span class="text-muted-foreground truncate">Riverbank</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-due-bg text-stage-due-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2616</span><span class="text-muted-foreground truncate">Riverside apts</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="flask-conical" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">LP-2026-0007</span><span class="text-muted-foreground truncate">Atterberg, TH26-02</span></x-import></x-import>
+</x-import></div>
+<div><x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2601</span><span class="text-muted-foreground truncate">Riverbank</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-due-bg text-stage-due-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2616</span><span class="text-muted-foreground truncate">Riverside apts</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="flask-conical" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">LP-2026-0007</span><span class="text-muted-foreground truncate">Atterberg, TH26-02</span></x-import></div>
+</x-import>
+<!-- Recent: the last records this person opened, newest first. -->
+<x-import component-from-global-scope="Strata.NavSection" id="recent" flyout="{{yes}}">
+<div><x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="package" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">BKT-2026-000143</span><span class="text-muted-foreground truncate">DEMO-2610</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">Set 4</span><span class="text-muted-foreground truncate">DEMO-2616, 28-day</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2612</span><span class="text-muted-foreground truncate">Northgate</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="package" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">ST-2026-000021</span><span class="text-muted-foreground truncate">DEMO-2611</span></x-import></x-import>
+</x-import></div>
+<div><x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="package" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">BKT-2026-000143</span><span class="text-muted-foreground truncate">DEMO-2610</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-lab-bg text-stage-lab-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="cylinder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">Set 4</span><span class="text-muted-foreground truncate">DEMO-2616, 28-day</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="folder" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">DEMO-2612</span><span class="text-muted-foreground truncate">Northgate</span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><span class="bg-stage-storage-bg text-stage-storage-mark flex size-5 shrink-0 items-center justify-center rounded"><x-import component-from-global-scope="Strata.Icon" name="package" class-name="size-3.5"></x-import></span><span class="shrink-0 font-mono text-[13px] whitespace-nowrap">ST-2026-000021</span><span class="text-muted-foreground truncate">DEMO-2611</span></x-import></div>
+</x-import>
+</sc-if>
+<x-import component-from-global-scope="Strata.NavSection" id="storage">
+<div><x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navReceive}}" aria-current="{{navReceiveCurrent}}" tooltip="Receive"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import><span>Receive</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{inventoryActive}}" aria-current="{{inventoryCurrent}}" tooltip="Inventory"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import><span>Inventory</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.NavCollapsible" icon="hourglass" label="Retention" items="Due and overdue|Disposal scan" current="{{retentionSub}}"></x-import>
+</x-import></div>
+</x-import>
+<x-import component-from-global-scope="Strata.NavSection" id="soils">
+<div><x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navLabPrograms}}" aria-current="{{navLabProgramsCurrent}}" tooltip="Lab programs"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import><span>Lab programs</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navWorkboard}}" aria-current="{{navWorkboardCurrent}}" tooltip="Workboard"><x-import component-from-global-scope="Strata.Icon" name="square-kanban"></x-import><span>Workboard</span></x-import></x-import>
+</x-import></div>
+</x-import>
+<x-import component-from-global-scope="Strata.NavSection" id="concrete">
+<div><x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navOverview}}" aria-current="{{navOverviewCurrent}}" tooltip="Overview"><x-import component-from-global-scope="Strata.Icon" name="layout-dashboard"></x-import><span>Overview</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navBreaks}}" aria-current="{{navBreaksCurrent}}" tooltip="Breaks"><x-import component-from-global-scope="Strata.Icon" name="hammer"></x-import><span>Breaks</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navReceiving}}" aria-current="{{navReceivingCurrent}}" tooltip="Receiving"><x-import component-from-global-scope="Strata.Icon" name="truck"></x-import><span>Receiving</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navSpecimens}}" aria-current="{{navSpecimensCurrent}}" tooltip="Specimens"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import><span>Specimens</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navHolds}}" aria-current="{{navHoldsCurrent}}" tooltip="Holds"><x-import component-from-global-scope="Strata.Icon" name="octagon-pause"></x-import><span>Holds</span></x-import></x-import>
+<x-import component-from-global-scope="Strata.SidebarMenuItem"><x-import component-from-global-scope="Strata.SidebarMenuButton" href="#" is-active="{{navReview}}" aria-current="{{navReviewCurrent}}" tooltip="Review"><x-import component-from-global-scope="Strata.Icon" name="clipboard-check"></x-import><span>Review</span></x-import></x-import>
+</x-import></div>
+</x-import>
+</nav>
+<!-- Customize sidebar: like Notion, it turns the sidebar itself into an editor (Strata.SidebarCustomize); the page list above hides meanwhile. -->
+<x-import component-from-global-scope="Strata.SidebarGroup" class-name="mt-auto in-data-[sidebar-editing=true]:mt-0 in-data-[sidebar-editing=true]:flex-1"><x-import component-from-global-scope="Strata.SidebarCustomize" default-open="{{customizing}}"></x-import></x-import>
+
+</x-import>
+
+<x-import component-from-global-scope="Strata.SidebarFooter">
+<!-- Shared LAB station: who the work is recorded as lives in one place, the top bar's Recording as chip
+     (critique 2026-11-12). The footer shows only the shared LAB account. Session length (D38) is deferred. -->
+<x-import component-from-global-scope="Strata.SidebarMenu">
+<x-import component-from-global-scope="Strata.SidebarMenuItem">
+<sc-if value="{{individual}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="{{personName}}, {{role}}. Account menu" class-name="peer/menu-button ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-accent text-accent-foreground flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold">{{personInitials}}</span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">{{personName}}</span><span class="text-muted-foreground truncate text-[13px]">{{role}}</span></span>
+<x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="top" align="start" side-offset="{{four}}" class-name="w-60">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="p-0 font-normal">
+<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm"><span class="bg-accent text-accent-foreground flex size-8 items-center justify-center rounded-full font-mono text-[13px] font-bold">{{personInitials}}</span><span class="grid flex-1 leading-tight"><span class="truncate font-semibold">{{personName}}</span><span class="text-muted-foreground truncate text-[13px]">{{role}}</span></span></div>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuGroup">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="settings"></x-import>Settings</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="circle-question-mark"></x-import>Help</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="bug"></x-import>Feedback &amp; bugs</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="log-out"></x-import>Sign out</x-import>
+</x-import>
+</x-import>
+</sc-if>
+<sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" data-sidebar="menu-button" aria-label="LAB station, Receiving lab. Account menu" class-name="peer/menu-button ring-sidebar-ring hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent flex h-12 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
+<span class="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-md font-mono text-[11px] font-bold">LAB</span>
+<span class="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden"><span class="truncate font-semibold">LAB station</span><span class="text-muted-foreground truncate text-[13px]">Shared · Receiving lab</span></span>
+<x-import component-from-global-scope="Strata.Icon" name="chevrons-up-down" class-name="ml-auto group-data-[collapsible=icon]:hidden"></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="top" align="start" side-offset="{{four}}" class-name="w-60">
+<x-import component-from-global-scope="Strata.DropdownMenuGroup">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="settings"></x-import>Settings</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="circle-question-mark"></x-import>Help</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="bug"></x-import>Feedback &amp; bugs</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="log-out"></x-import>End station session</x-import>
+</x-import>
+</x-import>
+</sc-if>
+</x-import>
+</x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.SidebarRail"></x-import>
+</x-import>
+
+<x-import component-from-global-scope="Strata.SidebarInset" id="main">
+<header class="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+<x-import component-from-global-scope="Strata.SidebarTrigger" class-name="-ml-1"></x-import>
+<span class="text-sm font-semibold">{{pageTitle}}</span>
+<div class="ml-auto flex items-center gap-2">
+<!-- LAB station: who the work is recorded as, always in view; the only picker (critique 2026-11-12). -->
+<sc-if value="{{station}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.DropdownMenu"><x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Recording as {{stationName}}. Sign off or switch person" class-name="bg-accent text-accent-foreground border-primary/30 hover:bg-accent/80 focus-visible:ring-ring/50 flex h-11 items-center gap-2 rounded-full border pr-3 pl-1.5 text-sm outline-none focus-visible:ring-[3px]"><span aria-hidden="true" class="bg-muted text-foreground flex size-8 text-[13px] shrink-0 items-center justify-center rounded-full font-mono font-bold">{{stationInitials}}</span><span>Recording as <span class="font-semibold">{{stationName}}</span></span><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" side="bottom" align="end" side-offset="{{four}}" class-name="w-72">
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="text-muted-foreground text-[13px] font-normal">Recording as {{stationName}}</x-import>
+<!-- Sign off comes first and stands apart from the person list, so it isn't hit by mistake. -->
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="min-h-11 items-start" onClick="{{signOff}}"><x-import component-from-global-scope="Strata.Icon" name="log-out" class-name="mt-0.5"></x-import><span class="grid leading-tight"><span class="font-medium">Sign off {{stationName}}</span><span class="text-muted-foreground text-[13px]">Back to Who is working here?</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuSeparator"></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuLabel" class-name="text-muted-foreground text-[13px] font-normal">Switch person</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioGroup" value="{{stationKey}}">
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="pat" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">PE</span><span class="grid leading-tight"><span>Pat Example</span><span class="text-muted-foreground text-[13px]">Technician</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="alex" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">AT</span><span class="grid leading-tight"><span>Alex Tester</span><span class="text-muted-foreground text-[13px]">Project lead</span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuRadioItem" value="sam" class-name="min-h-11 gap-3"><span aria-hidden="true" class="bg-muted text-foreground flex size-7 text-[12px] shrink-0 items-center justify-center rounded-full font-mono font-bold">SS</span><span class="grid leading-tight"><span>Sam Sample</span><span class="text-muted-foreground text-[13px]">Lab Manager</span></span></x-import>
+</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem" class-name="min-h-11 gap-3"><x-import component-from-global-scope="Strata.Icon" name="user-plus"></x-import>Someone else…</x-import>
+</x-import></x-import>
+</sc-if>
+<!-- Quick actions: start common work from any page -->
+<x-import component-from-global-scope="Strata.DropdownMenu">
+<!-- At rest a 44 px outlined bolt. Hover (after a 100 ms intent delay), keyboard focus or an open menu
+     reveals a filled "Quick actions" pill over it, opening to the left: clip-path on the pill and a
+     transform on the bolt, 250 ms ease-in-out, label fading in once it's under way. The trigger's box
+     never changes size, so nothing else in the top bar moves or re-lays out (audit 2026-11-12).
+     It closes faster than it opens. Plain CSS; no transitions under reduced motion. -->
+<x-import component-from-global-scope="Strata.DropdownMenuTrigger" aria-label="Quick actions" class-name="group bg-background text-foreground dark:bg-input/30 dark:border-input focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md border shadow-xs outline-none focus-visible:ring-[3px]"><x-import component-from-global-scope="Strata.Icon" name="zap" class-name="size-5"></x-import><span aria-hidden="true" class="bg-primary text-primary-foreground absolute top-[-1px] right-[-1px] flex h-[calc(100%+2px)] w-[194px] items-center rounded-md opacity-0 [clip-path:inset(0_0_0_calc(100%-44px)_round_8px)] transition-[clip-path,opacity] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] delay-0 motion-reduce:transition-none group-hover:delay-100 group-hover:duration-250 group-focus-visible:delay-0 group-data-[state=open]:delay-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-data-[state=open]:opacity-100 group-hover:[clip-path:inset(0_round_8px)] group-focus-visible:[clip-path:inset(0_round_8px)] group-data-[state=open]:[clip-path:inset(0_round_8px)]"><span class="flex h-full w-[42px] shrink-0 translate-x-[150px] items-center justify-center transition-transform duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] delay-0 motion-reduce:transition-none group-hover:delay-100 group-hover:duration-250 group-focus-visible:delay-0 group-data-[state=open]:delay-0 group-hover:translate-x-0 group-focus-visible:translate-x-0 group-data-[state=open]:translate-x-0"><x-import component-from-global-scope="Strata.Icon" name="zap" class-name="size-5"></x-import></span><span class="flex items-center opacity-0 transition-opacity duration-100 ease-out delay-0 group-hover:opacity-100 group-hover:duration-200 group-hover:delay-[200ms] group-focus-visible:opacity-100 group-focus-visible:delay-100 group-data-[state=open]:opacity-100 group-data-[state=open]:delay-0 motion-reduce:transition-none"><span class="text-sm font-medium whitespace-nowrap">Quick actions</span><span class="border-primary-foreground/30 ml-3 flex h-6 items-center border-l px-2.5"><x-import component-from-global-scope="Strata.Icon" name="chevron-down" class-name="transition-transform duration-200 ease-out group-data-[state=open]:rotate-180 motion-reduce:transition-none"></x-import></span></span></span></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuContent" align="end" side-offset="{{four}}" class-name="w-56">
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="scan-line"></x-import>Scan<x-import component-from-global-scope="Strata.DropdownMenuShortcut">Ctrl K</x-import></x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receive</x-import>
+<x-import component-from-global-scope="Strata.DropdownMenuItem"><x-import component-from-global-scope="Strata.Icon" name="folder-plus"></x-import>New project</x-import>
+</x-import>
+</x-import>
+<!-- Notifications: always the last item on the right. Hover (or keyboard focus) previews the
+     latest in a hover card; clicking the bell opens Inbox, where every notification and action
+     request lives. -->
+<x-import component-from-global-scope="Strata.HoverCard" open-delay="{{hoverOpen}}" close-delay="{{hoverClose}}">
+<x-import component-from-global-scope="Strata.HoverCardTrigger" href="#" aria-label="{{bellLabel}}" class-name="bg-background text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative inline-flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]">
+<x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-5"></x-import>
+<sc-if value="{{showCounts}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" class="bg-primary text-primary-foreground ring-background absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-[11px] leading-none font-bold tabular-nums ring-2">{{unreadCount}}</span></sc-if>
+</x-import>
+<x-import component-from-global-scope="Strata.HoverCardContent" align="end" side-offset="{{four}}" class-name="w-96 p-0">
+<sc-if value="{{showCounts}}" hint-placeholder-val="{{ true }}">
+<div class="flex items-center justify-between border-b py-1 pr-1 pl-4"><h2 class="text-sm font-semibold">Inbox <span class="text-muted-foreground font-normal">· {{unreadCount}} unread</span></h2><button type="button" class="text-link hover:bg-accent focus-visible:ring-ring/50 h-11 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-[3px]">Mark all read</button></div>
+<ul class="max-h-80 divide-y overflow-y-auto text-sm" aria-label="Newest in Inbox">
+<li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex items-start gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-primary text-primary-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3.5"></x-import></span><span class="grid min-w-0 flex-1 gap-0.5"><span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Correction</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">12 min</span></span><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="truncate font-semibold">Correct a hole summary</span></span><span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">BKT-2026-000019</span> · <span class="font-mono text-[13px]">DEMO-2601</span> · Sam Sample</span></span></a></li>
+<li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex items-start gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="bg-primary text-primary-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="circle-dot" class-name="size-3.5"></x-import></span><span class="grid min-w-0 flex-1 gap-0.5"><span class="flex items-center gap-2"><span class="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px] font-semibold">Request</span><span class="text-muted-foreground truncate text-[13px]">Close a program</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">1 h</span></span><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="truncate font-semibold">Close lab program</span></span><span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">LP-2026-0007</span> · <span class="font-mono text-[13px]">DEMO-2612</span> · Sam Sample</span></span></a></li>
+<li><a href="#" class="hover:bg-accent focus-visible:ring-ring flex items-start gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"><span aria-hidden="true" class="text-muted-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border"><x-import component-from-global-scope="Strata.Icon" name="bell" class-name="size-3.5"></x-import></span><span class="grid min-w-0 flex-1 gap-0.5"><span class="flex items-center gap-2"><span class="text-muted-foreground truncate text-[13px]">Your request was decided</span><span class="text-muted-foreground ml-auto shrink-0 font-mono text-[13px]">2 h</span></span><span class="flex items-center gap-2"><span aria-hidden="true" class="bg-primary size-2 shrink-0 rounded-full"></span><span class="sr-only">Unread. </span><span class="truncate font-semibold">Retention extension approved</span></span><span class="text-muted-foreground truncate text-[13px]"><span class="font-mono text-[13px]">DEMO-2605</span> · Sam Sample</span></span></a></li>
+</ul>
+<div class="border-t p-1"><a href="#" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-11 w-full items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-[3px]">Open Inbox</a></div>
+</sc-if>
+<sc-if value="{{caughtUp}}" hint-placeholder-val="{{ false }}">
+<div class="flex items-start gap-3 p-4 text-sm"><x-import component-from-global-scope="Strata.Icon" name="check" class-name="text-muted-foreground mt-0.5"></x-import><span class="text-muted-foreground">Nothing unread in your Inbox.</span></div>
+<div class="border-t p-1"><a href="#" class="hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 flex h-11 w-full items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-[3px]">Open Inbox</a></div>
+</sc-if>
+<sc-if value="{{inboxPrivate}}" hint-placeholder-val="{{ false }}">
+<div class="flex items-start gap-3 p-4 text-sm"><x-import component-from-global-scope="Strata.Icon" name="lock" class-name="text-muted-foreground mt-0.5"></x-import><span class="text-muted-foreground">{{stationName}}'s notifications stay private on shared computers.</span></div>
+</sc-if>
+</x-import>
+</x-import>
+</div>
+</header>
+<sc-if value="{{srH1}}" hint-placeholder-val="{{ false }}"><h1 class="sr-only">{{srTitle}}</h1></sc-if>
+<sc-if value="{{placeholder}}" hint-placeholder-val="{{ true }}">
+<div class="text-muted-foreground p-6 text-sm">Page content goes here. Try the sidebar: collapse it with the button above or Ctrl+B and hover the icons, open Retention and Pinned; open the account menu at the bottom.</div>
+</sc-if>
+<sc-if value="{{todayStation}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayStationContent" variant="{{today}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{inbox}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="InboxContent" variant="{{inboxVariant}}" station="{{station}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{todayTech}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayTechContent" variant="{{techVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{todayManager}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayManagerContent" variant="{{managerVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round2}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round2Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round3}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round3Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round4}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round4Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round5}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round5Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round6}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round6Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round7}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round7Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round8}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round8Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round9}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round9Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{round10}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="Round10Content" variant="{{roundVariant}}" station="{{station}}" dark="{{dark}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{unitPage}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="UnitContent" variant="{{recordVariant}}" station="{{station}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{shelfPage}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="ShelfContent" variant="{{recordVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{labelsPage}}" hint-placeholder-val="{{ false }}">
+<div class="flex min-h-0 flex-1 flex-col"><dc-import name="LabelPrintContent" variant="{{recordVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+<sc-if value="{{todayLead}}" hint-placeholder-val="{{ false }}">
+<div class="min-h-0 flex-1 overflow-y-auto"><dc-import name="TodayLeadContent" variant="{{leadVariant}}" hint-size="100%,744px"></dc-import></div>
+</sc-if>
+</x-import>
+</x-import>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"station":{"editor":"boolean","default":false},"customizing":{"editor":"boolean","default":false},"today":{"editor":"select","options":["none","default","concrete","quiet","customize","failed","none-shown","lead-busy","lead-clear","lead-long","lead-failed","manager-busy","manager-clear","manager-long","tech-busy","tech-clear","tech-long","inbox-stream-request","inbox-stream-update","inbox-stream-closed","inbox-grouped","inbox-table","inbox-table-request","inbox-table-search","inbox-requests-empty","inbox-updates-read","inbox-private"],"default":"none"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var station = !!this.props.station;
+    var today = this.props.today || "none";
+    // One count everywhere: unread Inbox items. Clear Today states have none. On a LAB station
+    // counts stay hidden unless the picked person shares their Inbox there (off by default).
+    var clear = /-clear$/.test(today);
+    var unread = clear ? 0 : 3;
+    var inboxPage = today.indexOf("inbox-") === 0;
+    var recordKind = /^(unit|shelf|labels)-/.test(today) ? today.split("-")[0] : "";
+    var recordPage = !!recordKind;
+    var shellStyle = String(this.props.size) === "1024" ? "width: 1024px; height: 768px; overflow: hidden;" : "width: 1280px; height: 800px; overflow: hidden;";
+    var roundM = /^r([0-9]+)-(.*)$/.exec(today);
+    var roundN = roundM ? +roundM[1] : 0;
+    var nav = this.props.nav || "";
+    // person="lead|manager|tech" sets the account row (name, initials, role) for any route, e.g. round boards.
+    var per = { lead: ["Alex Tester", "AT", "Project lead"], manager: ["Sam Sample", "SS", "Lab Manager"], tech: ["Pat Example", "PE", "Technician"], admin: ["Sam Sample", "SS", "Admin"] }[this.props.person] || null;
+    if (roundN) recordPage = true;
+    var customizing = station && today === 'customize';
+    var who = customizing ? { key: 'sam', name: 'Sam Sample', ini: 'SS' } : { key: 'pat', name: 'Pat Example', ini: 'PE' };
+    var privateHere = today === "inbox-private" || (station && !inboxPage);
+    // At 1024 px the sidebar starts as its icon rail so work tables get the width (Ctrl B opens it).
+    // rail="false" keeps it open; rail="true" collapses it at any size.
+    var sidebarOpen = this.props.rail === undefined || this.props.rail === null || this.props.rail === "" ? String(this.props.size) !== "1024" : !(this.props.rail === true || this.props.rail === "true");
+    var shellHeight = String(this.props.size) === "1024" ? "h-[768px]" : "h-[800px]";
+    // Pages whose content draws no h1 of its own get the page title as a screen-reader h1 (audit 2026-11-12).
+    var noH1 = ["none","unit-loading","unit-notfound","r2-entry-confirm","r2-entry-newproject","r2-entry-bulk","r5-list-open","r5-list-peek","r5-list-drafts","r5-list-closed","r5-list-empty","r5-list-loading","r5-list-failed","r5-program-loading","r5-program-noperm","r5-board-board","r5-board-list","r5-board-empty","r5-board-loading","r5-board-failed","r6-revoke","r6-scan-confirm","r3-inv-ctrlk","r3-inv-scanpage","r4-list-mine","r4-list-all","r4-list-waiting","r4-list-empty","r4-list-nomatch","r4-list-loading","r4-list-error","r4-loading","r4-notfound","r4-error","r8-queue-waiting","r8-queue-returned","r8-queue-reviewed","r8-queue-exceptions","r8-queue-empty","r8-queue-error","r8-queue-loading","r8-report-unavailable","r8-report-loading","r8-report-error","r8-strength-notready","r8-prop-none","r7-overview-loading","r7-a-reschedule","r7-receiving-set","r7-set-loading","r7-holds-dispose","r9-locations-retire","r9-locations-retire-blocked"];
+    return { srH1: noH1.indexOf(today) >= 0, srTitle: recordKind === "unit" ? "Storage unit" : this.props.title || "Today", sidebarOpen: sidebarOpen, shellHeight: shellHeight, shellStyle: shellStyle, stationName: who.name, stationInitials: who.ini, stationKey: who.key, toastTheme: this.props.dark ? 'dark' : 'light', stationDensity: station ? '[&_[data-sidebar=menu-button]]:h-11 [&_[data-sidebar=menu-sub-button]]:h-11' : '', signOff: function () { var S = window.Strata; if (S && S.toast) S.toast('Signed off ' + who.name, { description: 'Back to Who is working here? Nothing was recorded by signing off.', action: { label: 'Undo', onClick: function () {} }, duration: 8000 }); }, customizing: !!this.props.customizing, dark: !!this.props.dark, station: station, individual: !station, yes: true, four: 4, hoverOpen: 150, hoverClose: 200, today: today, placeholder: today === "none", todayStation: !recordPage && today !== "none" && today.indexOf("lead-") !== 0 && today.indexOf("manager-") !== 0 && today.indexOf("tech-") !== 0 && today.indexOf("inbox-") !== 0, inbox: today.indexOf("inbox-") === 0, inboxVariant: today.replace("inbox-", ""), pageTitle: this.props.title ? this.props.title : recordKind === "labels" ? "Print labels" : recordPage ? "Inventory" : today.indexOf("inbox-") === 0 ? "Inbox" : "Today", todayActive: !recordPage && today.indexOf("inbox-") !== 0, inventoryActive: recordKind === "unit" || recordKind === "shelf" || nav === "Inventory", inventoryCurrent: recordKind === "unit" || recordKind === "shelf" || nav === "Inventory" ? "page" : "false", roundVariant: roundM ? roundM[2] : "", retentionSub: nav === "Due and overdue" || nav === "Disposal scan" ? nav : "", navOverview: nav === "Overview", navOverviewCurrent: nav === "Overview" ? "page" : "false",round2: roundN === 2, round3: roundN === 3, round4: roundN === 4, round5: roundN === 5, round6: roundN === 6, round7: roundN === 7, round8: roundN === 8, round9: roundN === 9, round10: roundN === 10, navProjects: nav === "Projects", navProjectsCurrent: nav === "Projects" ? "page" : "false", navReceive: nav === "Receive", navReceiveCurrent: nav === "Receive" ? "page" : "false", navLabPrograms: nav === "Lab programs", navLabProgramsCurrent: nav === "Lab programs" ? "page" : "false", navWorkboard: nav === "Workboard", navWorkboardCurrent: nav === "Workboard" ? "page" : "false", navBreaks: nav === "Breaks", navBreaksCurrent: nav === "Breaks" ? "page" : "false", navReceiving: nav === "Receiving", navReceivingCurrent: nav === "Receiving" ? "page" : "false", navSpecimens: nav === "Specimens", navSpecimensCurrent: nav === "Specimens" ? "page" : "false", navHolds: nav === "Holds", navHoldsCurrent: nav === "Holds" ? "page" : "false", navReview: nav === "Review", navReviewCurrent: nav === "Review" ? "page" : "false", unitPage: recordKind === "unit", shelfPage: recordKind === "shelf", labelsPage: recordKind === "labels", recordVariant: recordPage ? today.slice(recordKind.length + 1) : "", inboxActive: today.indexOf("inbox-") === 0, todayCurrent: recordPage || today.indexOf("inbox-") === 0 ? "false" : "page", inboxCurrent: today.indexOf("inbox-") === 0 ? "page" : "false", todayManager: today.indexOf("manager-") === 0, todayTech: today.indexOf("tech-") === 0, techVariant: today.replace("tech-", ""), managerVariant: today.replace("manager-", ""), todayLead: today.indexOf("lead-") === 0, leadVariant: today.replace("lead-", ""), unreadCount: unread, inboxPrivate: privateHere, showCounts: !privateHere && unread > 0, caughtUp: !privateHere && !unread, inboxLabel: privateHere || !unread ? "Inbox" : "Inbox, " + unread + " unread", bellLabel: privateHere || !unread ? "Notifications. Open Inbox" : "Notifications, " + unread + " unread. Open Inbox", role: per ? per[2] : today.indexOf("manager-") === 0 ? "Lab Manager" : today.indexOf("tech-") === 0 ? "Technician" : "Project lead", personName: per ? per[0] : today.indexOf("manager-") === 0 ? "Sam Sample" : today.indexOf("tech-") === 0 ? "Pat Example" : "Alex Tester", personInitials: per ? per[1] : today.indexOf("manager-") === 0 ? "SS" : today.indexOf("tech-") === 0 ? "PE" : "AT" };
+  }
+}
+</script>
+</body>
+</html>

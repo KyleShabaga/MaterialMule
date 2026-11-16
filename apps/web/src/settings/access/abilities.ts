@@ -53,6 +53,21 @@ export const GLOBAL_ABILITIES: readonly { permission: string; what: string; note
     what: 'Change the receiving draft rule',
     note: 'When unfinished drafts are deleted.',
   },
-  { permission: 'staff.manage', what: 'Manage staff and access', note: 'Administrators only.' },
+  {
+    permission: 'staff.manage',
+    what: 'Manage staff and access',
+    note: 'Lab Managers and administrators.',
+  },
+  {
+    permission: 'admin_role.manage',
+    what: 'Make or remove administrators',
+    note: 'Administrators only.',
+  },
+  {
+    permission: 'lab_account.manage',
+    what: 'Manage the shared LAB account',
+    note: 'Administrators only.',
+  },
+  { permission: 'feedback.read', what: 'Read Feedback & bugs', note: 'Administrators only.' },
   { permission: 'system.status.read', what: 'See system status', note: 'Administrators only.' },
 ];

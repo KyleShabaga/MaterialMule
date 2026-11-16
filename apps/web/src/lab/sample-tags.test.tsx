@@ -126,15 +126,31 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('sample ID tags (MM-T69)', () => {
+// Radix Select measures pointer capture, which jsdom lacks.
+if (typeof Element !== 'undefined') {
+  Element.prototype.hasPointerCapture ??= () => false;
+  Element.prototype.releasePointerCapture ??= () => undefined;
+}
+
+/** The print sheets (off screen, aria-hidden): what the printer gets. */
+const printSheets = () => [...document.querySelectorAll<HTMLElement>('.tag-preview .tag-sheet')];
+
+describe('sample ID tags (MM-T69, STRATA-89)', () => {
   it('selects tags with work still to do and lists what gets no tag', async () => {
     const fetchMock = renderTags(ok);
     expect(
-      await screen.findByRole('heading', { name: /Sample ID tags.*LP-2026-0012/ }),
+      await screen.findByRole('heading', { name: 'Print sample ID tags', level: 1 }),
     ).toBeVisible();
-    const boxes = screen.getAllByRole('checkbox', { name: /G13|G5/ });
-    expect(boxes.map((box) => (box as HTMLInputElement).checked)).toEqual([true, true, false]);
+    expect(screen.getByRole('link', { name: 'LP-2026-0012' })).toHaveAttribute(
+      'href',
+      `/lab-testing/programs/${PROGRAM}`,
+    );
+    const list = screen.getByRole('list', { name: 'Tags to print' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+    const boxes = within(list).getAllByRole('checkbox', { name: /G13|G5/ });
+    expect(boxes.map((box) => box.getAttribute('aria-checked'))).toEqual(['true', 'true', 'false']);
     expect(screen.getByText('2 of 3 tags selected · 1 sheet')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Print 2 tags' })).toBeEnabled();
     // Field Ledger: both "no tag" cases are always listed, under their own headings.
     expect(screen.getByRole('heading', { name: 'No tag needed' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'No individual sample' })).toBeVisible();
@@ -146,20 +162,48 @@ describe('sample ID tags (MM-T69)', () => {
     );
   });
 
+  it('previews one card at true size with its place on the sheet', async () => {
+    const user = userEvent.setup();
+    renderTags(ok);
+    const preview = await screen.findByRole('complementary', { name: 'Preview' });
+    expect(
+      within(preview).getByLabelText(/Tag G13 at 10.0 m, TH26-01: Atterberg Limits$/),
+    ).toBeVisible();
+    expect(within(preview).getByText('1 of 2')).toBeVisible();
+    expect(
+      within(preview).getByRole('img', {
+        name: 'Sheet 1 of 1: 2 tags on cards 1 to 2; this tag is card 1',
+      }),
+    ).toBeVisible();
+    await user.click(within(preview).getByRole('button', { name: 'Next tag' }));
+    expect(
+      within(preview).getByLabelText(/Tag G13 at 10.0 m, TH26-01: Sieve, Hydrometer$/),
+    ).toBeVisible();
+    expect(within(preview).getByRole('button', { name: 'Next tag' })).toBeDisabled();
+    // The printed card is black on white whatever the theme.
+    expect(preview.querySelector('[data-slot="tag-card-frame"]')).toHaveClass(
+      'bg-white',
+      'text-black',
+    );
+  });
+
   it('splits a shared tag, never merging, and starts on a chosen card', async () => {
     const user = userEvent.setup();
     renderTags(ok);
     await user.click(await screen.findByRole('button', { name: 'Split into 2 tags' }));
     expect(screen.getByText('3 of 4 tags selected · 1 sheet')).toBeVisible();
-    await user.selectOptions(screen.getByLabelText('Start at card'), '9');
+    await user.click(screen.getByRole('combobox', { name: 'Start at card' }));
+    await user.click(await screen.findByRole('option', { name: 'Card 9' }));
     expect(screen.getByText('3 of 4 tags selected · 2 sheets')).toBeVisible();
-    const preview = screen.getByLabelText('Tag sheets to print');
-    const first = within(preview).getByRole('region', { name: 'Sheet 1 of 2' });
-    expect(within(first).getAllByLabelText(/^Card \d+: blank$/)).toHaveLength(8);
+    // The sheets that print: card 9 and 10 of sheet 1, then sheet 2.
+    const sheets = printSheets();
+    expect(sheets.map((sheet) => sheet.dataset.sheet)).toEqual(['1 of 2', '2 of 2']);
+    expect(sheets[0]!.querySelectorAll('.tag-slot-blank')).toHaveLength(8);
     expect(
-      within(first).getByLabelText(/Tag G13 at 10.0 m, TH26-01: Atterberg Limits/),
-    ).toBeVisible();
-    expect(within(preview).getByText(/Sheet 2 of 2$/)).toBeInTheDocument();
+      within(sheets[0]!).getByLabelText(/Tag G13 at 10.0 m, TH26-01: Atterberg Limits/),
+    ).toBeInTheDocument();
+    expect(within(sheets[1]!).getByText(/Sheet 2 of 2$/)).toBeInTheDocument();
+    expect(document.querySelector('.tag-preview')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('explains that a draft has no tags yet', async () => {
@@ -173,7 +217,34 @@ describe('sample ID tags (MM-T69)', () => {
     expect(
       await screen.findByText('Sample ID tags are available once the program is submitted.'),
     ).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Continue editing' })).toHaveAttribute(
+      'href',
+      `/lab-testing/programs/${PROGRAM}`,
+    );
+    expect(screen.queryByRole('button', { name: /^Print/ })).toBeNull();
+  });
+
+  it('says when no test needs a tag, and offers Try again after a failure', async () => {
+    renderTags(
+      () =>
+        new Response(JSON.stringify({ ...sheet, tags: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    expect(await screen.findByText('No test in this program needs a sample ID tag.')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'No tag needed' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Print/ })).toBeNull();
+  });
+
+  it('offers Try again when the tags could not be loaded', async () => {
+    let fail = true;
+    const user = userEvent.setup();
+    renderTags(() => (fail ? new Response('{}', { status: 500 }) : ok()));
+    expect(await screen.findByText('The tags couldn’t be loaded.')).toBeVisible();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('button', { name: 'Print 2 tags' })).toBeEnabled();
   });
 });
 
@@ -184,7 +255,7 @@ describe('sample ID tag date at print time (review fix, PR #103)', () => {
 
   /** The Date: value on every card in the preview, as the print layout would see it. */
   const cardDates = () =>
-    [...document.querySelectorAll('.tag-card')].map(
+    [...document.querySelectorAll('.tag-preview .tag-card')].map(
       (card) =>
         [...card.querySelectorAll('.tag-field')]
           .find((field) => field.textContent?.startsWith('Date:'))
@@ -197,7 +268,7 @@ describe('sample ID tag date at print time (review fix, PR #103)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-27T05:59:00Z'));
     renderTags(ok);
-    await screen.findByRole('button', { name: 'Print / Save as PDF' });
+    await screen.findByRole('button', { name: 'Print 2 tags' });
     expect(cardDates().length).toBeGreaterThan(0);
     expect(new Set(cardDates())).toEqual(new Set(['26-Oct-26']));
     // The tab stays open past midnight.
@@ -209,7 +280,7 @@ describe('sample ID tag date at print time (review fix, PR #103)', () => {
     await openBeforeMidnight();
     const printed: (string | null | undefined)[][] = [];
     vi.stubGlobal('print', () => printed.push(cardDates()));
-    await user.click(screen.getByRole('button', { name: 'Print / Save as PDF' }));
+    await user.click(screen.getByRole('button', { name: 'Print 2 tags' }));
     expect(printed).toEqual([cardDates()]);
     expect(new Set(printed[0])).toEqual(new Set(['27-Oct-26']));
   });

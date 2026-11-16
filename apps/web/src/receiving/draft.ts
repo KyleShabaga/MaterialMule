@@ -847,3 +847,34 @@ export function validateDraft(draft: ReceiptDraft, today = todayInEdmonton()): D
   errors.sort((a, b) => rank(a.field) - rank(b.field));
   return describeErrors(draft, errors);
 }
+
+/** The holder choices on a receiving row (STRATA-76): a bulk bucket is a bucket holding bulk soil. */
+export const UNIT_KIND_LABEL: Record<UnitKind, string> = {
+  bucket: 'Bucket',
+  bulk: 'Bulk bucket',
+  shelby_tube: 'Shelby tube',
+  core_box: 'Core box',
+};
+
+/** The holder choices in the order the row's Holder menu lists them. */
+export const UNIT_KINDS: readonly UnitKind[] = ['bucket', 'bulk', 'shelby_tube', 'core_box'];
+
+/** What a row holds, as the confirm dialog lists it: "TH26-01, TH26-02", "Embankment Location 03". */
+export function unitSourceText(draft: Pick<ReceiptDraft, 'units'>, unit: UnitDraft): string {
+  if (unit.unitType === 'shelby_tube') return formatSampleDraft(unit.tube).split(': ')[0]!;
+  if (unit.bulk) return bulkChoiceText(draft, unit).split(': ')[0]!;
+  const holes = unit.summaries.map((summary) => summary.testHole.name);
+  return holes.length > 0 ? holes.join(', ') : 'no test hole yet';
+}
+
+/** "2 things to fix before confirming" (STRATA-76): the sticky bar and the summary say the same. */
+export function formatFixCount(count: number): string {
+  return count === 1
+    ? '1 thing to fix before confirming'
+    : `${count} things to fix before confirming`;
+}
+
+/** Switching source type drops the other kind's value, so none is kept hidden. */
+export function withSourceType(type: SamplingSourceType): Partial<SampleDraft> {
+  return { sourceType: type, testHole: null, holeQuery: '', locationReference: '' };
+}

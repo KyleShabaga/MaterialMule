@@ -13,6 +13,7 @@ import {
   closeProgramRequestSchema,
   closureEligibility,
   reopenProgramRequestSchema,
+  type CloseAuthority,
   type CloseBlockedReason,
   type LifecycleRequest,
   type LifecycleRequestResult,
@@ -27,7 +28,7 @@ import {
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
 import { recordAudit } from '../audit/audit.js';
 import { can, type AuthUser, type ProjectContext } from '../auth/policy.js';
-import { canUnderLock } from '../auth/standing.js';
+import { asLocked, canUnderLock, lockProjectLead, lockStanding } from '../auth/standing.js';
 import { DatabaseService } from '../database/database.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { announceActionItem } from '../notifications/action-items.js';
@@ -60,6 +61,34 @@ interface ProgramRow {
   program_number: string | null;
   project_id: string;
   lead_project_engineer_user_id: string | null;
+  /** The personal account that submitted it (its requester); null when LAB submitted it. */
+  requester_user_id: string | null;
+}
+
+/**
+ * STRATA-87 (Kyle 2026-11-12): a program is closed by its requester, the project's lead or a
+ * Lab Manager, always from a personal sign-in. The requester is the personal account that
+ * submitted it: a person a LAB station named is attribution only and gains nothing here.
+ * Closure preconditions (every test accepted or cancelled with a reason, never empty) still apply.
+ */
+export function closeAuthority(
+  user: AuthUser,
+  program: { leadProjectEngineerUserId: string | null; requesterUserId: string | null },
+): CloseAuthority | null {
+  if (user.status !== 'active' || user.accountType === 'shared_lab') return null;
+  if (program.requesterUserId !== null && program.requesterUserId === user.userId)
+    return 'requester';
+  if (can(user, 'program.close', { leadProjectEngineerUserId: program.leadProjectEngineerUserId }))
+    return 'lead';
+  if (user.roles.includes('lab_manager')) return 'lab_manager';
+  return null;
+}
+
+export function mayCloseProgram(
+  user: AuthUser,
+  program: { leadProjectEngineerUserId: string | null; requesterUserId: string | null },
+): boolean {
+  return closeAuthority(user, program) !== null;
 }
 
 interface RequestRow {
@@ -79,7 +108,8 @@ interface RequestRow {
  *
  * Every action here is a personal-account action: the shared LAB account is refused (403)
  * whoever it selects, because a selected person is attribution only (its T23/T24 allow-list
- * never covers these). Close: the project's Lead Project Engineer (`program.close`; a delegate can't). Reopen and
+ * never covers these). Close: the requester, the project's Lead Project Engineer or a Lab Manager
+ * (`mayCloseProgram`, STRATA-87; a delegate can't). Reopen and
  * cancel: the project's Lead Project Engineer or a Lab Manager. Requests and repeats: any internal personal
  * account.
  *
@@ -100,7 +130,7 @@ export class LabLifecycleService {
   // -------------------------------------------------------------------------------------------
 
   async close(programId: string, body: unknown, user: AuthUser): Promise<ProgramLifecycleResult> {
-    await this.authoriseProgram(programId, user, 'program.close');
+    await this.authoriseClose(programId, user);
     const request = parseBody(closeProgramRequestSchema, body);
     const hash = intentHash({ programId, action: 'close', version: request.version });
     return withTransaction(this.database.pool, async (client) => {
@@ -109,7 +139,15 @@ export class LabLifecycleService {
       const program = (await lockProgram(client, programId, 'FOR UPDATE'))!;
       // Authority as the project stands now, under lock (D09): a lead change or role change that
       // committed first is honoured; one that comes later waits for this close.
-      if (!(await canUnderLock(client, user, 'program.close', program.project_id)))
+      const lead = await lockProjectLead(client, program.project_id);
+      const actor = asLocked(user, await lockStanding(client, [user.userId]));
+      if (
+        lead === undefined ||
+        !mayCloseProgram(actor, {
+          leadProjectEngineerUserId: lead,
+          requesterUserId: program.requester_user_id,
+        })
+      )
         throw forbidden();
       if (program.status !== 'submitted') {
         unprocessable(
@@ -584,12 +622,26 @@ export class LabLifecycleService {
   // Helpers
   // -------------------------------------------------------------------------------------------
 
+  /**
+   * Close: 403 before anything else, as before STRATA-87: a missing program (or a draft) is 403
+   * for everyone, since closing is always about one program; a present one is checked against
+   * its requester, its project's lead and the Lab Manager role.
+   */
+  private async authoriseClose(programId: string, user: AuthUser) {
+    if (user.accountType === 'shared_lab' || user.status !== 'active') throw forbidden();
+    const program = await lockProgram(this.database.pool, programId, '');
+    if (!program || program.status === 'draft') throw forbidden();
+    if (
+      !mayCloseProgram(user, {
+        leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+        requesterUserId: program.requester_user_id,
+      })
+    )
+      throw forbidden();
+  }
+
   /** 403 before 404: a caller who could never do this learns nothing about the program. */
-  private async authoriseProgram(
-    programId: string,
-    user: AuthUser,
-    permission: 'program.close' | 'program.reopen',
-  ) {
+  private async authoriseProgram(programId: string, user: AuthUser, permission: 'program.reopen') {
     if (user.accountType === 'shared_lab') throw forbidden();
     const program = await lockProgram(this.database.pool, programId, '');
     if (!program || program.status === 'draft') {
@@ -658,7 +710,9 @@ export class LabLifecycleService {
 async function lockProgram(db: Db, id: string, lock: '' | 'FOR SHARE' | 'FOR UPDATE') {
   if (!UUID_PATTERN.test(id)) return null;
   const { rows } = await db.query<ProgramRow>(
-    `SELECT lp.id, lp.status, lp.version, lp.program_number, lp.project_id, p.lead_project_engineer_user_id
+    `SELECT lp.id, lp.status, lp.version, lp.program_number, lp.project_id, p.lead_project_engineer_user_id,
+            CASE WHEN lp.submitted_by_account_type <> 'shared_lab'
+                 THEN lp.submitted_by_account_user_id END AS requester_user_id
      FROM lab_program lp JOIN project p ON p.id = lp.project_id
      WHERE lp.id = $1 ${lock ? `${lock} OF lp` : ''}`,
     [id],
@@ -794,9 +848,12 @@ export async function loadProgramLifecycle(
       closed_by_initials_snapshot: string | null;
       closed_by_name_snapshot: string | null;
       lead_project_engineer_user_id: string | null;
+      requester_user_id: string | null;
     }>(
       `SELECT lp.status, lp.version, lp.closed_at, lp.closed_by_user_id,
-              lp.closed_by_initials_snapshot, lp.closed_by_name_snapshot, p.lead_project_engineer_user_id
+              lp.closed_by_initials_snapshot, lp.closed_by_name_snapshot, p.lead_project_engineer_user_id,
+              CASE WHEN lp.submitted_by_account_type <> 'shared_lab'
+                   THEN lp.submitted_by_account_user_id END AS requester_user_id
        FROM lab_program lp JOIN project p ON p.id = lp.project_id WHERE lp.id = $1`,
       [programId],
     ),
@@ -828,9 +885,13 @@ export async function loadProgramLifecycle(
       cancelReason: r.cancel_reason,
     })),
   );
+  const closeAs = closeAuthority(user, {
+    leadProjectEngineerUserId: row.lead_project_engineer_user_id,
+    requesterUserId: row.requester_user_id,
+  });
   const closeBlockedReason: CloseBlockedReason | null = !personal
     ? 'personal_sign_in'
-    : !can(user, 'program.close', context)
+    : closeAs === null
       ? 'not_lead_project_engineer'
       : !open
         ? 'not_open'
@@ -860,6 +921,7 @@ export async function loadProgramLifecycle(
     closure: { ...closure, counts: closure.counts as Record<string, number> },
     canClose: closeBlockedReason === null,
     closeBlockedReason,
+    closeAs,
     canRequestClose: personal && open && can(user, 'program.close_request'),
     canReopen: personal && !open && can(user, 'program.reopen', context),
     canAmend: personal && open && can(user, 'lab_program.amend'),

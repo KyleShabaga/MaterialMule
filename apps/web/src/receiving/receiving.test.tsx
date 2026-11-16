@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { prefillFromQuery } from './prefill';
 
 // Every project, person and hole here is fictional.
@@ -54,6 +55,7 @@ type Handler = (body: unknown) => Response;
 
 /** Renders /receiving-log/new with API responses keyed by "METHOD path-prefix". */
 function renderReceive(api: Record<string, Handler>, session = me()) {
+  pickStationPerson(session);
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = (init?.method ?? 'GET').toUpperCase();
@@ -146,7 +148,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     await screen.findByText('No matching project');
     await user.click(screen.getByRole('button', { name: 'Add project' }));
 
-    const form = screen.getByRole('group', { name: 'Add project' });
+    const form = await screen.findByRole('dialog', { name: 'Add project' });
     expect(within(form).getByLabelText('Project number')).toHaveValue('70001');
     await user.type(within(form).getByLabelText('Project name'), 'Example Ridge');
     await user.type(within(form).getByLabelText('Client'), 'Example Client');
@@ -155,7 +157,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       PE.id,
     );
     await user.type(within(form).getByLabelText('Note for the admin (optional)'), 'Phase 2 lead');
-    await user.click(within(form).getByRole('button', { name: 'Save project' }));
+    await user.click(within(form).getByRole('button', { name: 'Add project' }));
 
     expect(await screen.findByLabelText('Project name')).toHaveValue('Example Ridge');
     // MM-AO04: a nomination for an admin to confirm, never an immediate appointment.
@@ -205,7 +207,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       });
       await user.type(await screen.findByRole('combobox', { name: /Find project/ }), '70003');
       await user.click(screen.getByRole('button', { name: 'Add project' }));
-      return { user, form: screen.getByRole('group', { name: 'Add project' }) };
+      return { user, form: await screen.findByRole('dialog', { name: 'Add project' }) };
     }
 
     it('offers active Engineer staff only, in one list without groups, by job title not position', async () => {
@@ -241,7 +243,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
       ).toEqual(['No nomination: leave it to an admin']);
       await user.type(within(form).getByLabelText('Project name'), 'Example');
       await user.type(within(form).getByLabelText('Client'), 'Example Client');
-      await user.click(within(form).getByRole('button', { name: 'Save project' }));
+      await user.click(within(form).getByRole('button', { name: 'Add project' }));
       // D02: no lead is fine; the project saves and waits for an admin (the API isn't mocked
       // here, so it reports the save failure rather than a field error).
       expect(within(form).queryByText('Lead Project Engineer is required')).toBeNull();
@@ -284,13 +286,13 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     });
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), '70009');
     await user.click(screen.getByRole('button', { name: 'Add project' }));
-    const form = screen.getByRole('group', { name: 'Add project' });
+    const form = await screen.findByRole('dialog', { name: 'Add project' });
     const self = await within(form).findByRole('checkbox', { name: /I’ll lead this project/ });
     await user.click(self);
     expect(within(form).queryByLabelText('Nominate a Lead Project Engineer (optional)')).toBeNull();
     await user.type(within(form).getByLabelText('Project name'), 'Own job');
     await user.type(within(form).getByLabelText('Client'), 'Example Client');
-    await user.click(within(form).getByRole('button', { name: 'Save project' }));
+    await user.click(within(form).getByRole('button', { name: 'Add project' }));
     await vi.waitFor(() =>
       expect(sent).toMatchObject({ appointSelfAsLead: true, leadNomineeUserId: null }),
     );
@@ -301,13 +303,17 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     const fetchMock = renderReceive({ 'GET /api/projects/search': () => json(200, []) });
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), '70002');
     await user.click(screen.getByRole('button', { name: 'Add project' }));
-    const form = screen.getByRole('group', { name: 'Add project' });
+    const form = await screen.findByRole('dialog', { name: 'Add project' });
     await user.type(within(form).getByLabelText('Project name'), 'Example');
-    await user.click(within(form).getByRole('button', { name: 'Save project' }));
+    await user.click(within(form).getByRole('button', { name: 'Add project' }));
 
     expect(within(form).getByText('Client is required')).toBeInTheDocument();
     expect(within(form).getByLabelText('Client')).toHaveAttribute('aria-invalid', 'true');
-    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) => init?.method === 'POST' && String(url).startsWith('/api/projects'),
+      ),
+    ).toBe(false);
   });
 
   it('offers the existing project on a duplicate number', async () => {
@@ -318,14 +324,14 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     });
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), '67997');
     await user.click(screen.getByRole('button', { name: 'Add project' }));
-    const form = screen.getByRole('group', { name: 'Add project' });
+    const form = await screen.findByRole('dialog', { name: 'Add project' });
     await user.type(within(form).getByLabelText('Project name'), 'Again');
     await user.type(within(form).getByLabelText('Client'), 'Example Client');
     await user.selectOptions(
       within(form).getByLabelText('Nominate a Lead Project Engineer (optional)'),
       PE.id,
     );
-    await user.click(within(form).getByRole('button', { name: 'Save project' }));
+    await user.click(within(form).getByRole('button', { name: 'Add project' }));
 
     expect(
       await screen.findByText('Project 67997 already exists: West Pine Creek Ph.3.'),
@@ -351,7 +357,6 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     });
     await user.type(await screen.findByRole('combobox', { name: /Find project/ }), 'pine');
     await user.click(await screen.findByRole('option', { name: /67997/ }));
-    await user.click(screen.getByRole('button', { name: 'Next: add the units' }));
 
     const holeInput = screen.getByRole('combobox', { name: 'Find or add a test hole' });
     await user.type(holeInput, 'th26-0');
@@ -395,7 +400,7 @@ describe('Receive samples: project and test holes (MM-T08)', () => {
     expect(screen.getByRole('button', { name: 'Add project' })).toBeEnabled();
   });
 
-  it('a LAB station has no default receiver', async () => {
+  it('a LAB station has no default receiver, even with someone in Recording as', async () => {
     renderReceive({}, me({ accountType: 'shared_lab', id: 'lab', displayName: 'LAB' }));
     expect(await screen.findByRole('combobox', { name: 'Received by' })).toHaveValue('');
   });

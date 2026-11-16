@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertConfirmedBucket } from './support/db';
+import { inboxKeyFor, inboxRowByKey, inboxUrl, openInboxItem } from './support/inbox';
 import { signInAsLabStation } from './support/lab-station';
 
 // MM-T29 (card T5, T7): a Technician without authority requests a hold on one unit, the Lab
@@ -27,14 +28,17 @@ test('T5: request → approve on the project page → On hold → release, with 
   await expect(card).not.toContainText('On hold');
 
   await signInAs(page, 'lab'); // Lab Manager
-  await page.goto('/action-requests');
-  const item = page
-    .getByRole('listitem', { name: 'Hold requested for DEMO-2601 · 1 unit' })
-    .filter({
-      hasText: `Client dispute (${unit.readableId})`,
-    });
-  await expect(item).toContainText('LM · Lead Project Engineer:');
-  await item.getByRole('link', { name: 'Open' }).click();
+  // The Inbox row doesn't show the reason, so this request is found by it (STRATA-24).
+  const title = 'Hold requested for DEMO-2601 · 1 unit';
+  const reason = `Client dispute (${unit.readableId})`;
+  const key = await inboxKeyFor(page, title, (i) => i.reason === reason, 'requests');
+  await page.goto(inboxUrl(title, { tab: 'requests' }));
+  const row = page.getByRole('listitem').filter({ has: inboxRowByKey(page, key) });
+  await expect(row).toContainText('Retention');
+  const item = await openInboxItem(page, row, title);
+  await expect(item).toContainText(reason);
+  await expect(item).toContainText('waiting on you');
+  await item.getByRole('link', { name: 'Decide on retention' }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${DEMO_PROJECT_ID}#retention$`));
   const section = page.getByRole('region', { name: 'Retention', exact: true });
   const request = section
@@ -59,13 +63,11 @@ test('T5: request → approve on the project page → On hold → release, with 
   await expect(hold.getByRole('form', { name: 'Release' })).toHaveCount(0);
   await expect(card).not.toContainText('Retain until 2026-11-03 · On hold');
 
-  await page.goto('/action-requests');
-  await page.getByRole('button', { name: 'Resolved' }).click();
-  await expect(
-    page
-      .getByRole('listitem', { name: 'Hold requested for DEMO-2601 · 1 unit' })
-      .filter({ hasText: `Client dispute (${unit.readableId})` }),
-  ).toContainText('Resolved by LAB · Approved');
+  await page.goto(inboxUrl(title, { tab: 'done' }));
+  const done = page.getByRole('listitem').filter({ has: inboxRowByKey(page, key) });
+  const resolved = await openInboxItem(page, done, title);
+  await expect(resolved).toContainText(reason);
+  await expect(resolved).toContainText('Resolved by Lab (test) · Approved');
 });
 
 test('T7: a LAB station sees retention but can neither change nor request it', async ({ page }) => {

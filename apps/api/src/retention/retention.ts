@@ -74,6 +74,7 @@ interface DecisionRow {
   version: number;
   retain_until?: string | null;
   extend_months?: number | null;
+  hold_until?: string | null;
 }
 
 const UNITS_OF = (table: string, key: string) => `
@@ -86,7 +87,7 @@ const HOLD_SELECT = `
          d.reason, d.placed_by_user_id AS by_user_id, d.placed_by_initials_snapshot AS by_initials,
          d.placed_by_name_snapshot AS by_name, d.placed_at AS at, d.request_id, d.released_at,
          d.released_by_user_id, d.released_by_initials_snapshot, d.released_by_name_snapshot,
-         d.release_reason, d.version
+         d.release_reason, d.version, d.hold_until::text AS hold_until
   FROM retention_hold d`;
 
 const EXTENSION_SELECT = `
@@ -123,6 +124,7 @@ function toHold(row: DecisionRow): RetentionHold {
     ...common(row),
     placedBy: person(row.by_user_id, row.by_initials, row.by_name)!,
     placedAt: row.at.toISOString(),
+    holdUntil: row.hold_until ?? null,
   };
 }
 
@@ -184,6 +186,7 @@ export async function loadProjectRequests(
     units: { id: string; readableId: string }[] | null;
     retain_until: string | null;
     extend_months: number | null;
+    hold_until: string | null;
     reason: string;
     requested_by_user_id: string;
     requested_by_initials_snapshot: string | null;
@@ -197,8 +200,8 @@ export async function loadProjectRequests(
     decision_reason: string | null;
   }>(
     `SELECT d.id, d.kind, d.scope, ${UNITS_OF('retention_request_unit', 'request_id')} AS units,
-            d.retain_until::text AS retain_until, d.extend_months, d.reason,
-            d.requested_by_user_id, d.requested_by_initials_snapshot,
+            d.retain_until::text AS retain_until, d.extend_months,
+            d.hold_until::text AS hold_until, d.reason, d.requested_by_user_id, d.requested_by_initials_snapshot,
             d.requested_by_name_snapshot, d.requested_at, d.status, d.decided_by_user_id,
             u.official_initials AS decided_by_initials, d.decided_by_name_snapshot, d.decided_at,
             d.decision_reason
@@ -213,6 +216,7 @@ export async function loadProjectRequests(
     units: row.units ?? [],
     retainUntil: row.retain_until,
     extendMonths: row.extend_months,
+    holdUntil: row.hold_until,
     reason: row.reason,
     requestedBy: person(
       row.requested_by_user_id,

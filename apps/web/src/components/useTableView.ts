@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useMediaQuery } from './useMediaQuery';
 
 // Field Ledger table view (docs/redesign/design.md, "Table view selector"); the selector
-// itself is TableViewSelector in ui.tsx.
+// itself is TableViewSelector in app-ui.tsx.
 
 export type TableView = 'comfortable' | 'compact';
 

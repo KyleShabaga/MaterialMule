@@ -1,7 +1,7 @@
 import type { ConcreteStrengthReportListItem } from '@materialmule/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { DataTable, ErrorState, StatusBadge, TableScroll } from '../components/ui';
+import { DataTable, ErrorState, StatusBadge, TableScroll } from '../components/app-ui';
 import { StrengthStateBadge } from './StrengthReportPage';
 import { fetchStrengthReports, strengthProblemText } from './strength-api';
 

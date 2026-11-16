@@ -12,6 +12,7 @@ import {
   type ConcreteHoldProblemCode,
   type ConcreteHoldScheduleTestRequest,
   type ConcreteHoldStatusFilter,
+  type ConcreteHoldUntilRequest,
   type ConcreteRecordDisposalRequest,
 } from '@materialmule/shared';
 import { apiFetch } from '../../api/client';
@@ -131,6 +132,13 @@ async function command(path: string, body: unknown): Promise<ActionResult> {
 
 export const scheduleTest = (body: ConcreteHoldScheduleTestRequest) =>
   command('/api/concrete/holds/schedule-test', body);
+/**
+ * STRATA-121: Breaks selection bar → Hold until. Scheduled specimens (with their versions) go on
+ * an ordinary HOLD until `holdUntil` (YYYY-MM-DD, after today) with a reason. All or nothing:
+ * `problems` names each ineligible specimen, `refused` those the caller may not hold.
+ */
+export const holdUntil = (body: ConcreteHoldUntilRequest) =>
+  command('/api/concrete/holds/hold-until', body);
 export const authorizeDisposal = (body: ConcreteHoldAuthorizeDisposalRequest) =>
   command('/api/concrete/holds/authorize-disposal', body);
 export const recordDisposal = (body: ConcreteRecordDisposalRequest) =>

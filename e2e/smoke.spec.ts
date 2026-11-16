@@ -8,10 +8,10 @@ test('Today loads data from the API and database', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByRole('heading', { level: 2, name: 'Needs you' })).toBeVisible();
-  const ledger = page.getByRole('region', { name: 'Ledger' });
-  await expect(ledger.getByText('LAST 24 H')).toBeVisible();
-  await expect(ledger.getByText('Loading the ledger…')).toHaveCount(0);
-  await expect(ledger.getByRole('alert')).toHaveCount(0);
+  const lastDay = page.getByRole('region', { name: 'Last 24 hours' });
+  await expect(lastDay.getByRole('heading', { level: 2, name: 'Last 24 hours' })).toBeVisible();
+  await expect(lastDay.getByText('Loading the last 24 hours…')).toHaveCount(0);
+  await expect(lastDay.getByRole('alert')).toHaveCount(0);
   await expect(page).toHaveTitle('Today · Material Mule');
 });
 

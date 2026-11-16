@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { addHole, bucket, chooseDemoProject, openWizard, toUnits } from './support/receiving';
+import {
+  addHole,
+  chooseDemoProject,
+  chooseHolder,
+  confirmDelivery,
+  openWizard,
+  toUnits,
+} from './support/receiving';
 
 // Core boxes (Kyle, 2026-11-10): a CRE- core box belongs to one test hole and holds 1–3 runs of
 // 1.52 m, 3 runs (4.56 m) by default; its runs are corrected later without changing the ID.
@@ -17,7 +24,7 @@ test('a core box is received at 3 runs on one test hole, then corrected to 2 run
   await chooseDemoProject(page);
   await toUnits(page);
 
-  await bucket(page, 1).getByRole('button', { name: 'CRE Core box' }).click();
+  await chooseHolder(page, 'Bucket 1', 'Core box');
   const box = page.getByRole('region', { name: 'Core box 1' });
   await addHole(box, 'TH26-01');
   // Choosing a second hole replaces the first: a core box belongs to one test hole.
@@ -26,13 +33,13 @@ test('a core box is received at 3 runs on one test hole, then corrected to 2 run
   const summary = box.getByRole('group', { name: 'TH26-02 summary' });
   await expect(summary.getByLabel('Summary type')).toHaveValue('all');
   await expect(box.getByRole('radio', { name: '3 runs · 4.56 m' })).toBeChecked();
+  // The confirm dialog names the prefix it will get, never a number.
+  await page.getByRole('button', { name: 'Confirm and print labels' }).click();
   await expect(
-    box.getByRole('list', { name: 'Core box 1 contents' }).getByRole('listitem'),
-  ).toHaveText(['TH26-02All samples', 'Runs3 runs · 4.56 m']);
-  await expect(
-    page.getByRole('region', { name: 'On confirm' }).getByText(/^CRE-\d{4}-······$/),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm and issue IDs' }).click();
+    page.getByRole('alertdialog').getByRole('list', { name: 'IDs to be issued' }),
+  ).toContainText('Core box · TH26-02New CRE- ID');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  await confirmDelivery(page);
   const list = page.getByRole('list', { name: 'New storage units' });
   await expect(list).toBeVisible({ timeout: 15_000 });
   const ids = await list.getByRole('heading').allTextContents();
@@ -44,7 +51,8 @@ test('a core box is received at 3 runs on one test hole, then corrected to 2 run
   // On the label block and in the facts list.
   await expect(page.getByText('3 runs · 4.56 m').first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Correct details' }).click();
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Correct' }).click();
   const form = page.getByRole('form', { name: 'Correct details' });
   await form.getByRole('radio', { name: '2 runs · 3.04 m' }).check();
   await form.getByLabel('Reason for the correction').fill('last box of the hole');

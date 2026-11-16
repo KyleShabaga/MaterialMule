@@ -1,8 +1,8 @@
 import { Controller, Get, Inject, Query } from '@nestjs/common';
 import {
-  inventoryQuerySchema,
+  inventoryListQuerySchema,
   recentlyReceivedQuerySchema,
-  type InventoryPage,
+  type InventoryListPage,
   type RecentlyReceivedResponse,
 } from '@materialmule/shared';
 import { RequirePermission } from '../auth/auth.decorators.js';
@@ -24,13 +24,15 @@ export class InventoryController {
 
   /**
    * `GET /api/inventory?search=&projectId=&testHoleId=&type=&locationId=&status=&receivedFrom=
-   * &receivedTo=&retention=&conflict=open&sort=&dir=&page=&pageSize=` → `{items, total, page,
-   * pageSize}`. Each item carries `openConflict` (MM-T81).
+   * &receivedTo=&retention=&conflict=open&stage=&counts=1&sort=&dir=&page=&pageSize=` →
+   * `{items, total, page, pageSize, stageCounts?}`. Each item carries `openConflict` (MM-T81) and
+   * `locationPath`. STRATA-79: `stage` is a stage tab (it replaces `status`); `counts=1` adds every
+   * tab's count under the same search and filters.
    */
   @Get('inventory')
   @RequirePermission('inventory.read')
-  list(@Query() query: unknown): Promise<InventoryPage> {
-    return this.inventory.query(parseBody(inventoryQuerySchema, query));
+  list(@Query() query: unknown): Promise<InventoryListPage> {
+    return this.inventory.query(parseBody(inventoryListQuerySchema, query));
   }
 
   /**

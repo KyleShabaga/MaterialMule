@@ -38,6 +38,7 @@ import {
   concreteRescheduleContext,
   findProject,
   intentHash,
+  projectContext,
 } from '../project-access/project-access.service.js';
 import { parseBody } from '../validation/parse-body.js';
 import { testingMachineSnapshot } from './concrete-equipment.service.js';
@@ -48,6 +49,7 @@ type Db = Pool | PoolClient;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RESCHEDULE = 'concrete_specimen.reschedule' as const;
+const ORDINARY_HOLD = 'concrete_ordinary_hold.manage' as const;
 
 const forbidden = (code = 'forbidden') => new ForbiddenException({ code });
 
@@ -100,6 +102,19 @@ const VIEW_PREDICATE: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string
  * rule). Nothing is released or disposed of automatically.
  */
 const HOLD_REVIEW_DUE = `${VIEW_PREDICATE.hold} AND sp.hold_expires_on <= q.today`;
+
+/**
+ * Strata lane A (STRATA-20/21): specimens with a break due on `today` (the worklist's Today view)
+ * that have no complete test entry yet. Same scheduled set as the worklist, so the station count
+ * and the worklist never disagree.
+ */
+export async function countBreaksDueToday(db: Db, today: string): Promise<number> {
+  const { rows } = await db.query<{ count: number }>(
+    `SELECT count(*)::int AS count ${SCHEDULED} AND ${VIEW_PREDICATE.today} AND NOT ${TESTED}`,
+    [today, today, null],
+  );
+  return rows[0]?.count ?? 0;
+}
 
 const VIEW_ORDER: Record<Exclude<ConcreteWorklistView, 'exceptions'>, string> = {
   today: 'sp.target_date',
@@ -256,6 +271,7 @@ export class ConcreteWorklistService {
           projectName: row.project_name,
           count: countOf.get(row.project_id) ?? 0,
           canReschedule: await this.canReschedule(db, row.project_id, user),
+          canHoldUntil: await this.canHoldUntil(db, row.project_id, user),
           rows: [],
         };
         byProject.set(row.project_id, group);
@@ -436,6 +452,14 @@ export class ConcreteWorklistService {
     const project = await findProject(db, projectId);
     if (!project) return false;
     return can(user, RESCHEDULE, await concreteRescheduleContext(db, project));
+  }
+
+  /** STRATA-121: Hold until is ordinary HOLD authority (the lead or any Lab Manager). */
+  private async canHoldUntil(db: Db, projectId: string, user: AuthUser): Promise<boolean> {
+    if (user.status !== 'active' || user.accountType === 'shared_lab') return false;
+    const project = await findProject(db, projectId);
+    if (!project) return false;
+    return can(user, ORDINARY_HOLD, await projectContext(db, project));
   }
 
   /** An exact retry returns the specimen as it stands; the same key for anything else is 409. */

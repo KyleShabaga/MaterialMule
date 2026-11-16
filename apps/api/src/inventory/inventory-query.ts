@@ -1,7 +1,11 @@
 import {
+  INVENTORY_STAGE_TAB_STATUSES,
+  STORAGE_UNIT_RECORD_STATUSES,
+  inventoryListSortDirection,
   inventorySearchWordForms,
-  inventorySortDirection,
+  inventoryUsesStageTabs,
   splitInventorySearch,
+  type InventoryListQuery,
   type InventoryQuery,
 } from '@materialmule/shared';
 import { likeEscape } from '../projects/projects.service.js';
@@ -10,23 +14,30 @@ import { likeEscape } from '../projects/projects.service.js';
 export interface InventorySql {
   /** FROM … WHERE …, shared by the count and the page query. */
   fromWhere: string;
+  /** ORDER BY terms over the `fromWhere` aliases; the page query numbers its rows in this order. */
   orderBy: string;
-  /** Joins the outer page query needs so it can repeat `orderBy` (retain-until sort). */
-  orderJoin: string;
+  /** `rs.record_status` is available in `fromWhere` (stage tabs, counts or the stage sort). */
+  hasRecordStatus: boolean;
   params: unknown[];
   limit: number;
   offset: number;
 }
 
 /**
- * Builds the inventory query (MM-T12). Every search word must appear somewhere in the unit's
- * search document (AND across words, any field); filters combine with AND. The storage unit ID
- * always ends the sort so pages never overlap or skip rows that share a received date.
+ * Builds the inventory query (MM-T12, STRATA-79). Every search word must appear somewhere in the
+ * unit's search document (AND across words, any field); filters combine with AND. The storage
+ * unit ID always ends the sort so pages never overlap or skip rows that share a sort value.
+ *
+ * `ignoreStage` leaves the stage tab out (the counts query, which counts every tab under the same
+ * search and filters).
  */
 export function buildInventoryQuery(
-  query: InventoryQuery,
-  options: { asOf?: string } = {},
+  query: InventoryQuery | InventoryListQuery,
+  options: { asOf?: string; ignoreStage?: boolean } = {},
 ): InventorySql {
+  const list = query as Partial<InventoryListQuery> & InventoryQuery;
+  const stageTabs = inventoryUsesStageTabs(list);
+  const sort = list.sort as InventoryListQuery['sort'];
   const params: unknown[] = [];
   const where: string[] = [];
   const param = (value: unknown) => {
@@ -67,10 +78,13 @@ export function buildInventoryQuery(
   if (query.receiptId) {
     where.push(`su.receipt_id = ${param(query.receiptId)}`);
   }
-  if (query.status === 'current') {
-    where.push(`su.status <> 'disposed'`);
-  } else if (query.status !== 'all') {
-    where.push(`su.status = ${param(query.status)}`);
+  // STRATA-79: with the stage tabs, the tab decides (below) and the older status filter is unused.
+  if (!stageTabs) {
+    if (query.status === 'current') {
+      where.push(`su.status <> 'disposed'`);
+    } else if (query.status !== 'all') {
+      where.push(`su.status = ${param(query.status)}`);
+    }
   }
   if (query.receivedFrom) {
     where.push(`su.received_date >= ${param(query.receivedFrom)}::date`);
@@ -98,7 +112,6 @@ export function buildInventoryQuery(
   if (query.retainUntilTo) {
     where.push(`ur.effective_retain_until <= ${param(query.retainUntilTo)}::date`);
   }
-  const joinRetention = Boolean(query.retention || retainRange || query.sort === 'retain_until');
 
   // MM-T81: one open conflict per unit at most (location_conflict_one_open_idx).
   if (query.conflict === 'open') {
@@ -108,31 +121,94 @@ export function buildInventoryQuery(
     );
   }
 
+  // STRATA-79: the record status (STRATA-58's one rule) in SQL, so tabs, counts and the stage
+  // sort all run on the server.
+  const recordStatus = stageTabs || sort === 'stage';
+  const joinRetention = Boolean(
+    query.retention || retainRange || sort === 'retain_until' || recordStatus,
+  );
+  const joinLocation = recordStatus || sort === 'where';
+  const today = recordStatus ? param(options.asOf ?? null) : '';
+  if (stageTabs && list.stage && list.stage !== 'all' && !options.ignoreStage) {
+    where.push(
+      `rs.record_status = ANY(${param([...INVENTORY_STAGE_TAB_STATUSES[list.stage]])}::text[])`,
+    );
+  }
+
   const fromWhere = [
     'FROM storage_unit su',
     words.length > 0 ? 'JOIN storage_unit_search s ON s.storage_unit_id = su.id' : '',
     joinRetention ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
+    joinLocation ? 'JOIN location sl ON sl.id = su.current_location_id' : '',
+    recordStatus
+      ? 'LEFT JOIN location_effective_storage_term st ON st.location_id = su.current_location_id'
+      : '',
+    sort === 'project' ? 'JOIN project sp ON sp.id = su.project_id' : '',
+    recordStatus ? `CROSS JOIN LATERAL (SELECT ${recordStatusSql(today)} AS record_status) rs` : '',
     where.length > 0 ? `WHERE ${where.join('\n  AND ')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
 
   // Direction comes from a closed enum, never from raw input.
-  const dir = inventorySortDirection(query) === 'asc' ? 'ASC' : 'DESC';
-  const orderBy =
-    query.sort === 'received'
-      ? `su.received_date ${dir}, su.readable_id COLLATE "C" ${dir}`
-      : query.sort === 'retain_until'
-        ? `ur.effective_retain_until ${dir} NULLS LAST, su.readable_id COLLATE "C" ${dir}`
-        : `su.readable_id COLLATE "C" ${dir}`;
+  const dir = inventoryListSortDirection({ sort, dir: query.dir }) === 'asc' ? 'ASC' : 'DESC';
+  const tie = `su.readable_id COLLATE "C" ${dir}`;
+  let orderBy: string;
+  switch (sort) {
+    case 'received':
+      orderBy = `su.received_date ${dir}, ${tie}`;
+      break;
+    case 'retain_until':
+      orderBy = `ur.effective_retain_until ${dir} NULLS LAST, ${tie}`;
+      break;
+    case 'project':
+      orderBy = `sp.project_number COLLATE "C" ${dir}, ${tie}`;
+      break;
+    case 'type':
+      orderBy = `su.unit_type ${dir}, ${tie}`;
+      break;
+    case 'where':
+      orderBy = `sl.code COLLATE "C" ${dir}, ${tie}`;
+      break;
+    case 'stage':
+      // Lifecycle order of the record statuses (STRATA-58's list). Written into the SQL from the
+      // shared constant, never from input, so the count query (which has no ORDER BY) and the
+      // page query take the same parameters.
+      orderBy = `array_position(ARRAY[${STORAGE_UNIT_RECORD_STATUSES.map((s) => `'${s}'`).join(', ')}]::text[], rs.record_status) ${dir}, ${tie}`;
+      break;
+    default:
+      orderBy = tie;
+  }
 
   return {
     fromWhere,
     orderBy,
-    orderJoin:
-      query.sort === 'retain_until' ? 'JOIN unit_retention ur ON ur.storage_unit_id = su.id' : '',
+    hasRecordStatus: recordStatus,
     params,
     limit: query.pageSize,
     offset: (query.page - 1) * query.pageSize,
   };
+}
+
+/**
+ * STRATA-58's record status rule as SQL over `su`, `sl` (saved location), `st` (its effective
+ * storage term, view location_effective_storage_term) and `ur` (unit_retention); `today` is the
+ * business date parameter. The same order as storageUnitRecordStatus and unitStageFacts:
+ * disposed, open conflict, retention overdue, due, in lab, received (awaiting put-away),
+ * long-term, else short-term (an unset term reads Short-term). Retention applies only without an
+ * active hold and when the unit isn't exempt as tested.
+ */
+export function recordStatusSql(today: string): string {
+  const applies = 'ur.active_hold_count = 0 AND NOT ur.retention_exempt';
+  return `CASE
+    WHEN su.status = 'disposed' THEN 'disposed'
+    WHEN EXISTS (SELECT 1 FROM location_conflict c
+                 WHERE c.storage_unit_id = su.id AND c.status = 'open') THEN 'location_conflict'
+    WHEN ur.effective_retain_until < ${today}::date AND ${applies} THEN 'retention_overdue'
+    WHEN ur.effective_retain_until <= ${today}::date AND ${applies} THEN 'retention_due'
+    WHEN sl.kind = 'lab' THEN 'in_lab'
+    WHEN sl.kind = 'receiving_lab' THEN 'received'
+    WHEN st.term = 'long_term' THEN 'long_term'
+    ELSE 'short_term'
+  END`;
 }

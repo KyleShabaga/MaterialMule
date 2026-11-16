@@ -63,6 +63,8 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'notification.read',
   // MM-T29
   'retention.request',
+  // Strata 1C: own sidebar layout, pins, recents, preferences and columns
+  'personal_settings.manage',
   'test_catalog.manage',
   'program.priority.set',
   'program.reopen',
@@ -70,6 +72,10 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'retention.manage',
   'disposal.approve',
   'staff.manage',
+  // STRATA-118: administrator-only staff, LAB-account and feedback authority.
+  'admin_role.manage',
+  'lab_account.manage',
+  'feedback.read',
   'session.revoke',
   'printer.manage',
   'settings.drafts.manage',
@@ -98,6 +104,11 @@ const ALL_GLOBAL_PERMISSIONS: Permission[] = [
   'concrete_test.enter',
   'concrete_specimen.dispose_record',
   'concrete_sync_conflict.resolve_lab',
+  // Strata lane A: station counts (LAB, lab staff), the station Inbox (LAB only) and customizing
+  // a station (Lab Manager only; the web shows the editable Customize popover from it).
+  'station.today.read',
+  'station.inbox.read',
+  'station.configure',
 ];
 
 /** The request ID pino-http assigned (also returned as the x-request-id header). */

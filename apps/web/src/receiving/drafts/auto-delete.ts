@@ -1,5 +1,6 @@
 import type { DraftSettings, MeResponse } from '@materialmule/shared';
 import { visibleTo, type StoredDraft } from './record';
+import { closeExpiredDraft } from './ownership';
 import type { DraftStore } from './store';
 
 // Automatic clean-up of old drafts on this browser (MM-T45, amends the T11 "never deleted"
@@ -7,6 +8,11 @@ import type { DraftStore } from './store';
 // It deletes only drafts this session may see (T11 visibility rules) that haven't been saved for
 // more than `afterDays` days, and never a draft in the `confirming` state: its receipt may have
 // gone through, and resuming it is the only way to find out.
+//
+// A deleted draft that the server registry knows about (`registeredAt` set) is then closed there
+// as `expired` (migration 0049) so the LAB station stops counting it: only while online, best
+// effort, never waited on and never retried. One deleted offline drops out of the station count by
+// age instead.
 
 export type DraftAutoDelete = DraftSettings['draftAutoDelete'];
 
@@ -71,9 +77,22 @@ export function selectAutoDelete(
   return drafts.filter((d) => isAutoDeletable(d, me, setting.data.draftAutoDelete, now));
 }
 
+export interface AutoDeleteServer {
+  /** Records the clean-up on the server registry; failures are ignored. */
+  closeExpired: (draftId: string) => Promise<unknown>;
+  /** Whether this browser is online now. */
+  online: () => boolean;
+}
+
+const httpServer: AutoDeleteServer = {
+  closeExpired: closeExpiredDraft,
+  online: () => typeof navigator === 'undefined' || navigator.onLine,
+};
+
 /**
  * Deletes the selected drafts and returns how many went. Each record is read again just before
- * it is deleted, so one saved or sent for confirmation in another tab meanwhile is kept.
+ * it is deleted, so one saved or sent for confirmation in another tab meanwhile is kept. A deleted
+ * registered draft is closed on the server as `expired` when online (best effort).
  */
 export async function autoDeleteDrafts(
   store: DraftStore,
@@ -81,6 +100,7 @@ export async function autoDeleteDrafts(
   me: Pick<MeResponse, 'id' | 'accountType'>,
   setting: DraftSettingState,
   now = new Date(),
+  server: AutoDeleteServer = httpServer,
 ): Promise<number> {
   if (!setting.ok) return 0;
   let deleted = 0;
@@ -89,6 +109,13 @@ export async function autoDeleteDrafts(
     if (current && isAutoDeletable(current, me, setting.data.draftAutoDelete, now)) {
       await store.remove(current.draftId);
       deleted++;
+      if (current.registeredAt && !current.legacy && server.online()) {
+        try {
+          void server.closeExpired(current.draftId).catch(() => undefined);
+        } catch {
+          // Best effort: the station count drops it by age anyway.
+        }
+      }
     }
   }
   return deleted;

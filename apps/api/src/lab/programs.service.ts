@@ -8,7 +8,11 @@ import {
 import {
   depthKey,
   formatLineDepth,
-  LAB_PROGRAM_PAGE_SIZE,
+  LAB_PROGRAM_STATUS_STAGE,
+  labProgramListSortDirection,
+  labProgramPhase,
+  type ProgramUnits,
+  type TestRequestStatus,
   lineSubmitProblems,
   testDisplayName,
   type CoverageUnit,
@@ -32,6 +36,7 @@ import {
   type TestRequest,
   type UpdateLabProgramRequest,
   testProgress,
+  type LabProgramListQuery,
   type LabProgramSummary,
 } from '@materialmule/shared';
 import { DatabaseError, type Pool, type PoolClient } from 'pg';
@@ -54,7 +59,25 @@ import {
 } from './coverage.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PAGE_SIZE = LAB_PROGRAM_PAGE_SIZE;
+/**
+ * STRATA-47: the list order, built only from the allowlisted sort and direction (never from raw
+ * input). The program ID ends every order so equal keys page deterministically.
+ */
+export function labProgramOrderBy(query: Pick<LabProgramListQuery, 'sort' | 'dir'>): string {
+  const dir = labProgramListSortDirection(query) === 'asc' ? 'ASC' : 'DESC';
+  switch (query.sort) {
+    case 'number':
+      // Drafts have no number yet: they come last in either direction.
+      return `lp.program_number COLLATE "C" ${dir} NULLS LAST, lp.id ${dir}`;
+    case 'project':
+      return `p.project_number_normalized COLLATE "C" ${dir}, lp.program_number COLLATE "C" ${dir} NULLS LAST, lp.id ${dir}`;
+    case 'submitted':
+      return `lp.submitted_at ${dir} NULLS LAST, lp.id ${dir}`;
+    default:
+      // This account's drafts first, then the newest submission or edit.
+      return `(lp.status = 'draft') DESC, coalesce(lp.submitted_at, lp.updated_at) ${dir}, lp.id ${dir}`;
+  }
+}
 
 type Db = Pool | PoolClient;
 
@@ -185,18 +208,15 @@ export class LabProgramsService {
   // Reads
   // -------------------------------------------------------------------------------------------
 
-  async list(
-    user: AuthUser,
-    query: { status?: string; projectId?: string; page?: number; search?: string },
-  ): Promise<LabProgramList> {
+  async list(user: AuthUser, query: LabProgramListQuery): Promise<LabProgramList> {
     const params: unknown[] = [user.userId];
     // Submitted and closed programs are shared; drafts only for the account that owns them.
     const where = [`(lp.status <> 'draft' OR lp.created_by_account_user_id = $1)`];
-    if (query.status && ['draft', 'submitted', 'closed'].includes(query.status)) {
+    if (query.status) {
       params.push(query.status);
       where.push(`lp.status = $${params.length}`);
     }
-    if (query.projectId && UUID_PATTERN.test(query.projectId)) {
+    if (query.projectId) {
       params.push(query.projectId);
       where.push(`lp.project_id = $${params.length}`);
     }
@@ -209,13 +229,16 @@ export class LabProgramsService {
            AND (sp.project_number ILIKE $${n} OR sp.name ILIKE $${n})))`,
       );
     }
-    const page = Math.max(1, query.page ?? 1);
+    const { page, pageSize } = query;
     const { rows } = await this.database.pool.query<
       ProgramRow & {
         line_count: number;
         test_count: number;
         total: number;
         status_counts: Record<string, number> | null;
+        units_to_pull: boolean;
+        cancelled_without_reason: boolean;
+        closed_at: Date | null;
       }
     >(
       `${SELECT_PROGRAM.replace(
@@ -229,11 +252,25 @@ export class LabProgramsService {
                   AS test_count,
                 (SELECT json_object_agg(s.status, s.n) FROM (
                    SELECT r.status, count(*)::int AS n FROM test_request r
-                   WHERE r.program_id = lp.id GROUP BY r.status) s) AS status_counts`,
+                   WHERE r.program_id = lp.id GROUP BY r.status) s) AS status_counts,
+                -- STRATA-87 phase facts. Units to pull: the Workboard pull list's rule
+                -- (WorkService.unitsToPull) for this program.
+                (lp.status = 'submitted' AND EXISTS (
+                   SELECT 1 FROM program_scope_snapshot pss
+                   JOIN storage_unit su ON su.id = pss.storage_unit_id
+                   JOIN location loc ON loc.id = su.current_location_id
+                   WHERE pss.program_id = lp.id AND pss.included
+                     AND su.status = 'in_stock' AND loc.kind <> 'lab'
+                     AND EXISTS (SELECT 1 FROM test_request r
+                                 WHERE r.line_id = pss.line_id
+                                   AND r.status IN ('requested', 'in_progress')))) AS units_to_pull,
+                EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id
+                          AND r.status = 'cancelled' AND coalesce(btrim(r.cancel_reason), '') = '')
+                  AS cancelled_without_reason`,
       )}
        WHERE ${where.join(' AND ')}
-       ORDER BY (lp.status = 'draft') DESC, coalesce(lp.submitted_at, lp.updated_at) DESC, lp.id
-       LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
+       ORDER BY ${labProgramOrderBy(query)}
+       LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
       params,
     );
     let total = rows[0]?.total ?? 0;
@@ -246,8 +283,18 @@ export class LabProgramsService {
       );
       total = counted[0]?.total ?? 0;
     }
+    // Tab counts (Open, Drafts (mine), Closed) under the same visibility, ignoring the filters.
+    const { rows: tabs } = await this.database.pool.query<{ status: LabProgramStatus; n: number }>(
+      `SELECT lp.status, count(*)::int AS n FROM lab_program lp
+       WHERE (lp.status <> 'draft' OR lp.created_by_account_user_id = $1)
+       ${query.projectId ? 'AND lp.project_id = $2' : ''}
+       GROUP BY lp.status`,
+      query.projectId ? [user.userId, query.projectId] : [user.userId],
+    );
+    const tab = (status: LabProgramStatus) => tabs.find((t) => t.status === status)?.n ?? 0;
     return {
       total,
+      counts: { open: tab('submitted'), drafts: tab('draft'), closed: tab('closed') },
       items: rows.map((row) => ({
         id: row.id,
         programNumber: row.program_number,
@@ -262,6 +309,15 @@ export class LabProgramsService {
         lineCount: row.line_count,
         testCount: row.test_count,
         progress: listProgress(row.status, row.test_count, row.status_counts),
+        // STRATA-58: the row's stage from its status (draft, in the lab, closed).
+        stage: LAB_PROGRAM_STATUS_STAGE[row.status],
+        phase: labProgramPhase({
+          status: row.status,
+          counts: (row.status_counts ?? {}) as Partial<Record<TestRequestStatus, number>>,
+          cancelledWithoutReason: row.cancelled_without_reason,
+          unitsToPull: row.units_to_pull,
+        }),
+        closedAt: row.closed_at?.toISOString() ?? null,
       })),
     };
   }
@@ -269,6 +325,66 @@ export class LabProgramsService {
   async get(id: string, user: AuthUser): Promise<LabProgram> {
     const row = await this.findVisible(this.database.pool, id, user);
     return loadProgram(this.database.pool, row);
+  }
+
+  /**
+   * STRATA-87 "Units to pull": the included frozen coverage of a submitted program, one row per
+   * unit, with where it is now and whether the lab still has to pull it (the Workboard pull
+   * list's rule). Drafts have no frozen coverage: 404 like any other draft read.
+   */
+  async units(id: string, user: AuthUser): Promise<ProgramUnits> {
+    const program = await this.findVisible(this.database.pool, id, user);
+    if (program.status === 'draft') throw new NotFoundException({ code: 'lab_program_not_found' });
+    const { rows } = await this.database.pool.query<{
+      id: string;
+      readable_id: string;
+      contents: string | null;
+      line_numbers: number[];
+      in_stock: boolean;
+      location_code: string | null;
+      location_name: string | null;
+      location_area: string | null;
+      at_lab: boolean;
+      wanted: boolean;
+    }>(
+      `SELECT su.id, su.readable_id, min(pss.contents_snapshot) AS contents,
+              array_agg(DISTINCT tl.line_number ORDER BY tl.line_number) AS line_numbers,
+              (su.status = 'in_stock') AS in_stock,
+              loc.code AS location_code, loc.name AS location_name, loc.area AS location_area,
+              coalesce(loc.kind = 'lab', false) AS at_lab,
+              bool_or(EXISTS (SELECT 1 FROM test_request r WHERE r.line_id = pss.line_id
+                                AND r.status IN ('requested', 'in_progress'))) AS wanted
+       FROM program_scope_snapshot pss
+       JOIN test_line tl ON tl.id = pss.line_id
+       JOIN storage_unit su ON su.id = pss.storage_unit_id
+       LEFT JOIN location loc ON loc.id = su.current_location_id
+       WHERE pss.program_id = $1 AND pss.included
+       GROUP BY su.id, su.readable_id, su.status, loc.code, loc.name, loc.area, loc.kind
+       ORDER BY su.readable_id`,
+      [program.id],
+    );
+    const open = program.status === 'submitted';
+    const units = rows.map((row) => {
+      const location =
+        row.in_stock && row.location_code !== null
+          ? { code: row.location_code, name: row.location_name ?? '', area: row.location_area }
+          : null;
+      const atLab = location !== null && row.at_lab;
+      return {
+        storageUnitId: row.id,
+        readableId: row.readable_id,
+        contents: row.contents,
+        lineNumbers: row.line_numbers,
+        location,
+        atLab,
+        toPull: open && location !== null && !atLab && row.wanted,
+      };
+    });
+    return {
+      units,
+      toPull: units.filter((unit) => unit.toPull).length,
+      atLab: units.filter((unit) => unit.atLab).length,
+    };
   }
 
   async sources(projectId: string): Promise<LabSource[]> {

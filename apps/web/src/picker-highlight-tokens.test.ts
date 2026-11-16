@@ -1,71 +1,32 @@
 // @vitest-environment node
 /// <reference types="node" />
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { contrast, resolveToken, themeSources } from './theme/css-tokens.testing';
 
 // MM-T78: the picker highlight used --inset on a --card-head list, both #f8fafc in light mode,
 // so the keyboard-highlighted option was invisible. Check the tokens themselves in both themes:
 // the highlight fill must reach 3:1 against the list and its text 4.5:1 against the fill.
+// Strata: the Field Ledger names in styles.css resolve through var() to strata-theme.css.
 // (e2e/picker-highlight.spec.ts checks the computed colours in a real browser.)
 
-// Read from disk: Vitest does not load stylesheet contents, not even with ?raw.
-const css = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+const css = themeSources.styles;
 
-function tokens(block: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const match of block.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) {
-    out[match[1]!] = match[2]!;
-  }
-  return out;
-}
-
-function luminance(hex: string): number {
-  const channel = (i: number) => {
-    const s = parseInt(hex.slice(i, i + 2), 16) / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-}
-
-function token(theme: Record<string, string>, name: string): string {
-  const value = theme[name];
-  if (!value) throw new Error(`--${name} is not defined`);
-  return value;
-}
-
-function contrast(a: string, b: string): number {
-  const [x, y] = [luminance(a), luminance(b)];
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-}
-
-const lightBlock = css.slice(
-  css.indexOf(':root {'),
-  css.indexOf('@media (prefers-color-scheme: dark)'),
-);
-const darkStart = css.indexOf('@media (prefers-color-scheme: dark)');
-const darkBlock = css.slice(darkStart, css.indexOf('color-scheme: dark;', darkStart));
-const light = tokens(lightBlock);
-const dark = { ...light, ...tokens(darkBlock) };
-
-describe.each([
-  ['light', light],
-  ['dark', dark],
-] as const)('picker highlight tokens in %s mode', (_name, theme) => {
+describe.each(['light', 'dark'] as const)('picker highlight tokens in %s mode', (theme) => {
   it('the highlight fill differs from the list by at least 3:1', () => {
     expect(
-      contrast(token(theme, 'option-active'), token(theme, 'card-head')),
+      contrast(resolveToken(theme, 'option-active'), resolveToken(theme, 'card-head')),
     ).toBeGreaterThanOrEqual(3);
   });
 
   it('the highlighted text reaches 4.5:1 on the fill', () => {
     expect(
-      contrast(token(theme, 'on-option-active'), token(theme, 'option-active')),
+      contrast(resolveToken(theme, 'on-option-active'), resolveToken(theme, 'option-active')),
     ).toBeGreaterThanOrEqual(4.5);
   });
 
   it('hover is a different colour from the highlight', () => {
-    expect(token(theme, 'option-hover')).not.toBe(token(theme, 'option-active'));
-    expect(token(theme, 'option-hover')).not.toBe(token(theme, 'card-head'));
+    expect(resolveToken(theme, 'option-hover')).not.toBe(resolveToken(theme, 'option-active'));
+    expect(resolveToken(theme, 'option-hover')).not.toBe(resolveToken(theme, 'card-head'));
   });
 });
 

@@ -13,6 +13,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MM-T36 in Sample Storage: Shelby tube and bulk soil bucket rows in the Standard and Compact
 // views, and a bulk bucket's detail with its sibling buckets and the personal-only corrections.
@@ -165,6 +166,7 @@ function stubApi(handler: (url: URL, init?: RequestInit) => Response | undefined
 
 function renderAt(path: string, user = me()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{
@@ -181,7 +183,7 @@ function renderAt(path: string, user = me()) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  window.localStorage.removeItem('materialmule:table-view:inventory');
+  window.localStorage.removeItem('materialmule:strata-table-density:inventory');
 });
 
 describe('MM-T36 Sample Storage', () => {
@@ -190,12 +192,12 @@ describe('MM-T36 Sample Storage', () => {
     renderAt('/sample-storage');
     expect(await screen.findByText('2 storage units')).toBeInTheDocument();
     const [, bulkRow, tubeRow] = screen.getAllByRole('row');
-    expect(within(bulkRow!).getByText('Bulk soil sample')).toHaveClass('type-tag');
+    expect(within(bulkRow!).getByText('Bulk soil sample')).toBeInTheDocument();
     expect(within(bulkRow!).getByText('TH26-21: B1 at 1.5–2 m')).toBeInTheDocument();
-    expect(within(bulkRow!).getByText('Bulk sample · B1 · bucket 1 of 2')).toHaveClass('badge');
+    expect(within(bulkRow!).getByText('Bulk sample · B1 · bucket 1 of 2')).toBeInTheDocument();
     // The storage unit ID stays the BKT- ID; B1 is never shown as the unit's ID.
     expect(within(bulkRow!).getByRole('link', { name: 'BKT-2026-000021' })).toBeInTheDocument();
-    expect(within(tubeRow!).getByText('Shelby tube')).toHaveClass('type-tag');
+    expect(within(tubeRow!).getByText('Shelby tube')).toBeInTheDocument();
     expect(
       within(tubeRow!).getByText('Embankment Location 03: T5 at 10–12 ft'),
     ).toBeInTheDocument();
@@ -203,18 +205,15 @@ describe('MM-T36 Sample Storage', () => {
   });
 
   it('Compact view keeps each record on one line with the full text in its title', async () => {
-    window.localStorage.setItem('materialmule:table-view:inventory', 'compact');
+    window.localStorage.setItem('materialmule:strata-table-density:inventory', 'compact');
     stubApi((url) => (url.pathname === '/api/inventory' ? json(200, page(ROWS)) : undefined));
     renderAt('/sample-storage');
     expect(await screen.findByText('2 storage units')).toBeInTheDocument();
-    expect(document.querySelector('.inventory-table-compact')).not.toBeNull();
+    expect(document.querySelector('[data-slot=data-table][data-density=compact]')).not.toBeNull();
     const table = screen.getByRole('table');
     const bulk = within(table).getByTitle('TH26-21: B1 at 1.5–2 m · bucket 1 of 2');
-    expect(bulk).toHaveClass('hole-line');
     expect(bulk.tagName).toBe('SPAN');
-    expect(within(table).getByTitle('Embankment Location 03: T5 at 10–12 ft')).toHaveClass(
-      'hole-line',
-    );
+    expect(within(table).getByTitle('Embankment Location 03: T5 at 10–12 ft')).toBeInTheDocument();
     // One line per record: no chip lists in compact rows.
     expect(table.querySelector('.hole-list')).toBeNull();
   });
@@ -238,10 +237,10 @@ describe('MM-T36 Sample Storage', () => {
       '/sample-storage/BKT-2026-000022',
     );
     expect(buckets).toHaveTextContent('Rack A shelf 1');
-    // Summaries show the sampling source, not a test-hole list.
-    const summaries = screen.getByRole('region', { name: 'Summaries' });
+    // STRATA-72: the Sample section shows the sampling source, not a test-hole table.
+    const summaries = screen.getByRole('region', { name: 'Sample' });
     expect(within(summaries).getByText('Sampling source')).toBeInTheDocument();
-    expect(within(summaries).queryByText('Test holes')).toBeNull();
+    expect(screen.queryByRole('table', { name: 'Test hole summaries' })).toBeNull();
   });
 
   it('LAB (no storage_unit.correct) sees the bulk sample but no correction actions (AC6 UI)', async () => {

@@ -114,7 +114,7 @@ describe.runIf(testDatabaseUrl)('cross-card regression (MM-T80)', () => {
       'post',
       `/api/test-requests/${requestId}/review`,
       { action: 'complete', version: inReview.body.version, idempotencyKey: newKey() },
-      'tech',
+      'jo',
     );
     expect(reviewed.status, JSON.stringify(reviewed.body)).toBe(200);
     version = reviewed.body.version as number;

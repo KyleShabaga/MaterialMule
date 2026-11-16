@@ -1,13 +1,13 @@
-import type { InventoryItem, MeResponse, MoveRequest } from '@materialmule/shared';
+import type { InventoryListItem, MeResponse, MoveRequest } from '@materialmule/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 import { indexedDbMoveStore, type NewMove, type QueuedMove } from '../moves/store';
 import { pendingMovesByUnit, usePendingMoves } from '../moves/usePendingMoves';
-import type { TableView } from '../components/ui';
 import { StorageUnitTable } from './StorageUnitTable';
 
 // MM-T81: Conflict tag and this device's Pending marker on Sample Storage rows. Fictional data only.
@@ -31,7 +31,7 @@ const PROJECT = {
   client: 'Example Client',
 };
 
-function item(unit: typeof U1, overrides: Partial<InventoryItem> = {}): InventoryItem {
+function item(unit: typeof U1, overrides: Partial<InventoryListItem> = {}): InventoryListItem {
   return {
     id: unit.id,
     readableId: unit.readableId,
@@ -84,16 +84,16 @@ function newMove(
 function Harness({
   accountId,
   items,
-  view = 'comfortable',
+  density = 'comfortable',
 }: {
   accountId: string;
-  items: InventoryItem[];
-  view?: TableView;
+  items: InventoryListItem[];
+  density?: 'comfortable' | 'compact';
 }) {
   const pendingMoves = usePendingMoves(accountId);
   return (
     <MemoryRouter>
-      <StorageUnitTable items={items} pendingMoves={pendingMoves} view={view} />
+      <StorageUnitTable items={items} pendingMoves={pendingMoves} density={density} />
     </MemoryRouter>
   );
 }
@@ -101,18 +101,60 @@ function Harness({
 const row = (id: string) => within(screen.getByRole('link', { name: id }).closest('tr')!);
 
 describe('Sample Storage conflict and Pending markers (MM-T81)', () => {
-  it('AC1: an open conflict shows a Conflict tag in words in both views', () => {
-    for (const view of ['comfortable', 'compact'] as const) {
+  it('AC1: an open conflict shows a Location conflict tag in words in both densities', () => {
+    for (const density of ['comfortable', 'compact'] as const) {
       const { unmount } = render(
         <MemoryRouter>
-          <StorageUnitTable view={view} items={[item(U1, { openConflict: true }), item(U2)]} />
+          <StorageUnitTable
+            density={density}
+            items={[item(U1, { openConflict: true }), item(U2)]}
+          />
         </MemoryRouter>,
       );
-      expect(row(U1.readableId).getByText('Conflict')).toBeVisible();
-      expect(row(U1.readableId).getByText('In stock')).toBeVisible();
-      expect(row(U2.readableId).queryByText('Conflict')).toBeNull();
+      // STRATA-79: the record status word replaces the old status plus a Conflict tag.
+      expect(row(U1.readableId).getByText('Location conflict')).toBeVisible();
+      expect(row(U2.readableId).getByText('In stock')).toBeVisible();
+      expect(row(U2.readableId).queryByText('Location conflict')).toBeNull();
       unmount();
     }
+  });
+
+  it('MM-T28: a conflicted row names the other location it was also scanned on', () => {
+    render(
+      <MemoryRouter>
+        <StorageUnitTable
+          items={[
+            item(U1, {
+              location: { id: C1.id, code: C1.code, name: C1.name },
+              locationPath: ['Warehouse C1'],
+              openConflict: true,
+              conflictLocation: { code: C2.code, name: C2.name },
+            }),
+            item(U2, { conflictLocation: null }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    // The saved location first, then the other scan in place of the path.
+    expect(row(U1.readableId).getByText(C1.code)).toBeVisible();
+    const also = row(U1.readableId).getByTestId('conflict-location');
+    expect(also).toHaveTextContent(`Also scanned on ${C2.code}`);
+    expect(also).toHaveClass('text-stage-danger-fg');
+    expect(row(U1.readableId).queryByText('Warehouse C1')).toBeNull();
+    // The ID is never cut: the link keeps the full readable ID.
+    expect(screen.getByRole('link', { name: U1.readableId })).toHaveTextContent(U1.readableId);
+    expect(row(U2.readableId).queryByTestId('conflict-location')).toBeNull();
+    expect(row(U2.readableId).getByText(RECEIVING.name)).toBeVisible();
+  });
+
+  it('MM-T28: an open conflict without another location keeps the path', () => {
+    render(
+      <MemoryRouter>
+        <StorageUnitTable items={[item(U1, { openConflict: true, conflictLocation: null })]} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId('conflict-location')).toBeNull();
+    expect(row(U1.readableId).getByText(RECEIVING.name)).toBeVisible();
   });
 
   it('AC2: a queued move on this device shows Pending beside the saved location', async () => {
@@ -129,7 +171,7 @@ describe('Sample Storage conflict and Pending markers (MM-T81)', () => {
   it('AC3: moves of another account, or already saved, show no Pending marker', async () => {
     await indexedDbMoveStore.add(newMove(U1, C1, { account: TECH }));
     await indexedDbMoveStore.add(newMove(U2, C2, { state: 'saved' }));
-    render(<Harness accountId={LAB} items={[item(U1), item(U2)]} view="compact" />);
+    render(<Harness accountId={LAB} items={[item(U1), item(U2)]} density="compact" />);
     // Let the store read settle before asserting absence.
     await waitFor(async () => expect((await indexedDbMoveStore.list()).moves).toHaveLength(2));
     await new Promise<void>((resolve) => queueMicrotask(resolve));
@@ -192,7 +234,7 @@ describe('Sample Storage rows after an offline move settles in another tab (revi
     });
 
   /** Tab A: inventory open at `path`; `rows` answers each inventory request in turn. */
-  function openInventory(path: string, rows: () => InventoryItem[]) {
+  function openInventory(path: string, rows: () => InventoryListItem[]) {
     const requests: URL[] = [];
     vi.stubGlobal(
       'fetch',
@@ -206,6 +248,7 @@ describe('Sample Storage rows after an offline move settles in another tab (revi
         return new Response('{}', { status: 404 });
       }),
     );
+    pickStationPerson(me);
     render(
       <SessionContext.Provider
         value={{
@@ -254,22 +297,24 @@ describe('Sample Storage rows after an offline move settles in another tab (revi
   );
 
   it.runIf(typeof BroadcastChannel !== 'undefined')(
-    'a refused move shows its open conflict on a conflict-filtered list',
+    'a refused move shows its open conflict on the Conflicts tab (older conflict=open link)',
     async () => {
       let refused = false;
       const requests = openInventory('/sample-storage?conflict=open&page=2', () =>
         refused ? [item(U1, { openConflict: true })] : [item(U2, { openConflict: true })],
       );
-      expect(await screen.findByRole('link', { name: U2.readableId })).toBeVisible();
+      // The list can re-render while it settles; look the link up again on each try.
+      await waitFor(() => expect(screen.getByRole('link', { name: U2.readableId })).toBeVisible());
       // Queued and refused between two of tab A's reads: still a settlement to show.
       const move = await indexedDbMoveStore.add(newMove(U1, C1));
       refused = true;
       await indexedDbMoveStore.update(move.clientMoveId, { state: 'conflict' });
       announce();
       await screen.findByRole('link', { name: U1.readableId });
-      expect(row(U1.readableId).getByText('Conflict')).toBeVisible();
+      // The rows can re-render while settling; look the tag up again on each try.
+      await waitFor(() => expect(row(U1.readableId).getByText('Location conflict')).toBeVisible());
       expect(requests).toHaveLength(2);
-      expect(requests[1]!.searchParams.get('conflict')).toBe('open');
+      expect(requests[1]!.searchParams.get('stage')).toBe('conflicts');
       expect(requests[1]!.searchParams.get('page')).toBe('2');
     },
   );

@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { pickOnStationPicker } from './support/lab-station';
 import { withDatabase } from './support/db';
+import { addUnit, confirmDelivery } from './support/receiving';
 
 // MM-T11: receiving drafts autosaved in this browser (IndexedDB), against the real API with
 // fictional DEMO-2601 data. Each test gets a fresh browser context, so it starts with no drafts.
@@ -25,12 +27,13 @@ async function chooseProject(page: Page) {
   await expect(page.getByLabel('Project number')).toHaveValue('DEMO-2601');
 }
 
-async function toUnits(page: Page) {
-  await page.getByRole('button', { name: 'Next: add the units' }).click();
-  await expect(page.getByRole('heading', { name: 'Storage units in this delivery' })).toBeVisible();
+/** Received by and Description as saved in the draft (Receive samples is one page, STRATA-76). */
+async function expectDelivery(page: Page, description: string, receiver: RegExp) {
+  await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
+  await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
+    receiver,
+  );
 }
-
-const confirmButton = (page: Page) => page.getByRole('button', { name: 'Confirm and issue IDs' });
 
 async function addHole(unit: Locator, name: string) {
   await unit.getByRole('combobox', { name: 'Find or add a test hole' }).fill(name);
@@ -42,19 +45,54 @@ function summaryOf(unit: Locator, hole: string) {
 }
 
 /**
- * Waits until the indicator reports a save whose snapshot was taken after `since` (an ISO time).
- * Take `since` after the edit, so the save found includes it.
+ * The newest stored draft (this browser's IndexedDB) whose entries, receiver or history contain
+ * `text`: its lastSavedAt, or null while no stored draft has it yet.
  */
-async function savedAfter(page: Page, since: string): Promise<string> {
-  const time = draftStatus(page).locator('time');
-  await expect
-    .poll(
-      async () => Date.parse(((await time.count()) && (await time.getAttribute('datetime'))) || ''),
-      { timeout: 10_000 },
-    )
-    .toBeGreaterThan(Date.parse(since));
+async function storedDraftWith(page: Page, text: string): Promise<string | null> {
+  return page.evaluate(
+    (needle) =>
+      new Promise<string | null>((resolve, reject) => {
+        const open = indexedDB.open('materialmule-drafts');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('receiptDrafts')) return resolve(null);
+          const all = db.transaction('receiptDrafts').objectStore('receiptDrafts').getAll();
+          all.onerror = () => reject(all.error);
+          all.onsuccess = () => {
+            const times = (
+              all.result as {
+                data: unknown;
+                receiver: unknown;
+                history: unknown;
+                lastSavedAt: string;
+              }[]
+            )
+              .filter((d) =>
+                JSON.stringify({ data: d.data, receiver: d.receiver, history: d.history }).includes(
+                  needle,
+                ),
+              )
+              .map((d) => d.lastSavedAt)
+              .sort();
+            resolve(times.at(-1) ?? null);
+          };
+        };
+      }),
+    text,
+  );
+}
+
+/**
+ * Waits until a stored draft holds `text` (the value just entered) and the indicator reports a
+ * save; returns that draft's save time. It checks the stored content, not a clock: the page saves
+ * about 1 s after the last change, but also sooner (when the draft is first registered), so no
+ * time taken by the test reliably separates the save that has the edit from one that doesn't.
+ */
+async function savedWith(page: Page, text: string): Promise<string> {
+  await expect.poll(() => storedDraftWith(page, text), { timeout: 10_000 }).not.toBeNull();
   await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: \w+$/);
-  return (await time.getAttribute('datetime'))!;
+  return (await storedDraftWith(page, text))!;
 }
 
 /** Signs the context out on the server only (cookie kept, so the next request gets a 401). */
@@ -100,17 +138,16 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   await expect(draftStatus(page)).toHaveText('Draft not saved yet · Receiver: AT');
   await chooseProject(page);
   await page.getByLabel('Description (optional)').fill('Two buckets from the drill crew');
-  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   const range = summaryOf(bucket(page, 1), 'TH26-01');
   await range.getByLabel('Summary type').selectOption('sample_range');
   await range.getByLabel('Sample from').fill('G1');
   await range.getByLabel('Sample to').fill('S12');
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
+  await addUnit(page);
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
   await bucket(page, 2).getByLabel('Bucket 2 note (optional)').fill('Lid taped');
-  await savedAfter(page, new Date().toISOString());
+  await savedWith(page, 'Lid taped');
   await page.close();
 
   const reopened = await context.newPage();
@@ -128,14 +165,9 @@ test('T3/AC1: a closed tab reopens with the draft listed and every field intact'
   expect(listBox.y).toBeLessThan(startBox.y);
 
   await list.getByRole('button', { name: /Resume draft DEMO-2601/ }).click();
-  // It opens on Units, where it was left, with the finished units folded to their rows.
-  const delivery = reopened.getByRole('group', { name: 'Delivery' });
-  await expect(delivery).toContainText('DEMO-2601');
-  await expect(delivery).toContainText('Two buckets from the drill crew');
-  await expect(delivery).toContainText('AT · Alex Tester');
-  await expect(bucket(reopened, 1).getByText('G1–S12')).toBeVisible();
-  await bucket(reopened, 1).getByRole('button', { name: 'Edit Bucket 1' }).click();
-  await bucket(reopened, 2).getByRole('button', { name: 'Edit Bucket 2' }).click();
+  // Every field as it was left; rows are always open.
+  await expect(reopened.getByLabel('Project number')).toHaveValue('DEMO-2601');
+  await expectDelivery(reopened, 'Two buckets from the drill crew', /^AT · Alex Tester/);
   const reopenedRange = summaryOf(bucket(reopened, 1), 'TH26-01');
   await expect(reopenedRange.getByLabel('Sample from')).toHaveValue('G1');
   await expect(reopenedRange.getByLabel('Sample to')).toHaveValue('S12');
@@ -161,10 +193,9 @@ test(
       page.getByText('Offline: your entries are kept here.', { exact: false }),
     ).toBeVisible();
     await page.getByLabel('Description (optional)').fill('Edited offline');
-    const savedFirst = await savedAfter(page, new Date().toISOString());
-    await toUnits(page);
+    const savedFirst = await savedWith(page, 'Edited offline');
     await bucket(page, 1).getByLabel('Bucket 1 note (optional)').fill('Still offline');
-    const savedSecond = await savedAfter(page, new Date().toISOString());
+    const savedSecond = await savedWith(page, 'Still offline');
     expect(savedSecond > savedFirst).toBe(true);
 
     await context.setOffline(false);
@@ -174,7 +205,7 @@ test(
     await draftList(reopened)
       .getByRole('button', { name: /Resume draft/ })
       .click();
-    await expect(reopened.getByRole('group', { name: 'Delivery' })).toContainText('Edited offline');
+    await expect(reopened.getByLabel('Description (optional)')).toHaveValue('Edited offline');
     await expect(bucket(reopened, 1).getByLabel('Bucket 1 note (optional)')).toHaveValue(
       'Still offline',
     );
@@ -198,9 +229,8 @@ test(
     await expect(alert).toBeVisible();
     await expect(alert).toContainText('Receiver: AT');
     await expect(alert).toContainText('no storage space left');
-    // A step change retries the save; it still fails and still says so.
+    // A later change retries the save; it still fails and still says so.
     await chooseProject(page);
-    await toUnits(page);
     await expect(alert).toBeVisible();
     await expect(page.getByText(/Draft saved/)).toHaveCount(0);
   },
@@ -213,39 +243,41 @@ test('T6/AC5/AC4: LAB session expires mid-draft; Confirm asks for sign-in, then 
   await signInAs(page, 'lab');
   await asLabStation(page);
   await page.goto('/receiving-log/new');
+  await pickOnStationPicker(page);
   await expect(draftStatus(page)).toHaveText('Draft not saved yet · Receiver: not chosen');
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
   await page.getByLabel('Description (optional)').fill('LAB expiry check');
-  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
   await expect(draftStatus(page)).toContainText('Receiver: AT');
 
   await expireSession(context);
-  await confirmButton(page).click();
+  await confirmDelivery(page);
   const expired = page.getByRole('alert').filter({ hasText: 'LAB session has expired' });
   await expect(expired).toHaveText(
     /The LAB session has expired\. Your draft is saved\. Sign in to confirm\./,
   );
   // Still on the draft.
-  await expect(page.getByText('LAB expiry check')).toBeVisible();
+  await expect(page.getByLabel('Description (optional)')).toHaveValue('LAB expiry check');
   await expired.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/sign-in\?returnTo=%2Freceiving-log%2Fnew%3Fdraft%3D/);
   await expect(page.getByRole('status')).toHaveText(
     'The LAB session has expired. Your draft is saved. Sign in to confirm.',
   );
 
-  // Signing in again returns to the same draft, on Units, receiver unchanged (AC4).
+  // Signing in again returns to the same draft, receiver unchanged (AC4).
   await signInAs(page, 'lab');
   await page.reload();
+  // A new LAB session starts with no one picked.
+  await pickOnStationPicker(page);
   await expect(page).toHaveURL(/\/receiving-log\/new\?draft=/);
   await expect(
     page.getByRole('region', { name: 'This draft was started for AT. Change receiver?' }),
   ).toBeVisible();
-  await expect(page.getByText('LAB expiry check')).toBeVisible();
+  await expect(page.getByLabel('Description (optional)')).toHaveValue('LAB expiry check');
   const request = page.waitForRequest('**/api/receipts');
-  await confirmButton(page).click();
+  await confirmDelivery(page);
   const ids = await issuedIds(page);
   expect(ids).toHaveLength(1);
   const { idempotencyKey } = (await request).postDataJSON() as { idempotencyKey: string };
@@ -272,10 +304,11 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
   await signInAs(page, 'lab');
   await asLabStation(page);
   await page.goto('/receiving-log/new');
+  await pickOnStationPicker(page);
   await chooseProject(page);
   await chooseReceiver(page, 'Received by', 'AT', /^AT · Alex Tester/);
   await page.getByLabel('Description (optional)').fill('Handover check');
-  await savedAfter(page, new Date().toISOString());
+  await savedWith(page, 'Handover check');
 
   // The next person at the station opens the list.
   await page.goto('/receiving-log/new');
@@ -290,26 +323,27 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
     /^AT · /,
   );
   await chooseReceiver(page, 'Change receiver to', 'PE', /^PE · Pat Example/);
-  await savedAfter(page, new Date().toISOString());
   await expect(page.getByText('Receiver changed to PE.')).toBeVisible();
-  await expect(draftStatus(page)).toContainText('Receiver: PE');
 
-  const history = await page.evaluate(
-    () =>
-      new Promise<unknown[]>((resolve, reject) => {
-        const open = indexedDB.open('materialmule-drafts');
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const all = open.result
-            .transaction('receiptDrafts')
-            .objectStore('receiptDrafts')
-            .getAll();
-          all.onsuccess = () =>
-            resolve((all.result as { history: unknown[] }[]).flatMap((d) => d.history));
-        };
-      }),
-  );
-  expect(history).toContainEqual(
+  // The stored draft records the change from AT to PE. Polled: the autosave lands about 1 s later.
+  // (On LAB, Received by starts blank, so choosing AT earlier is itself a receiver_changed entry.)
+  const storedHistory = () =>
+    page.evaluate(
+      () =>
+        new Promise<unknown[]>((resolve, reject) => {
+          const open = indexedDB.open('materialmule-drafts');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const all = open.result
+              .transaction('receiptDrafts')
+              .objectStore('receiptDrafts')
+              .getAll();
+            all.onsuccess = () =>
+              resolve((all.result as { history: unknown[] }[]).flatMap((d) => d.history));
+          };
+        }),
+    );
+  await expect.poll(storedHistory, { timeout: 10_000 }).toContainEqual(
     expect.objectContaining({
       type: 'receiver_changed',
       from: expect.objectContaining({ initials: 'AT' }),
@@ -318,6 +352,7 @@ test('AC4: resuming a LAB draft at the station changes the receiver only when so
       at: expect.any(String),
     }),
   );
+  await expect(draftStatus(page)).toHaveText(/^Draft saved \d{2}:\d{2} · Receiver: PE$/);
 });
 
 test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns the same IDs', async ({
@@ -327,10 +362,9 @@ test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns
   await signInAs(page, 'at');
   await page.goto('/receiving-log/new');
   await chooseProject(page);
-  await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await summaryOf(bucket(page, 1), 'TH26-01').getByLabel('Summary type').selectOption('all');
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
+  await addUnit(page);
   await addHole(bucket(page, 2), 'TH26-02');
   await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
 
@@ -349,7 +383,7 @@ test('T7/AC6: the answer to Confirm is lost and the tab closes; resuming returns
     }
     await route.abort('connectionreset').catch(() => undefined);
   });
-  await confirmButton(page).click();
+  await confirmDelivery(page);
   await serverDone;
   expect(firstIds).toHaveLength(2);
   await page.close(); // the "crash"
@@ -383,7 +417,7 @@ test('T8/AC7: a personal draft is not shown to another user on the same browser'
   await page.goto('/receiving-log/new');
   await chooseProject(page);
   await page.getByLabel('Description (optional)').fill("Alex's draft");
-  await savedAfter(page, new Date().toISOString());
+  await savedWith(page, "Alex's draft");
 
   await signInAs(page, 'pe');
   await page.goto('/receiving-log/new');

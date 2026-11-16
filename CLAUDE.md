@@ -146,8 +146,6 @@ and the open gates). Work items are on the Notion "Material Mule V2 — Concrete
 
 - Format storage unit IDs with type prefixes (BKT-, ST-, CRE-, CT-) and per-type yearly counters, not SU-YYYY-000001.
 
-- Do not use pill-shaped (fully rounded) styling for UI components; use moderate corner radii instead.
-
 - When a decision comes up, choose the recommended option yourself, keep working until the task is complete, and record each choice in a note.
 
 <!-- end claude-reflect -->

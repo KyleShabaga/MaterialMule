@@ -1,6 +1,6 @@
 import type { AccessSummary } from '@materialmule/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { ErrorState } from '../../components/ui';
+import { ErrorState } from '../../components/app-ui';
 import { useMe } from '../../session/context';
 import { StaffApiError } from '../staff/api';
 import { SettingsHead, SettingsSub } from '../SettingsHead';

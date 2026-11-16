@@ -29,6 +29,7 @@ import {
   type HolderKind,
 } from '../numbering/storage-unit-id.js';
 import { findBulkGroup } from '../storage-units/sample-identity.js';
+import { closeDraftOnConfirm } from '../receiving-drafts/receipt-drafts.service.js';
 import { receiptPayloadHash } from './payload-hash.js';
 
 export interface ConfirmReceiptResult {
@@ -343,6 +344,10 @@ export class ReceiptsService {
           ...(bulkGroupId ? { bulkGroupId } : {}),
         });
       }
+
+      // The confirmed browser draft leaves the registry's open drafts (migration 0049), in this
+      // transaction; a missing or foreign draft ID is ignored and never fails the receipt.
+      await closeDraftOnConfirm(client, account, request.draftId);
 
       const bulkGroups = [...createdGroups].map(([key, bulkGroupId]) => ({ key, bulkGroupId }));
       return {

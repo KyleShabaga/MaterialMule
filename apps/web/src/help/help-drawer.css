@@ -1,0 +1,30 @@
+/* In the utilities layer: SidebarInset's own `flex` utility would otherwise win over the grid. */
+@layer utilities {
+  /* Help drawer (STRATA-103): while the drawer is open the sidebar inset becomes two columns,
+     the page (main) and the drawer at --help-drawer-size of the content width. The top bar spans
+     both. The window keeps scrolling the page, and the drawer stays in view under the 56 px top
+     bar. The page's element never moves, so nothing on it is lost. */
+  [data-slot='sidebar-inset']:has(> [data-slot='help-drawer']) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--help-drawer-size, 46%);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+
+  [data-slot='sidebar-inset']:has(> [data-slot='help-drawer']) > header {
+    grid-column: 1 / -1;
+  }
+
+  [data-slot='sidebar-inset']:has(> [data-slot='help-drawer']) > main {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  [data-slot='help-drawer'] {
+    grid-column: 2;
+    grid-row: 2;
+    position: sticky;
+    top: 3.5rem;
+    height: calc(100svh - 3.5rem);
+  }
+}

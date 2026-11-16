@@ -18,6 +18,11 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
   report issuers) do. Team membership and reviewer assignment add no permission (MM-AO03).
 - **Admin is not a super-user.** It manages staff and sessions; it doesn't imply Lab Manager
   rights, project authority, acceptance or closure.
+- **Staff and Printers (STRATA-118, Kyle 2026-11-12)** are managed by Lab Managers and
+  administrators (`staff.manage`, `printer.manage`). Making or removing admins, and changing an
+  account that holds admin, stays administrator-only (`admin_role.manage`), as do the shared LAB
+  account's password (`lab_account.manage`) and reading Administrator Feedback (`feedback.read`).
+  None of these comes through LAB, a position or a LAB station's picked person.
 - **LAB** (shared receiving account) is limited to the LAB column even if a role is assigned to it
   by mistake.
 
@@ -46,6 +51,8 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | action_item.read (T27)                                                                                                                                   |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | notification.read (T91)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | retention.request (T29)                                                                                                                                  |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
+| personal_settings.manage (Strata 1C)                                                                                                                     |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
+| today.read (STRATA-56)                                                                                                                                   |     |         ✓         |      ✓      |       ✓        |   ✓   |           ✓           |          ✓          |
 | test_catalog.manage (D37)                                                                                                                                |     |                   |      ✓      |                |   ✓   |                       |                     |
 | program.priority.set (D50)                                                                                                                               |     |                   |      ✓      |                |       |           ✓           |                     |
 | program.reopen                                                                                                                                           |     |                   |      ✓      |                |       |           ✓           |                     |
@@ -59,8 +66,10 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | test.accept (D04)                                                                                                                                        |     |                   |             |                |       |           ✓           |          ✓          |
 | program.close (D06)                                                                                                                                      |     |                   |             |                |       |           ✓           |                     |
 | acceptance_delegation.manage                                                                                                                             |     |                   |             |                |       |           ✓           |                     |
-| staff.manage / session.revoke                                                                                                                            |     |                   |             |                |   ✓   |                       |                     |
-| printer.manage (T15)                                                                                                                                     |     |                   |             |                |   ✓   |                       |                     |
+| staff.manage (STRATA-118)                                                                                                                                |     |                   |      ✓      |                |   ✓   |                       |                     |
+| admin_role.manage / lab_account.manage / feedback.read (STRATA-118)                                                                                      |     |                   |             |                |   ✓   |                       |                     |
+| session.revoke                                                                                                                                           |     |                   |             |                |   ✓   |                       |                     |
+| printer.manage (T15, STRATA-118)                                                                                                                         |     |                   |      ✓      |                |   ✓   |                       |                     |
 | project.edit (T35)                                                                                                                                       |     |                   |             |                |   ✓   |           ✓           |                     |
 | project_team.manage (AO03, D04)                                                                                                                          |     |                   |             |                |   ✓   |           ✓           |                     |
 | project_reviewer.manage (AO03, D04/D05)                                                                                                                  |     |                   |             |                |   ✓   |           ✓           |                     |
@@ -92,6 +101,9 @@ account", plus owner decisions of 2026-10-25. Keep this table and `policy.ts` in
 | staff_capability.manage (AO03, D01)                                                                                                                      |     |                   |             |                |   ✓   |                       |                     |
 | project.lead_project_engineer.change (T35)                                                                                                               |     |                   |             |                |   ✓   |                       |                     |
 | system.status.read (T21)                                                                                                                                 |     |                   |             |                |   ✓   |                       |                     |
+| station.today.read (STRATA-20/21/63)                                                                                                                     |  ✓  |                   |      ✓      |       ✓        |       |                       |                     |
+| station.inbox.read (STRATA-27; picked person's consent, read-only)                                                                                       |  ✓  |                   |             |                |       |                       |                     |
+| station.configure (STRATA-36; own account only)                                                                                                          |     |                   |      ✓      |                |       |                       |                     |
 
 "Lead Project Engineer" and "Acceptance delegate" apply only when the handler passes that project to
 `can()`. "Any internal user" means an active personal or test account. `report.issue` is also held
@@ -119,7 +131,8 @@ sources they also have).
 
 - Username `LAB` (any case) and an app-managed password (`POST /api/auth/lab/sign-in`). It is not a
   Microsoft account and has nothing to do with the development-only "Lab (test)" identity.
-- An admin (`staff.manage`) sets or resets the password with `POST /api/admin/lab/password`
+- An admin (`lab_account.manage`; STRATA-118: not `staff.manage`, which Lab Managers hold) sets
+  or resets the password with `POST /api/admin/lab/password`
   (minimum 12 characters). A reset revokes every LAB session in the same transaction and clears
   the account lockout. "Sign out all LAB stations" uses the T04 revoke endpoint.
 - Brute-force protection: 10 failed attempts within 15 minutes for the account, or from one client
@@ -183,7 +196,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 
 | Route                                                                        | Policy                                       |
 | ---------------------------------------------------------------------------- | -------------------------------------------- |
-| `GET /api/staff?search=&status=`                                             | `staff.manage` (admin)                       |
+| `GET /api/staff?search=&status=`                                             | `staff.manage` (Lab Manager, admin)          |
 | `POST /api/staff` (pre-provision)                                            | `staff.manage`                               |
 | `POST /api/staff/:id/approve`                                                | `staff.manage`                               |
 | `POST /api/staff/:id/disable {reason}`                                       | `staff.manage`                               |
@@ -192,14 +205,26 @@ request's `Host`. The API enables no CORS, so another site can't send the header
 | `PATCH /api/staff/:id`                                                       | `staff.manage`                               |
 | `PUT /api/staff/:id/job-title-override {jobTitleOverride, reason}` (MM-AO06) | `staff.manage`                               |
 | `GET /api/staff/:id/access` (MM-AO06)                                        | `staff.manage` (read-only)                   |
+| `GET /api/admin/lab`, `POST /api/admin/lab/password` (MM-T06)                | `lab_account.manage` (admin only)            |
 | `GET /api/me/access` (MM-AO06)                                               | active personal session (one's own); LAB 403 |
 | `GET /api/staff/receivers?search=`                                           | any active session, LAB too                  |
+| `GET /api/people/:userId/photo` (STRATA-52, cached photo; 404 `no_photo`)    | any active session, LAB too                  |
 
 - **Approval** makes a pending account active; their existing session works on the next request.
 - **Disabling** needs a reason and revokes every session in the same transaction; the person
-  drops out of the receiver selector. Re-enabling doesn't revive old sessions, and revokes every
+  drops out of the receiver selector, and their cached directory photo is deleted. Re-enabling doesn't revive old sessions, and revokes every
   technical grant the person still holds for revalidation (D08, MM-AO03; see "Team & permissions").
 - **Role changes** need a reason (D15, MM-AO03; 400 without one, nothing changes).
+- **Lab Managers (STRATA-118)** hold `staff.manage`: they list staff, add and approve people,
+  change roles other than admin (Lab Manager and Lab Technician included), disable and re-enable
+  accounts, edit names and official initials and set job-title overrides. They are refused with
+  403 `admin_only`, and nothing changes, when the change grants or removes the admin role, or
+  touches an account that currently holds admin (its roles, disabling or re-enabling it, its
+  profile or job title): that needs `admin_role.manage` (administrators). Setting or clearing a
+  position (MISC-06, which moves review eligibility) needs `reviewer_eligibility.manage`, so it
+  stays with administrators too. The check reads the account's roles after locking it, in the
+  same transaction as the change. Reviewer eligibility, capabilities, session revocation and the
+  LAB password stay administrator-only.
 - **Last admin:** a change that would leave no active (non-LAB) admin, whether removing the admin
   role or disabling, returns 422 `last_admin`. Kyle's bootstrap admin is an ordinary admin.
 - **LAB** can't hold roles (422 `roles_not_allowed`) and never appears as a receiver.
@@ -234,7 +259,7 @@ request's `Host`. The API enables no CORS, so another site can't send the header
   is listed as not effective with the reason. Active rows only (history stays on each project's
   Team & Permissions); at most 200 projects, by project number, with the total.
   `GET /api/me/access` always reads the session's own account (no id is accepted); it needs
-  `project_access.read`, so LAB gets 403. Admins see the same summary for anyone, read-only, under "Current
+  `project_access.read`, so LAB gets 403. Admins and Lab Managers (STRATA-118) see the same summary for anyone, read-only, under "Current
   access" in the Staff drawer (`GET /api/staff/:id/access`). My projects (D12) is unchanged: it
   filters relevance, never visibility.
 
@@ -324,6 +349,7 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 | `GET /api/review-scopes`                                                                                                         | `project_access.read` (personal accounts)             |
 | `GET /api/review-scopes/:code/eligible-reviewers?search=` (MM-AO05)                                                              | `project_access.read`                                 |
 | `GET /api/projects/:projectId/capabilities`                                                                                      | `project_access.read`                                 |
+| `GET /api/projects/:projectId/access-history` (STRATA-85, paged)                                                                 | `project_access.read`                                 |
 | `GET /api/projects/:projectId/team-members`                                                                                      | `project_access.read`                                 |
 | `POST /api/projects/:projectId/team-members {userId, reason, idempotencyKey}`                                                    | active user; handler checks `project_team.manage`     |
 | `DELETE /api/projects/:projectId/team-members/:id {reason}`                                                                      | active user; handler checks `project_team.manage`     |
@@ -335,7 +361,7 @@ Owner decisions D01, D04–D09, D12 and D15 (adopted 2026-10-29). Code:
 | `GET /api/projects/:projectId/report-issuers`                                                                                    | `project_access.read`                                 |
 | `POST /api/projects/:projectId/report-issuers {issuerUserId, scopeCode, reason, approvalReference?, expiresAt?, idempotencyKey}` | active user; handler checks `report_issuer.manage`    |
 | `DELETE /api/projects/:projectId/report-issuers/:id {reason, kind?}`                                                             | active user; handler checks `report_issuer.manage`    |
-| `GET /api/staff/:id/grants`                                                                                                      | `staff.manage` (admin)                                |
+| `GET /api/staff/:id/grants`                                                                                                      | `staff.manage` (LM, admin)                            |
 | `POST /api/staff/:id/reviewer-eligibility {scopeCode, reason, idempotencyKey}`                                                   | `reviewer_eligibility.manage` (admin)                 |
 | `DELETE /api/staff/:id/reviewer-eligibility/:grantId {reason}`                                                                   | `reviewer_eligibility.manage`                         |
 | `POST /api/staff/:id/capabilities {capability, reason, idempotencyKey}`                                                          | `staff_capability.manage` (admin)                     |
@@ -474,6 +500,7 @@ to the capability list in the same change.
   | `GET /api/concrete-mixes/:id/propagation` (C30)                                         | `inventory.read`                                      |
   | `POST /api/concrete-mixes/:id/propagation {previewId, selection, idempotencyKey}` (C30) | active user; handler checks `concrete_mix.approve`    |
   | `GET /api/concrete/projects/:projectId/specimens` (C30)                                 | `inventory.read`                                      |
+  | `GET /api/concrete/projects/:projectId/specimen-sets` (STRATA-98)                       | `inventory.read`                                      |
 
   Reads follow the project (mixes are project data; field preparation caches them, CD-15). Order
   of checks as AO03: 401/403 from the guard; 403 when the caller isn't the project's lead (an
@@ -900,11 +927,11 @@ The review queue, documenting a submitted version's exceptions, the Mark reviewe
 issue options. Contracts: `packages/shared/src/concrete-review.ts`; table: migration 0025
 ([concrete.md](concrete.md#review-queue-and-issuance-c28)). Field reports only (G2).
 
-| Route                                                                                                                                           | Policy                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `GET /api/concrete/review-queue?status=&projectId=&technicianUserId=&reportType=&submittedFrom=&submittedTo=&exceptions=&mine=&page=&pageSize=` | `inventory.read` (every active session, LAB included)                                    |
-| `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                       | `inventory.read`                                                                         |
-| `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                  | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
+| Route                                                                                                                                                              | Policy                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `GET /api/concrete/review-queue?status=&projectId=&technicianUserId=&reportType=&submittedFrom=&submittedTo=&exceptions=&mine=&search=&sort=&dir=&page=&pageSize=` | `inventory.read` (every active session, LAB included)                                    |
+| `GET /api/concrete/field-reports/:id/versions/:versionNo/exception-notes`                                                                                          | `inventory.read`                                                                         |
+| `POST /api/concrete/field-reports/:id/versions/:versionNo/exception-notes {code, field, note}`                                                                     | active user; handler checks `concrete.review` + C09 routing, not the report's technician |
 
 - **Queue.** Visible to every `inventory.read` session (confirmed by the owner, 2026-11-09). Statuses: Awaiting review (submitted), Returned for correction, Reviewed awaiting
   issuance, Issued; `counts` per status with the same filters. Each row's `canAct` says whether
@@ -985,9 +1012,9 @@ Test-result drafts with tester attribution and correction history. Contracts:
 
 ## Concrete testing table (MM-V2-C23)
 
-| Route                                                            | Policy                                                |
-| ---------------------------------------------------------------- | ----------------------------------------------------- |
-| `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=` | `inventory.read` (every active session, LAB included) |
+| Route                                                                         | Policy                                                |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /api/concrete/testing-table?includeOverdue=&on=&projectId=&specimenIds=` | `inventory.read` (every active session, LAB included) |
 
 - Read only; entry is C07's PUT above (`concrete_test.enter`). The page shows the cells read-only
   without that permission; the server decides either way. Swept by the endpoint sweep.
@@ -1078,6 +1105,7 @@ retention and disposal (MM-T29/T30, MISC-13) are unchanged.
 | `GET /api/concrete/disposal/ready?page=`                     | `inventory.read` (the Ready for disposal list's Concrete specimens filter)                                   |
 | `POST /api/concrete/holds/schedule-test`                     | active user; per specimen `concrete_ordinary_hold.manage` (ordinary HOLD only)                               |
 | `POST /api/concrete/holds/authorize-disposal`                | active user; per specimen `concrete_ordinary_hold.manage` (ordinary) or `concrete_hold.manage` (failed hold) |
+| `POST /api/concrete/holds/hold-until` (STRATA-121)           | active user; per specimen `concrete_ordinary_hold.manage` (scheduled specimens onto an ordinary HOLD)        |
 | `POST /api/concrete/disposal/record`                         | `concrete_specimen.dispose_record` (lab staff; LAB names the performing person)                              |
 
 - **Who.** Ordinary HOLD release (Schedule test, Authorize disposal): the project's Lead Project
@@ -1085,6 +1113,12 @@ retention and disposal (MM-T29/T30, MISC-13) are unchanged.
   or a Lab Manager holding the project's concrete grant (D13); a Lab Manager without it is
   refused (AC2). Record disposal: Lab Technician, Lab Manager, or LAB with the performing staff
   member (attribution only; LAB never gains their roles). Release is personal accounts only.
+  **Hold until** (STRATA-121, from Breaks) is the same authority as the ordinary release: the
+  lead or any Lab Manager, personal accounts only; the LAB station is refused whoever it names
+  (the request has no performer). A failed-specimen hold stays under `concrete_hold.manage` and
+  its own workflow (409 `failed_hold`). Its route is in the endpoint sweep; the permission was
+  already in the project capability list. The Breaks worklist reports it per project
+  (`canHoldUntil`).
 - **Order of checks.** Release routes: 403 before the body unless the caller is an active personal
   account that is a Lab Manager or leads some project; 400 body; then one transaction: replay by
   idempotency key, reports, sets, then specimens FOR UPDATE (each in id order, D09), the authority
@@ -1208,6 +1242,17 @@ account confirms a conflicted unit's actual location (`location_conflict.resolve
 refused even when a Lab Manager is selected at the station. A queued move is only ever sent by the
 account that scanned it (`captureContext.accountId` must equal the session's account).
 
+**Undo (STRATA-123).** `GET /api/undo/:action/:sourceId` and `POST /api/undo` are `@ActiveUser()`
+(pending and disabled refused at the guard); the handler checks `storage_unit.move` again inside
+its transaction (GET uses the same, so it never offers what POST refuses). A move is undone only
+by the account that saved it, and on a LAB station only for the same picked person
+(`moverUserId`, attribution only, who must still be active staff); within 15 minutes; only while
+the unit is exactly as the move left it, not disposed, approved for disposal or in an open
+location conflict, and the previous location is not retired. Another person's move or an unknown
+ID answers `not_found`. A notification's dismissal is undone by its recipient only (LAB has none),
+as the existing restore. Never undoable: receipt confirmation and issued IDs, disposals, reports,
+destructive tests and approval revocation (the action enum refuses them with 400).
+
 ## Lab test catalogue and testing programs (MM-T23)
 
 | Route                                                              | Policy                                                |
@@ -1244,6 +1289,7 @@ account that scanned it (`captureContext.accountId` must equal the session's acc
 | ----------------------------------------------------------- | ------------------------------------------------------- |
 | `GET /api/worklist?priority=&projectId=&open=&testTypeId=`  | `lab_program.read`                                      |
 | `GET /api/lab-programs/:id/work`                            | `lab_program.read`                                      |
+| `GET /api/lab-programs/:id/units` (STRATA-87, read-only)    | `lab_program.read`; 404 for drafts                      |
 | `GET /api/worklist/units-to-pull` (Field Ledger, read-only) | `lab_program.read`                                      |
 | `POST /api/test-requests/:id/status`                        | `test.progress` (LAB too, with `actingStaffUserId`)     |
 | `PATCH /api/lab-programs/:id/priority`                      | active user; handler checks `program.priority.set`      |
@@ -1304,17 +1350,17 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Program lifecycle, cancellation and repeats (MM-T26)
 
-| Route                                        | Policy                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------- |
-| `POST /api/lab-programs/:id/close`           | active user; handler checks `program.close` (Lead Project Engineer)        |
-| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (Lead Project Engineer or LM) |
-| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                                |
-| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (Lead Project Engineer or LM)    |
-| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                                  |
-| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                                    |
-| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)                         |
-| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                                        |
-| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                                       |
+| Route                                        | Policy                                                                                                                                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/lab-programs/:id/close`           | active user; handler checks the requester (personal submitting account), `program.close` (Lead Project Engineer) or the Lab Manager role (STRATA-87) |
+| `POST /api/lab-programs/:id/reopen`          | active user; handler checks `program.reopen` (Lead Project Engineer or LM)                                                                           |
+| `POST /api/lab-programs/:id/close-request`   | `program.close_request` (personal accounts)                                                                                                          |
+| `POST /api/test-requests/:id/cancel`         | active user; handler checks `test.cancel` (Lead Project Engineer or LM)                                                                              |
+| `POST /api/test-requests/:id/cancel-request` | `test.cancel_request` (personal accounts)                                                                                                            |
+| `POST /api/test-requests/:id/repeat`         | `lab_program.amend` (personal accounts)                                                                                                              |
+| `PATCH /api/test-requests/:id`               | `lab_program.amend` (accepted-request change, D09)                                                                                                   |
+| `GET /api/lab-programs/:id/later-receipts`   | `lab_program.amend`                                                                                                                                  |
+| `POST /api/lab-programs/:id/amend`           | `lab_program.amend` (amendment, D02)                                                                                                                 |
 
 - **LAB:** 403 on every route above, whoever the station selects. Its T23/T24 allow-list
   (create/submit, progress, comments) never covers amendments, repeats, cancellation, closure,
@@ -1439,15 +1485,97 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 - **LAB:** 403 on every route above, whoever its station selects. LAB never receives
   notifications (the database refuses them).
 
+## Personal settings, pins and recents (Strata 1C)
+
+| Route                                  | Policy                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/me/sidebar-layout?personId=` | Any active session; LAB gets defaults, or with `personId` that person's layout, read-only |
+| `PUT /api/me/sidebar-layout`           | `personal_settings.manage`; own layout; stale version 409 `version_conflict`              |
+| `GET /api/me/pins`                     | `personal_settings.manage`; own pins, oldest first, access rechecked per record           |
+| `PUT`/`DELETE /api/me/pins/:kind/:id`  | `personal_settings.manage`; idempotent; 404 when not openable; 409 `pin_limit`            |
+| `GET`/`POST /api/me/recents`           | `personal_settings.manage`; own last 8, newest first; 404 when not openable               |
+| `GET /api/me/preferences`              | Any active session; LAB gets defaults read-only                                           |
+| `PATCH /api/me/preferences`            | `personal_settings.manage`; changed fields; stale version 409 `version_conflict`          |
+| `GET /api/me/table-columns`            | Any active session; LAB gets defaults read-only                                           |
+| `PUT /api/me/table-columns/:tableId`   | `personal_settings.manage`; 400 `unknown_table` / `invalid_column`; one version           |
+
+- **Always one's own.** No route takes a user ID from the browser; a body with extra keys is 400.
+  A personal account passing `?personId=` is 400 `person_id_not_allowed`.
+- **LAB** never saves anyone's settings and never reads anyone's pins, recents, preferences or
+  columns. The one exception is the sidebar layout with `?personId=` (the station's picked
+  person, an active personal or test account; anything else is 404 `person_not_found`), read-only
+  (`source: 'station_person'`). The picked person stays attribution only.
+- **Record access** for pins and recents follows each detail route: storage units, projects and
+  specimen sets are open to every active internal user (`inventory.read`), so existence is the
+  check; a draft lab program only to the account that created it. Reads recheck it per record:
+  one no longer openable (or gone) comes back `available: false` with no label, name, stage or
+  link, and can still be unpinned.
+- `/api/me/notification-preferences` is unchanged (its email switch, `action_item.read`).
+
+## Inbox (STRATA-25, STRATA-55)
+
+| Route                                  | Policy                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GET /api/inbox?tab=&filter=&q=&sort=` | `notification.read`; the signed-in person's own feed                                             |
+| `GET /api/inbox/summary`               | `notification.read`                                                                              |
+| `POST /api/inbox/read-all`             | `notification.read`; own feed only                                                               |
+| `POST /api/inbox/requests/:id/read`    | `action_item.read`; routed to me now or in my history, or raised by me                           |
+| `POST /api/inbox/requests/:id/unread`  | `action_item.read`; as above                                                                     |
+| `POST /api/inbox/bulk`                 | `notification.read`; `{ action: read, unread or dismiss, keys }`, own feed keys only (STRATA-48) |
+
+- **One feed, no new authority.** Requests appear as `GET /api/action-items` shows them to the
+  person (open: routed to them now; resolved in the last 90 days: their history), plus requests
+  they raised; updates are their notifications of the last 90 days. Reading, unreading and
+  read-all change the person's read state only: never a request's status, routing or the audit
+  log. Resolution stays with each workflow.
+- **Someone else's request** (not routed to them, not resolved by them, not raised by them), a
+  missing id or a malformed one is 404 `action_item_not_found`, and nothing changes.
+- **Bulk (STRATA-48).** Up to 100 feed keys (`request:<id>`, `update:<id>`). Each key is checked
+  as the person's own (a request in their Inbox, an update addressed to them); another person's,
+  a missing or a malformed key goes to `failed` and the rest still apply. Requests are never
+  decided in bulk: read and unread change read state only. Dismiss is for updates only: any
+  request key is 400 `dismiss_requests` and nothing changes. An update stays read once read (the
+  notification guard), so `unread` on a read update lands in `failed`.
+- **LAB and pending accounts:** 403 on every route above.
+
+## Today (STRATA-56, STRATA-23)
+
+| Route                                                              | Policy                                                                                           |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `GET /api/today/needs-you`                                         | `today.read`; the signed-in person's own requests and the system work their own authority covers |
+| `GET /api/activity/recent?scope=lab\|projects\|mine&limit=&hours=` | `inventory.read`; `projects` and `mine` from LAB are 400 `scope_not_available`                   |
+
+- **Needs you** lists the Inbox requests waiting on the person (word for word as Inbox shows
+  them) and system work each included only when the account holds the authority for it now:
+  concrete HOLDs (`concrete_ordinary_hold.manage` by role, i.e. a Lab Manager), concrete reports to
+  review (the review queue's own `canAct`: the lead or a routed designated reviewer, never one's
+  own report), breaks due today (`concrete_test.enter`: lab staff), units at the end of retention
+  on projects they lead, units approved for disposal (`disposal.approve` by role: a Lab Manager),
+  their own labels that didn't print, open location conflicts (the Lab Manager role) and lab
+  programs ready to close on projects they're involved in. Job titles grant nothing. Links grant
+  nothing: each target page checks again. Reading changes nothing.
+- **Not listed yet:** tests assigned to me and lab requests not assigned (lab tests have no
+  assignee), and draft receipts not confirmed (the draft registry doesn't record confirmation).
+  A request is never listed again as system work: units an open retention request waiting on the
+  person covers leave the retention row, and a program with an open closure request leaves the
+  finished-programs row.
+- **Last 24 hours** `scope`: `lab` (default) is every dashboard event; `projects` keeps events on
+  projects the person is involved in (D12 "My projects"); `mine` keeps events their own account
+  performed. Each row says `byMe`. LAB has no projects and no "mine" (a picked person is
+  attribution only), so it may ask for `lab` only.
+- **LAB and pending accounts:** 403 on `GET /api/today/needs-you`.
+
 ## Retention (MM-T29)
 
-| Route                                                                     | Policy                                             |
-| ------------------------------------------------------------------------- | -------------------------------------------------- |
-| `GET /api/storage-units/:id/retention`, `GET /api/projects/:id/retention` | `inventory.read` (LAB too; `canManage` false)      |
-| `POST /api/retention/holds`, `…/extensions`                               | `retention.manage` for that project (handler)      |
-| `POST /api/retention/holds/:id/release`, `…/extensions/:id/release`       | `retention.manage` for that project (handler)      |
-| `POST /api/retention/requests`                                            | `retention.request` (personal accounts; never LAB) |
-| `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)      |
+| Route                                                                     | Policy                                                                                                                                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/storage-units/:id/retention`, `GET /api/projects/:id/retention` | `inventory.read` (LAB too; `canManage` false)                                                                                           |
+| `POST /api/retention/holds`, `…/extensions`                               | `retention.manage` for that project (handler)                                                                                           |
+| `POST /api/retention/holds/:id/release`, `…/extensions/:id/release`       | `retention.manage` for that project (handler)                                                                                           |
+| `POST /api/retention/requests`                                            | `retention.request` (personal accounts; never LAB)                                                                                      |
+| `POST /api/retention/requests/:id/approve`, `…/decline`                   | `retention.manage` for that project (handler)                                                                                           |
+| `GET /api/retention/pipeline`, `GET /api/retention/decision-units`        | `inventory.read` (STRATA-90/91; `canDecide`/`canRequest` per project)                                                                   |
+| `POST /api/retention/decisions`                                           | `retention.manage` (extend, hold) or `disposal.approve` (add to the disposal list) for each unit's project (handler); per-unit failures |
 
 - **Who decides:** the project's Lead Project Engineer or a Lab Manager (D05). Admin alone doesn't. Others get
   403 `forbidden` (the retention views report `canManage: false`, `canRequest: true`, so the
@@ -1466,13 +1594,16 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 
 ## Standard disposal (MM-T30)
 
-| Route                                     | Policy                                                     |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| `GET /api/disposal/eligible?projectId=`   | `inventory.read` (`canApprove` says whether to offer it)   |
-| `GET /api/disposal/ready?page=`           | `inventory.read`, every project (`canApprove` per unit)    |
-| `POST /api/disposal/approvals`            | `disposal.approve` for each unit's project (handler)       |
-| `POST /api/disposal/approvals/:id/revoke` | `disposal.approve` for that project (handler)              |
-| `POST /api/disposal/remove`               | `storage_unit.dispose_scan` (personal accounts; never LAB) |
+| Route                                     | Policy                                                                                             |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET /api/disposal/eligible?projectId=`   | `inventory.read` (`canApprove` says whether to offer it)                                           |
+| `GET /api/disposal/ready?page=`           | `inventory.read`, every project (`canApprove` per unit)                                            |
+| `POST /api/disposal/approvals`            | `disposal.approve` for each unit's project (handler)                                               |
+| `POST /api/disposal/approvals/:id/revoke` | `disposal.approve` for that project (handler)                                                      |
+| `POST /api/disposal/list/remove`          | `disposal.approve` for that project (handler); reason required (STRATA-90)                         |
+| `POST /api/disposal/remove`               | `storage_unit.dispose_scan` (personal accounts; never LAB)                                         |
+| `POST /api/disposal/scan/check`           | `storage_unit.dispose_scan` (personal accounts; never LAB); read-only, changes nothing (STRATA-92) |
+| `POST /api/disposal/scan/record`          | `storage_unit.dispose_scan` (personal accounts; never LAB); idempotent per intent ID (STRATA-92)   |
 
 - **Eligibility** is the database's (`unit_disposal_eligible`): in stock, effective retain-until
   reached (MM-T29), no active hold, every covering program closed (including a program on the
@@ -1480,11 +1611,20 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   "On hold: …", "Program LP-… open").
 - **Approval** (Lead Project Engineer or Lab Manager, single or batch, all or nothing) marks units
   `approved_for_disposal`; it never disposes. Revoking needs a reason and returns the unit to stock.
-- **Removal** is the online-only Disposal scan. It locks the unit, needs a live approval and
-  rechecks eligibility and open location conflicts at that moment: 200 Disposed; 422 Not approved
-  or Blocked with reasons (audited `disposal.blocked`); 404 unknown ID. Offline the screen is
-  disabled and nothing is queued. Concurrent scans dispose once; a retry with the same key
-  returns the recorded result.
+- **Disposal list** (STRATA-90): the Lead Project Engineer or a Lab Manager adds eligible units
+  (through `POST /api/retention/decisions`) or removes them with a reason. Approving a listed
+  unit ends its entry; revoking an approval puts the unit back on the list. Being on the list never
+  disposes anything.
+- **Extensions** can't end before a unit's current effective retain-until (422
+  `retain_until_too_early`); the minimum is the received date plus one year (Kyle, STRATA-113).
+- **Removal** is the Disposal scan (STRATA-92). Each scan is an intent with its own UUID.
+  `scan/check` reports each unit's status and changes nothing. `scan/record` records each intent
+  in its own transaction under the unit lock, needs a live approval and rechecks eligibility and
+  open location conflicts at that moment; refusals are audited once (`disposal.blocked`). A retry
+  with the same intent ID returns the first outcome with no second history entry; reusing an ID
+  for another unit or account is refused (`intent_reused`). Offline the screen queues intents only:
+  on reconnect each is checked online and the person confirms the exact ID list again before
+  anything is recorded (Kyle, STRATA-112). `POST /api/disposal/remove` runs the same code.
 - **LAB:** 403 on approval, revocation and removal (and on MM-T36's post-testing removal),
   whoever its station selects. Ordinary move routes never change a unit's status; a disposed
   unit is refused by moves, queued-move replay and test linking, and never returns to stock.
@@ -1496,8 +1636,98 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 | Route                                   | Policy                           |
 | --------------------------------------- | -------------------------------- |
 | `POST /api/feedback {kind, text, page}` | any active session, LAB included |
-| `GET /api/feedback`                     | `staff.manage` (admin)           |
+| `GET /api/feedback`                     | `feedback.read` (admin only)     |
 
 - **Stays on the host.** Each submission is an append-only audit event `feedback.submitted`
   (actor snapshot, kind, text, optional in-app path without a query string). Nothing is emailed
   or sent to an outside service. Administrators read the latest 50 on the Help & Feedback page.
+- **Private to administrators (STRATA-118).** Reading it needs `feedback.read`, which only the
+  admin role grants: never Lab Managers (who now hold `staff.manage`), LAB or a position.
+- **Inbox (STRATA-104).** Each accepted submission writes one in-app notification
+  `feedback.submitted` to every active administrator except the sender (never LAB, never email;
+  migration 0042). It names the feedback event; the Inbox shows "Feedback · Problem" (or
+  Question, Idea) from the sender, with the page as its record, linking to `/help`; the text stays
+  behind `feedback.read`. The database refuses a feedback notification for anyone without the
+  admin role. An optional `submissionId` (UUID) makes a retry safe: the same account sending the
+  same id gets the first submission's id back and nobody is notified twice (unique in the
+  database).
+- **Kind words (round 10):** `not_working` reads "Problem", `confusing` "Question", `idea` "Idea";
+  the stored values are unchanged, so older rows read the same way.
+
+## Receiving drafts and receipts (STRATA-78, STRATA-108)
+
+| Route                                                        | Policy                                                                              |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `POST /api/receipt-drafts {draftId, personUserId?}`          | `receipt.draft`                                                                     |
+| `GET /api/receipt-drafts?ids=&personUserId=`                 | `receipt.draft`                                                                     |
+| `POST /api/receipt-drafts/:draftId/delete {personUserId?}`   | `receipt.draft`; then the draft's starter or a verified Lab Manager only            |
+| `POST /api/receipt-drafts/:draftId/close {reason:'expired'}` | `receipt.draft`; closes only a draft this account registered (else `closed: false`) |
+| `GET /api/receipts/:receiptId/history?page=`                 | `inventory.read`                                                                    |
+
+- **Drafts stay in the browser** (MM-T11). The server registry holds only who started each draft
+  (account and person), never its contents. Changing Received by never changes the starter.
+- **Deleting a draft** (Kyle, 2026-11-12): only the person who started it or a Lab Manager whose
+  role is checked as it stands now (not from the session). LAB may delete only a draft started on
+  that LAB account with the starter picked at the station; the pick is attribution and never
+  borrows a role. A draft saved before the registry has no owner, so only a Lab Manager may delete
+  it, recorded as a legacy row. Refused: 403 `draft_delete_forbidden`; a repeat delete is
+  idempotent. Draft auto-delete (MM-T45) is an admin policy and is unchanged.
+- **Closing a draft** (migration 0049) is not a deletion and needs no starter or Lab Manager: it
+  only records that the draft is finished. `POST /api/receipts` closes the draft named by its
+  optional `draftId` as `confirmed` in the receipt's transaction, and the browser's automatic
+  clean-up closes a registered draft it deleted as `expired`. Either closes only a row the same
+  account registered (LAB's drafts on LAB, one's own on a personal account); an unknown, foreign,
+  legacy or deleted draft is ignored the same way (never fails the receipt, reveals nothing). A
+  close is recorded once (`receipt_draft.closed`); a repeat answers the first close.
+- **Received by** is staff attribution chosen per receipt (STRATA-107): editable, separate from
+  the account that entered it; the receipt shows "Entered by X, for Y" when they differ. It
+  grants no permissions.
+
+## LAB station: Today, configuration and Inbox (Strata lane A)
+
+| Route                                                  | Policy                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| `GET /api/station/today`                               | `station.today.read` (LAB, Lab Manager, Lab Technician)   |
+| `GET /api/station/people`                              | `station.today.read` (LAB, Lab Manager, Lab Technician)   |
+| `GET /api/station/config/:stationId`                   | any active session, LAB included                          |
+| `PUT /api/station/config/:stationId {rows, version}`   | `station.configure` (Lab Manager, own account; never LAB) |
+| `GET /api/station/inbox?personId=&tab=&filter=&q=&...` | `station.inbox.read` (the shared LAB account only)        |
+| `GET /api/station/inbox/summary?personId=`             | `station.inbox.read` (the shared LAB account only)        |
+
+- **Station counts.** Lab-wide numbers, never a person's own data, so lab staff with their own
+  accounts may read them too (a Lab Manager previews a station while customizing it); an
+  ordinary internal user gets 403. Each count is read on its own: one that fails answers `null`
+  and the others still come back. `draftReceipts` = rows in the receipt draft registry (0044)
+  started on the shared LAB account that are not deleted, whoever calls. The registry has no
+  "confirmed" mark (a confirmed draft is removed only in the browser), so a confirmed draft stays
+  counted until it is deleted.
+  `breaksDueToday` = concrete specimens whose target date is today (America/Edmonton), not HOLD,
+  with no complete test entry, on the worklist's scheduled set (set and report not void, cast
+  time known, not authorized for disposal). `labelsToPrint` = storage units not disposed,
+  received in the last `LABELS_TO_CHECK_DAYS` (30) days in the business time zone, whose newest
+  print job is missing (never printed) or `failed`.
+- **Station people (STRATA-131).** The people "Who is working here?" lists without searching:
+  active staff holding the Lab Technician or Lab Manager role (Kyle, STRATA-36: receiving-lab
+  staff), whatever their position, by name. Each is `{id, displayName, initials, jobTitle}` only
+  (`jobTitle` = the effective job title, else the position's label, else null); roles,
+  permissions, positions and contact details are never returned. Disabled, pending and the LAB
+  account are never listed. "Someone else…" still searches all active staff
+  (`GET /api/staff/receivers`). Picking a person is attribution only and grants nothing.
+- **Configuration.** One row per station ID (`^[A-Za-z0-9_-]{8,64}$`); an unsaved station reads
+  the defaults (`version` 0, `updatedBy` null). Saving needs `station.configure`, which only the
+  Lab Manager role grants, checked again on the account as it stands in the transaction; the
+  shared LAB account is refused whoever it picks (Kyle 2026-11-13, STRATA-36: a Lab Manager signs
+  in with their own account on the station computer to customize it). A stale `version` answers
+  409 `version_conflict` with the current configuration and saves nothing; a save adds one to
+  the version and is audited as `station_config.saved` (station ID, before and after rows).
+- **Station Inbox (STRATA-27).** Consent-based and read-only. `personId` must be an active staff
+  member (else 404 `person_not_found`, no detail). When that person's `shareInboxOnStations`
+  preference is off or never saved, the answer is `{state: 'private', person}` with no items or
+  counts. When on, it is that person's Inbox page or summary, built for them by user ID: LAB
+  never gains their roles or permissions anywhere, nothing is cached across people, no read state
+  changes, and there is no station route that reads, dismisses or decides anything. Personal
+  accounts get 403 (they read their own Inbox at `/api/inbox`). Item content is never logged.
+  The LAB picker is attribution only and the route accepts any active staff `personId`, so the
+  server can't limit reading to "while you're picked": off by default; when on, anyone at a shared
+  LAB station can open the person's requests and updates there by picking them. They can't act on
+  them, and the person can turn this off at any time (Settings › Preferences › Privacy).

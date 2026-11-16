@@ -55,8 +55,10 @@ function parse<Schema extends z.ZodType>(schema: Schema, value: unknown): z.outp
 const uuid = new ParseUUIDPipe();
 
 /**
- * Settings → Staff & access (MM-T07). Every management route needs `staff.manage` (admin only;
- * LAB never). Receiver search is open to any active session, LAB included: choosing a receiver
+ * Settings → Staff & access (MM-T07). Every management route needs `staff.manage`: administrators
+ * and, since STRATA-118 (Kyle 2026-11-12), Lab Managers; LAB never. The service keeps making or
+ * removing admins, and changing an admin's account, to `admin_role.manage` (administrators), and
+ * positions to `reviewer_eligibility.manage`. Receiver search is open to any active session, LAB included: choosing a receiver
  * is attribution, not authentication, and grants nothing.
  */
 @Controller('staff')
@@ -90,6 +92,7 @@ export class StaffController {
   ): Promise<StaffMember> {
     return this.staff.preprovision(parse(preprovisionStaffRequestSchema, body), {
       actor: actorFor(admin),
+      by: admin,
       requestId: requestIdOf(request),
     });
   }
@@ -102,7 +105,11 @@ export class StaffController {
     @CurrentUser() admin: AuthUser,
     @Req() request: AuthenticatedRequest,
   ): Promise<StaffMember> {
-    return this.staff.approve(id, { actor: actorFor(admin), requestId: requestIdOf(request) });
+    return this.staff.approve(id, {
+      actor: actorFor(admin),
+      by: admin,
+      requestId: requestIdOf(request),
+    });
   }
 
   @Post(':id/disable')
@@ -117,6 +124,7 @@ export class StaffController {
     const { reason } = parse(disableStaffRequestSchema, body);
     return this.staff.disable(id, reason, {
       actor: actorFor(admin),
+      by: admin,
       requestId: requestIdOf(request),
     });
   }
@@ -129,7 +137,11 @@ export class StaffController {
     @CurrentUser() admin: AuthUser,
     @Req() request: AuthenticatedRequest,
   ): Promise<StaffMember> {
-    return this.staff.enable(id, { actor: actorFor(admin), requestId: requestIdOf(request) });
+    return this.staff.enable(id, {
+      actor: actorFor(admin),
+      by: admin,
+      requestId: requestIdOf(request),
+    });
   }
 
   @Put(':id/roles')
@@ -143,6 +155,7 @@ export class StaffController {
     const { roles, reason } = parse(setStaffRolesRequestSchema, body);
     return this.staff.setRoles(id, roles, reason ?? null, {
       actor: actorFor(admin),
+      by: admin,
       requestId: requestIdOf(request),
     });
   }
@@ -159,6 +172,7 @@ export class StaffController {
     const { jobTitleOverride, reason } = parse(setJobTitleOverrideRequestSchema, body);
     return this.staff.setJobTitleOverride(id, jobTitleOverride, reason, {
       actor: actorFor(admin),
+      by: admin,
       requestId: requestIdOf(request),
     });
   }
@@ -173,6 +187,7 @@ export class StaffController {
   ): Promise<StaffMember> {
     return this.staff.update(id, parse(updateStaffRequestSchema, body), {
       actor: actorFor(admin),
+      by: admin,
       requestId: requestIdOf(request),
     });
   }

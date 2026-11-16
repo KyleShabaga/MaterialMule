@@ -8,8 +8,9 @@ const WAIT_MS = 5000;
  * After a route change, moves focus to the new page's h1 (made focusable with tabIndex=-1), so
  * keyboard and screen-reader users land on the page they opened instead of the old menu link or
  * the page body (MTR-136). The first page load keeps the browser's own focus, a page that
- * already put focus inside the main area (a scan box, a wizard step) keeps it, and so does a
- * control the user moves to while a slow page is still loading.
+ * already put focus inside the main area (a scan box, a wizard step) keeps it, an open dialog
+ * that holds focus keeps it, and so does a control the user moves to while a slow page is still
+ * loading.
  */
 export function useFocusPageHeading() {
   const { pathname } = useLocation();
@@ -27,6 +28,9 @@ export function useFocusPageHeading() {
       if (active && active !== document.body && active !== main && main!.contains(active)) {
         return true;
       }
+      // A dialog that has focus keeps it (the Ctrl K menu opened over the new page, the phone
+      // sidebar Sheet still closing); the heading waits until focus has left it.
+      if (active?.closest('[role="dialog"], [role="alertdialog"]')) return false;
       if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
       heading.focus({ preventScroll: true });
       return true;

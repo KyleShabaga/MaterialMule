@@ -4,6 +4,8 @@ import {
   concreteMixDetailSchema,
   concreteMixPropagationPreviewSchema,
   concreteMixPropagationResultSchema,
+  concreteProjectSetListSchema,
+  concreteProjectSetStatus,
   concreteProjectSpecimenListSchema,
   concreteSpecimenSetDetailSchema,
   type ConcreteFieldReportDetail,
@@ -595,5 +597,85 @@ describe.runIf(testDatabaseUrl)('concrete mix propagation (MM-V2-C30)', () => {
       ineligibleReason: 'manually_edited',
     });
     expect(await specimenRow(specimen)).toMatchObject({ age: '10', reschedules: 2 });
+  });
+
+  // -------------------------------------------------------------------------------------------
+  // STRATA-98: the Sets tab (working labels, test ages, "n of m tested")
+  // -------------------------------------------------------------------------------------------
+
+  it('Sets tab: one row per set with its working label, test ages and n of m tested', async () => {
+    const mix = await approvedMix('S98-01');
+    const r = await report({
+      mixId: mix.id,
+      applyMixDefaults: true,
+      castAt: '2026-11-02T09:15:00-06:00',
+      locationElements: ['Footing'],
+      locationDescription: 'Grid S98 sets',
+    });
+    const set = await createSet(r.id);
+    // Stand-in for C18: a numbered set, so a break can be entered (as numberedSet above).
+    await h.db.pool.query(
+      `UPDATE concrete_specimen_set SET permanent_number = 980, permanent_id = '26-980'
+       WHERE id = $1`,
+      [set.id],
+    );
+    await breakSpecimen(set.specimens.find((s) => s.letter === 'A')!.id);
+
+    const url = `/api/concrete/projects/${h.projects.a}/specimen-sets`;
+    const response = await get(`${url}?search=${encodeURIComponent('S98 sets')}`);
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const list = concreteProjectSetListSchema.parse(response.body);
+    expect(list.total).toBe(1);
+    const row = list.items[0]!;
+    expect(row).toMatchObject({
+      setId: set.id,
+      fieldReportId: r.id,
+      identity: { permanentId: '26-980' },
+      castingDate: '2026-11-02',
+      structure: ['Footing'],
+      location: 'Grid S98 sets',
+      testAges: [7, 28, 28, 'HOLD'],
+      // HOLD isn't counted: 1 of the 3 scheduled specimens is tested.
+      testedCount: 1,
+      scheduledCount: 3,
+      nextTestDate: '2026-11-30',
+      voided: false,
+    });
+    // The working number is the set's place in its project in creation order.
+    const { rows } = await h.db.pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM concrete_specimen_set
+       WHERE project_id = $1
+         AND (created_at, id) <= (SELECT created_at, id FROM concrete_specimen_set WHERE id = $2)`,
+      [h.projects.a, set.id],
+    );
+    expect(row.workingNumber).toBe(rows[0]!.n);
+    expect(row.workingLabel).toBe(`Set ${row.workingNumber}`);
+    expect(row.specimenRange).toBe(`${row.workingNumber}A–${row.workingNumber}D`);
+    expect(row.status).toBe(concreteProjectSetStatus({ ...row, today: list.today }));
+
+    // Newest first: a later set comes before it.
+    const later = await report({
+      mixId: mix.id,
+      applyMixDefaults: true,
+      locationDescription: 'Grid S98 sets later',
+    });
+    const laterSet = await createSet(later.id);
+    const both = concreteProjectSetListSchema.parse(
+      (await get(`${url}?search=${encodeURIComponent('S98 sets')}`)).body,
+    );
+    expect(both.items.map((i) => i.setId)).toEqual([laterSet.id, set.id]);
+    expect(both.items[0]).toMatchObject({
+      workingNumber: row.workingNumber + 1,
+      castingDate: null,
+      status: 'no_casting_time',
+      testedCount: 0,
+    });
+
+    expect((await get(url, 'lab')).status).toBe(200);
+    expect((await get(`${url}?pageSize=500`)).status).toBe(400);
+    expect(
+      (await get('/api/concrete/projects/00000000-0000-4000-8000-0000000009ff/specimen-sets'))
+        .status,
+    ).toBe(404);
   });
 });

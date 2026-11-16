@@ -5,7 +5,7 @@ import {
 } from '@materialmule/shared';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { EmptyState, SectionHead, StatusBadge } from '../../components/ui';
+import { EmptyState, SectionHead, StatusBadge } from '../../components/app-ui';
 import { setLabel, setLookupPath, workflowLabel, workflowTone } from './format';
 
 /**

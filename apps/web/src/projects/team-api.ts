@@ -1,4 +1,5 @@
 import {
+  projectAccessHistorySchema,
   projectCapabilitiesSchema,
   projectGrantReviewsSchema,
   projectTeamJoinRequestsSchema,
@@ -9,7 +10,9 @@ import {
   receiverListResponseSchema,
   reviewScopesSchema,
   type FieldError,
+  type AcceptanceDelegates,
   type GrantReportIssuerRequest,
+  type ProjectAccessHistory,
   type ProjectCapabilities,
   type ProjectGrantReviews,
   type ProjectTeamJoinRequests,
@@ -22,6 +25,7 @@ import {
   type ReviewScope,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
+import { grantDelegate, revokeDelegate, type WriteResult } from '../lab/api';
 import type { LoadResult } from './api';
 
 // Team & Permissions (MM-AO05) calls on the MM-AO03 project-access API. Reads resolve to a
@@ -291,3 +295,73 @@ export const decideJoinRequest = (
     reason ? { reason } : {},
     projectTeamJoinRequestsSchema,
   );
+
+// History, paged on the server (STRATA-85)
+
+export function fetchAccessHistory(
+  projectId: string,
+  options: { page?: number; userId?: string } = {},
+): Promise<LoadResult<ProjectAccessHistory>> {
+  const query = new URLSearchParams();
+  if (options.page && options.page > 1) query.set('page', String(options.page));
+  if (options.userId) query.set('userId', options.userId);
+  const search = query.size ? `?${query.toString()}` : '';
+  return load(projectPath(projectId, `access-history${search}`), projectAccessHistorySchema);
+}
+
+// Acceptance delegates (MM-T25): lab/api.ts calls, in this screen's WriteOutcome shape.
+
+function delegateOutcome(
+  result: WriteResult<AcceptanceDelegates>,
+): WriteOutcome<AcceptanceDelegates> {
+  if (result.ok) return { ok: true, value: result.value };
+  switch (result.kind) {
+    case 'invalid':
+      return {
+        ok: false,
+        kind: 'invalid',
+        message:
+          MESSAGES[result.code] ??
+          (result.errors.map((error) => error.message).join(' ') || 'Check the details.'),
+        errors: result.errors,
+      };
+    case 'conflict':
+      return {
+        ok: false,
+        kind: 'conflict',
+        message: MESSAGES[result.code] ?? 'Someone else changed this first. The page now shows it.',
+        errors: [],
+      };
+    case 'forbidden':
+      return {
+        ok: false,
+        kind: 'forbidden',
+        message: 'Only the project’s Lead Project Engineer manages acceptance delegates.',
+        errors: [],
+      };
+    case 'not_found':
+      return {
+        ok: false,
+        kind: 'not_found',
+        message: 'That record is no longer there. The page now shows the current state.',
+        errors: [],
+      };
+    case 'network':
+      return {
+        ok: false,
+        kind: 'network',
+        message: `${UNREACHABLE} Your entries are kept; reload to see whether it was saved.`,
+        errors: [],
+      };
+    default:
+      return { ok: false, kind: 'error', message: 'Nothing was saved. Try again.', errors: [] };
+  }
+}
+
+export const addDelegate = async (
+  projectId: string,
+  body: { delegateUserId: string; reason: string; idempotencyKey: string },
+) => delegateOutcome(await grantDelegate(projectId, body));
+
+export const endDelegate = async (projectId: string, id: string, reason: string) =>
+  delegateOutcome(await revokeDelegate(projectId, id, reason));

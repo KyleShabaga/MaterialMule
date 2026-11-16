@@ -24,33 +24,40 @@ test('MTR-136: picking a project focuses Change project', async ({ page }) => {
   expect(await activeTag(page)).not.toBe('BODY');
 });
 
-test('MTR-136: removing a bucket focuses the bucket before it, then Add a storage unit', async ({
-  page,
-}) => {
+test('MTR-136: removing a unit focuses the unit before it, then Add unit', async ({ page }) => {
   await signInAs(page, 'at');
   await openWizard(page);
   await chooseDemoProject(page);
   await toUnits(page);
-  const add = page.getByRole('button', { name: 'Add a storage unit' });
+  const add = page.getByRole('button', { name: 'Add unit', exact: true });
   for (const n of [2, 3]) {
     await add.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { level: 3, name: `Bucket ${n}` })).toBeVisible();
+    await expect(page.getByRole('region', { name: `Bucket ${n}` })).toBeVisible();
   }
-  await page.getByRole('button', { name: 'Remove Bucket 3' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { level: 3, name: 'Bucket 2' })).toBeFocused();
-  for (const name of ['Remove Bucket 2', 'Remove Bucket 1']) {
-    await page.getByRole('button', { name }).focus();
+  /** Opens the row's actions menu by keyboard and picks its last item, Remove. */
+  async function removeByKeyboard(unitName: string) {
+    await page.getByRole('button', { name: `${unitName} actions` }).focus();
     await page.keyboard.press('Enter');
-    expect(await activeTag(page)).not.toBe('BODY');
+    const remove = page.getByRole('menuitem', { name: `Remove ${unitName}` });
+    await expect(remove).toBeVisible();
+    // The menu focuses its first item once open; End before that would be undone by it.
+    await expect(page.getByRole('menuitem').first()).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(remove).toBeFocused();
+    await page.keyboard.press('Enter');
   }
-  await expect(page.getByRole('button', { name: 'Add a storage unit' })).toBeFocused();
+  await removeByKeyboard('Bucket 3');
+  await expect(page.getByRole('combobox', { name: 'Bucket 2 holder' })).toBeFocused();
+  // Removing the first unit leaves no unit before it: focus goes to Add unit.
+  await removeByKeyboard('Bucket 1');
+  expect(await activeTag(page)).not.toBe('BODY');
+  await expect(add).toBeFocused();
 });
 
-test('MTR-136: closing the Add location panel returns focus to Add location', async ({ page }) => {
-  await signInAs(page, 'lab'); // Lab Manager: full Locations page
-  await page.goto('/settings/locations');
+test('MTR-136: closing the Add location dialog returns focus to Add location', async ({ page }) => {
+  await signInAs(page, 'lab'); // Lab Manager: Lab admin › Locations
+  await page.goto('/admin/locations');
   const trigger = page.getByRole('button', { name: 'Add location' });
   const panel = page.getByRole('dialog', { name: 'Add location' });
 
@@ -72,7 +79,7 @@ test('MTR-136: a menu link moves focus to the new page heading', async ({ page }
   await signInAs(page, 'at');
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  // Phone width: Projects sits in the More sheet above the bottom bar.
+  // Phone width: Projects sits in the sidebar Sheet, opened from the top bar.
   await openMore(page);
   await mainNav(page).getByRole('link', { name: 'Projects', exact: true }).focus();
   await page.keyboard.press('Enter');
@@ -84,11 +91,19 @@ test('MTR-133: required fields are marked and a failed Add location focuses the 
 }) => {
   await signInAs(page, 'at');
   await openWizard(page);
-  const details = page.getByRole('region', { name: 'Delivery' });
-  await expect(details.getByText('(required)')).toHaveCount(3);
+  // Project, Received date and Received by are marked required before anything is submitted.
+  await expect(page.getByRole('combobox', { name: /Find project/ })).toHaveAttribute(
+    'aria-required',
+    'true',
+  );
+  await expect(page.getByLabel(/^Received date/)).toHaveAttribute('required', '');
+  await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveAttribute(
+    'aria-required',
+    'true',
+  );
 
   await signInAs(page, 'lab');
-  await page.goto('/settings/locations');
+  await page.goto('/admin/locations');
   await page.getByRole('button', { name: 'Add location' }).click();
   const panel = page.getByRole('dialog', { name: 'Add location' });
   await expect(panel.getByText('(required)')).toHaveCount(2);

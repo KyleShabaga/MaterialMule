@@ -87,6 +87,8 @@ function readDocumentedMatrix(): Map<string, Set<MatrixColumn>> {
  */
 const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'GET /api/staff/receivers': null,
+  // STRATA-52: cached directory photos for avatars; every active session, LAB included.
+  'GET /api/people/:userId/photo': null,
   // MM-T45: every station reads the draft auto-delete setting; only PUT is restricted.
   'GET /api/settings/drafts': null,
   'PATCH /api/projects/:projectId': 'project.edit',
@@ -96,7 +98,7 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/test-requests/:id/accept': 'test.accept',
   'POST /api/projects/:projectId/acceptance-delegates': 'acceptance_delegation.manage',
   'DELETE /api/projects/:projectId/acceptance-delegates/:id': 'acceptance_delegation.manage',
-  // MM-T26: closing by the project's Lead Project Engineer; reopening and cancelling by Lead Project Engineer or Lab Manager.
+  // MM-T26/STRATA-87: closing by the requester, the project's lead or a Lab Manager (handler-checked); reopening and cancelling by Lead Project Engineer or Lab Manager.
   'POST /api/lab-programs/:id/close': 'program.close',
   'POST /api/lab-programs/:id/reopen': 'program.reopen',
   'POST /api/test-requests/:id/cancel': 'test.cancel',
@@ -111,6 +113,10 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // MM-T30: standard disposal approval and revocation by the project's Lead Project Engineer or a Lab Manager.
   'POST /api/disposal/approvals': 'disposal.approve',
   'POST /api/disposal/approvals/:id/revoke': 'disposal.approve',
+  // STRATA-90/91: the decision drawer and the disposal list, by the project's Lead Project
+  // Engineer or a Lab Manager (checked per project under lock).
+  'POST /api/retention/decisions': 'retention.manage',
+  'POST /api/disposal/list/remove': 'disposal.approve',
   // MM-AO03: team and scoped reviewers by the project's Lead Project Engineer or an admin; report
   // issuers by the project's Lead Project Engineer only. A person reads their own grants.
   'POST /api/projects/:projectId/team-members': 'project_team.manage',
@@ -163,8 +169,20 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   'POST /api/concrete/specimen-sets/:setId/strength-report/versions/:versionNo/exception-notes':
     'concrete.review',
   'GET /api/me/grants': null,
+  // Strata 1C: every active session reads these; the shared LAB account gets defaults read-only
+  // (sidebar layout: or the picked person's with ?personId=, read-only). Writes need
+  // personal_settings.manage.
+  'GET /api/me/sidebar-layout': null,
+  'GET /api/me/preferences': null,
+  'GET /api/me/table-columns': null,
+  // STRATA-123: Undo. The handler checks the action's own permission in its transaction: the
+  // move permission for moves (LAB included, its own station's move for the same picked person),
+  // recipient-only for a notification. GET uses the same so it never offers what POST refuses.
+  'GET /api/undo/:action/:sourceId': 'storage_unit.move',
+  'POST /api/undo': 'storage_unit.move',
   // Field Ledger Help & Feedback: every active session (LAB included) may send feedback; it is
-  // kept as an audit event on the host. Reading it is staff.manage (admins).
+  // kept as an audit event on the host and notifies administrators' Inboxes (STRATA-104).
+  // Reading it is feedback.read (admins only, STRATA-118; GET /api/feedback is swept by it).
   'POST /api/feedback': null,
   // MM-V2-C05: a numbered set's casting-time correction (owner to confirm: the lead, a designated
   // reviewer or a concrete-grant Lab Manager, as concrete_specimen.reschedule).
@@ -186,9 +204,15 @@ const ACTIVE_ROUTE_PERMISSION: Record<string, Permission | null> = {
   // Manager (concrete_hold.manage, a subset of the same callers). Refused before the body.
   'POST /api/concrete/holds/schedule-test': 'concrete_ordinary_hold.manage',
   'POST /api/concrete/holds/authorize-disposal': 'concrete_ordinary_hold.manage',
+  // STRATA-121: Hold until a date from Breaks puts scheduled specimens on an ordinary HOLD, by the
+  // same callers as its release (the lead or any Lab Manager; never LAB). Refused before the body.
+  'POST /api/concrete/holds/hold-until': 'concrete_ordinary_hold.manage',
   // MM-V2-C32: issuing a project summary report (the lead or an Authorized report issuer for
   // concrete_field reports); checked before the body and again under the project lock.
   'POST /api/concrete/projects/:projectId/summary-reports': 'report.issue',
+  // Strata lane A: every active session reads a station's rows (LAB included); saving is
+  // station.configure (PUT is swept by its permission).
+  'GET /api/station/config/:stationId': null,
 };
 
 /**

@@ -142,11 +142,15 @@ test('MM-T79: on the storage unit page a hovered link darkens with no underline;
 
   await page.goto(`/sample-storage/${unit.readableId}`);
   await expect(page.getByRole('heading', { level: 1, name: unit.readableId })).toBeVisible();
-  const back = page.getByRole('link', { name: '← Back to inventory' });
+  // STRATA-72: the breadcrumb's Inventory link replaced "← Back to inventory".
+  const back = page
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: 'Inventory', exact: true });
   const before = await back.evaluate((a) => getComputedStyle(a).color);
   await back.hover();
   await expect.poll(() => decoration(back)).toBe('none');
-  expect(await back.evaluate((a) => getComputedStyle(a).color)).not.toBe(before);
+  // The breadcrumb link fades its colour (transition-colors), so wait for it.
+  await expect.poll(() => back.evaluate((a) => getComputedStyle(a).color)).not.toBe(before);
   // Keyboard focus still shows its outline.
   await back.focus();
   await page.keyboard.press('Shift+Tab');

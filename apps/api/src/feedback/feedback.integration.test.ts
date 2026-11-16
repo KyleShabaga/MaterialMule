@@ -1,5 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import { feedbackListSchema, submitFeedbackResponseSchema } from '@materialmule/shared';
+import { randomUUID } from 'node:crypto';
+import {
+  feedbackListSchema,
+  inboxPageSchema,
+  notificationListSchema,
+  submitFeedbackResponseSchema,
+} from '@materialmule/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CSRF_HEADER } from '../auth/auth.guard.js';
@@ -7,6 +13,7 @@ import { SESSION_COOKIE } from '../auth/session-cookie.js';
 import { SessionService } from '../auth/session.service.js';
 import { loadConfig } from '../config/env.js';
 import { createApp } from '../create-app.js';
+import { feedbackPagePath } from './feedback.service.js';
 import {
   createMigratedSchema,
   databaseUrlForSchema,
@@ -23,11 +30,15 @@ describe.runIf(testDatabaseUrl)('POST/GET /api/feedback', () => {
   let staffCookie: string;
   let adminCookie: string;
   let pendingCookie: string;
+  let managerCookie: string;
+  let secondAdminCookie: string;
+  let labCookie: string;
+  const people: Record<string, string> = {};
 
   async function userWithSession(
     name: string,
     initials: string,
-    status: 'active' | 'pending',
+    status: 'active' | 'pending' | 'disabled',
     role?: string,
   ) {
     const { rows } = await db.pool.query<{ id: string }>(
@@ -35,6 +46,7 @@ describe.runIf(testDatabaseUrl)('POST/GET /api/feedback', () => {
        VALUES ($1, $2, 'personal', $3) RETURNING id`,
       [name, initials, status],
     );
+    people[initials] = rows[0]!.id;
     if (role) {
       await db.pool.query('INSERT INTO role_assignment (user_id, role) VALUES ($1, $2)', [
         rows[0]!.id,
@@ -75,7 +87,27 @@ describe.runIf(testDatabaseUrl)('POST/GET /api/feedback', () => {
     staffCookie = await userWithSession('Alex Tester', 'AT', 'active');
     adminCookie = await userWithSession('Kit Admin', 'KA', 'active', 'admin');
     pendingCookie = await userWithSession('Riley Applicant', 'RA', 'pending');
+    managerCookie = await userWithSession('Mo Manager', 'MM', 'active', 'lab_manager');
+    secondAdminCookie = await userWithSession('Sam Admin', 'SA', 'active', 'admin');
+    // A disabled admin gets nothing.
+    await userWithSession('Dee Former', 'DF', 'disabled', 'admin');
+    const { rows: labRows } = await db.pool.query<{ id: string }>(
+      `INSERT INTO app_user (display_name, account_type, status)
+       VALUES ('LAB', 'shared_lab', 'active') RETURNING id`,
+    );
+    const lab = await app.get(SessionService).create(labRows[0]!.id, 'shared_lab');
+    labCookie = `${SESSION_COOKIE}=${lab.token}`;
   });
+
+  const noticesFor = async (eventId: string) =>
+    (
+      await db.pool.query<{ recipient_user_id: string }>(
+        `SELECT recipient_user_id FROM notification
+         WHERE kind = 'feedback.submitted' AND feedback_event_id = $1
+         ORDER BY recipient_user_id`,
+        [eventId],
+      )
+    ).rows.map((row) => row.recipient_user_id);
 
   afterAll(async () => {
     await app?.close();
@@ -148,5 +180,103 @@ describe.runIf(testDatabaseUrl)('POST/GET /api/feedback', () => {
       page: null,
     });
     expect(list.map((item) => item.kind)).toContain('confusing');
+  });
+
+  it('STRATA-118: a Lab Manager, LAB and a technician cannot read feedback', async () => {
+    for (const cookie of [managerCookie, labCookie, staffCookie]) {
+      const response = await request(app.getHttpServer())
+        .get('/api/feedback')
+        .set('Cookie', cookie);
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ code: 'forbidden' });
+    }
+  });
+
+  it('STRATA-104: each submission notifies every active administrator once, nobody else', async () => {
+    const response = await send(staffCookie, {
+      kind: 'not_working',
+      text: 'The label preview is blank.',
+      page: '/receiving',
+    });
+    expect(response.status).toBe(201);
+    const { id } = submitFeedbackResponseSchema.parse(response.body);
+    expect(await noticesFor(id)).toEqual([people.KA!, people.SA!].sort());
+
+    // The administrator's Inbox shows a Feedback item with the page, never the text.
+    const inbox = await request(app.getHttpServer())
+      .get('/api/inbox?tab=updates')
+      .set('Cookie', adminCookie);
+    expect(inbox.status).toBe(200);
+    const item = inboxPageSchema
+      .parse(inbox.body)
+      .items.find((i) => i.type === 'update' && i.record?.id === id);
+    expect(item).toMatchObject({
+      task: 'Feedback',
+      title: 'Feedback · Problem',
+      record: { kind: 'page', id, label: '/receiving' },
+      from: { userId: people.AT, name: 'Alex Tester', initials: 'AT' },
+      href: '/help',
+      domain: 'feedback',
+      stage: 'due',
+      unread: true,
+    });
+    expect(JSON.stringify(inbox.body)).not.toContain('The label preview is blank.');
+
+    const notices = await request(app.getHttpServer())
+      .get('/api/notifications')
+      .set('Cookie', secondAdminCookie);
+    const notice = notificationListSchema
+      .parse(notices.body)
+      .items.find(
+        (n) => n.kind === 'feedback.submitted' && n.linkedFeedback?.page === '/receiving',
+      );
+    expect(notice).toMatchObject({
+      title: 'Feedback · Problem',
+      href: '/help',
+      linkedFeedback: { kind: 'not_working', page: '/receiving' },
+    });
+
+    // A Lab Manager's Inbox has none.
+    const managerInbox = await request(app.getHttpServer())
+      .get('/api/inbox?tab=all')
+      .set('Cookie', managerCookie);
+    expect(managerInbox.status).toBe(200);
+    expect(JSON.stringify(managerInbox.body)).not.toContain('feedback.submitted');
+  });
+
+  it('STRATA-104: an administrator is not notified of their own feedback; LAB feedback notifies', async () => {
+    const own = submitFeedbackResponseSchema.parse(
+      (await send(adminCookie, { kind: 'idea', text: 'Bigger buttons.' })).body,
+    );
+    expect(await noticesFor(own.id)).toEqual([people.SA!]);
+    const lab = await send(labCookie, { kind: 'confusing', text: 'Which shelf?', page: '/move' });
+    expect(lab.status).toBe(201);
+    expect(await noticesFor(submitFeedbackResponseSchema.parse(lab.body).id)).toEqual(
+      [people.KA!, people.SA!].sort(),
+    );
+  });
+
+  it('STRATA-104: a replayed submissionId returns the first submission and notifies nobody again', async () => {
+    const submissionId = randomUUID();
+    const body = { kind: 'idea', text: 'Remember my printer.', submissionId };
+    const before = await feedbackCount();
+    const first = submitFeedbackResponseSchema.parse((await send(staffCookie, body)).body);
+    const again = await send(staffCookie, body);
+    expect(again.status).toBe(201);
+    expect(submitFeedbackResponseSchema.parse(again.body).id).toBe(first.id);
+    expect(await feedbackCount()).toBe(before + 1);
+    expect(await noticesFor(first.id)).toHaveLength(2);
+    // Someone else's submission with the same id is their own.
+    const other = await send(managerCookie, body);
+    expect(submitFeedbackResponseSchema.parse(other.body).id).not.toBe(first.id);
+    expect(await feedbackCount()).toBe(before + 2);
+    expect((await send(staffCookie, { ...body, submissionId: 'not-a-uuid' })).status).toBe(400);
+  });
+
+  it('keeps only the path of a page', () => {
+    expect(feedbackPagePath(undefined)).toBeNull();
+    expect(feedbackPagePath('/sample-storage')).toBe('/sample-storage');
+    expect(feedbackPagePath('/sample-storage?search=DEMO-2601#top')).toBe('/sample-storage');
+    expect(feedbackPagePath('/inventory#unit')).toBe('/inventory');
   });
 });

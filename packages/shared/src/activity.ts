@@ -49,5 +49,13 @@ export const activityQuerySchema = z.object({
     clampedInt(1, ACTIVITY_HOURS_MAX, undefined),
     z.number().int().min(1).max(ACTIVITY_HOURS_MAX).optional(),
   ),
+  /**
+   * Strata Today (STRATA-23): `lab` (everything, the default), `projects` (projects I'm a member
+   * of), `mine` (events I did). Narrowing only: it never shows more than `lab`.
+   */
+  scope: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() !== '' ? v : undefined),
+    z.enum(['lab', 'projects', 'mine']).default('lab'),
+  ),
 });
 export type ActivityQuery = z.output<typeof activityQuerySchema>;

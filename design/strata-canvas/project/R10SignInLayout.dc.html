@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Round 10 sign-in layout pages</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<!-- Round 10: the pages that use the sign-in layout (copied from SignIn.dc.html, not shared with it):
+     the Microsoft sign-in return (/sign-in/microsoft/callback) while it finishes and its ten failure
+     cards, Waiting for approval (/access-pending) and Material Mule is unavailable. One centred
+     440 px column: brand, one card, the office-network footer. Every card starts with its h1, then
+     one plain sentence, then the next step, so screen readers get the heading first. No codes,
+     stack traces or session end times. Fictional people only. -->
+<div class="bg-background text-foreground relative flex flex-col font-sans" style="{{rootStyle}}">
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
+<div aria-hidden="true" class="pointer-events-none absolute inset-0" style="background: radial-gradient(60% 70% at 12% 8%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 70%), radial-gradient(55% 65% at 92% 96%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 70%), linear-gradient(135deg, var(--accent) 0%, var(--background) 55%, var(--accent) 100%);"></div>
+<main class="relative z-10 flex h-full flex-1 flex-col items-center justify-center px-4">
+<div class="flex w-full max-w-[440px] flex-col gap-6">
+
+<div class="flex items-center gap-3">
+<span class="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-lg"><svg width="28" height="22" viewBox="150 230 960 760" aria-hidden="true" focusable="false"><defs><mask id="mm-donkey-r10" maskUnits="userSpaceOnUse" x="150" y="230" width="960" height="760"><rect x="150" y="230" width="960" height="760" fill="#fff"></rect><g fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path></g></mask></defs><g fill="currentColor"><g mask="url(#mm-donkey-r10)"><path d="M350,690 C360,730 380,745 395,765 C380,790 350,805 320,825 C290,850 272,880 268,920 C272,935 285,950 292,970 L232,970 L232,955 C238,945 230,930 240,915 C260,880 280,840 300,800 C320,780 340,760 350,690 Z"></path><path d="M715,700 L770,720 C760,770 740,800 725,840 C710,880 700,910 715,970 L655,970 C660,950 648,935 650,915 C665,870 690,820 705,780 C712,760 712,730 715,700 Z"></path></g><path d="M352,595 C335,615 320,640 300,665 C285,680 275,700 262,720 C240,752 200,768 165,772 C180,755 185,735 200,710 C220,680 250,660 280,655 C300,640 315,600 340,575 Z"></path><path d="M340,580 C365,535 425,503 500,500 C580,497 640,520 700,505 C760,490 805,465 845,435 C885,405 912,390 938,390 L1000,405 C1025,430 1042,452 1047,472 C1060,510 1080,545 1087,577 C1092,605 1074,628 1050,628 C1030,628 1018,614 1014,600 C980,582 945,568 925,540 C902,578 878,612 862,632 L850,700 L745,690 C700,715 640,728 590,722 C550,716 522,702 505,690 L495,700 C470,745 420,745 395,735 C355,690 330,640 340,580 Z"></path><path d="M765,490 C785,478 805,474 822,468 L812,490 Z"></path><path d="M505,680 C505,760 465,800 470,850 C474,890 505,915 520,935 C530,948 538,960 542,970 L482,970 C480,955 470,945 466,935 C450,900 410,870 398,830 C392,800 395,770 380,730 Z"></path><path d="M745,680 L862,630 C852,665 845,695 850,710 C870,760 895,800 905,840 C912,880 925,905 945,925 C965,945 985,958 992,970 L930,970 C928,955 922,945 920,930 C905,890 880,850 860,820 C830,780 790,740 745,700 Z"></path><path d="M935,412 C928,360 945,300 995,255 C1002,300 992,360 975,405 Z"></path><path d="M978,402 C1000,340 1040,300 1075,270 C1082,320 1052,380 1008,412 Z"></path></g></svg></span>
+<span class="grid leading-tight"><span class="text-lg font-semibold">Material Mule</span><span class="text-muted-foreground text-[13px]">Sample storage and lab testing</span></span>
+</div>
+
+<div class="bg-card text-card-foreground flex flex-col gap-6 rounded-xl border p-8 shadow-sm">
+
+<!-- Finishing Microsoft sign-in: a status region, heading first -->
+<sc-if value="{{sPending}}" hint-placeholder-val="{{ false }}">
+<section role="status" aria-labelledby="r10-finishing" class="flex flex-col items-start gap-4">
+<span class="bg-accent text-accent-foreground flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Spinner" class-name="size-5"></x-import></span>
+<div class="grid gap-1"><h1 id="r10-finishing" class="text-2xl font-semibold">Finishing Microsoft sign-in…</h1><p class="text-muted-foreground text-sm">This takes a few seconds. Keep this window open.</p></div>
+</section>
+</sc-if>
+
+<!-- One card per failure: title, one plain sentence, the next step -->
+<sc-if value="{{sFail}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="r10-fail-title" class="flex flex-col gap-6">
+<div class="flex flex-col items-start gap-4">
+<span class="{{failTone}} flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="{{failIcon}}" class-name="size-5"></x-import></span>
+<div class="grid gap-1"><h1 id="r10-fail-title" class="text-2xl font-semibold">{{failTitle}}</h1><p class="text-muted-foreground text-sm">{{failBody}}</p></div>
+</div>
+<sc-if value="{{failAccount}}" hint-placeholder-val="{{ false }}">
+<div class="bg-muted flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5">
+<x-import component-from-global-scope="Strata.Icon" name="circle-user-round" class-name="text-muted-foreground"></x-import>
+<span class="grid min-w-0 leading-tight"><span class="text-muted-foreground text-[13px]">Microsoft account used</span><span class="truncate font-mono text-[13px]" title="jordan.lab.home.account.2026@outlook.example">jordan.lab.home.account.2026@outlook.example</span></span>
+</div>
+</sc-if>
+<div class="flex flex-col gap-2">
+<sc-if value="{{failTry}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="rotate-cw"></x-import>Try again</x-import>
+<x-import component-from-global-scope="Strata.Button" size="lg" variant="outline" class-name="w-full">Back to sign in</x-import>
+</sc-if>
+<sc-if value="{{failBackOnly}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="arrow-left"></x-import>Back to sign in</x-import>
+</sc-if>
+<sc-if value="{{failWait}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" variant="outline" disabled="{{yes}}" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="pause"></x-import>Try again after the pause</x-import>
+<x-import component-from-global-scope="Strata.Button" size="lg" variant="ghost" class-name="w-full">Back to sign in</x-import>
+</sc-if>
+</div>
+<sc-if value="{{failLab}}" hint-placeholder-val="{{ false }}">
+<p class="text-muted-foreground text-sm">Shared receiving station? <a href="#" class="text-link font-medium underline-offset-4 hover:underline">Sign in as LAB</a></p>
+</sc-if>
+</section>
+</sc-if>
+
+<!-- Waiting for approval -->
+<sc-if value="{{sWaiting}}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="r10-pending" class="flex flex-col gap-6">
+<div class="flex flex-col items-start gap-4">
+<span class="bg-stage-due-bg text-stage-due-fg flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="user-round-check" class-name="size-5"></x-import></span>
+<div class="grid gap-1"><h1 id="r10-pending" class="text-2xl font-semibold">You are signed in, but not set up yet.</h1><p class="text-muted-foreground text-sm">Your Microsoft sign-in worked. Someone in the office still has to give you access to Material Mule.</p></div>
+</div>
+<dl class="grid gap-3 text-sm">
+<div class="grid gap-1"><dt class="text-muted-foreground text-[13px]">Signed in as</dt>
+<dd class="bg-muted flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5"><x-import component-from-global-scope="Strata.Avatar" aria-hidden="true" class-name="size-8"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="bg-background font-mono text-[13px] font-bold">{{pendingIni}}</x-import></x-import><span class="grid min-w-0 leading-tight"><span class="truncate font-medium" title="{{pendingName}}">{{pendingName}}</span><span class="text-muted-foreground truncate font-mono text-[13px]" title="{{pendingEmail}}">{{pendingEmail}}</span></span></dd></div>
+<div class="grid gap-1"><dt class="text-muted-foreground text-[13px]">Who approves</dt><dd>An administrator, in Settings, Staff, Pending.</dd></div>
+</dl>
+<p class="flex items-start gap-2 text-sm"><x-import component-from-global-scope="Strata.Icon" name="refresh-cw" class-name="text-muted-foreground mt-0.5"></x-import><span>This page opens the app by itself once you are approved.</span></p>
+<sc-if value="{{pendingStill}}" hint-placeholder-val="{{ false }}">
+<p role="status" class="bg-muted text-muted-foreground rounded-md px-3 py-2 text-[13px]">Checked just now. Still waiting for approval.</p>
+</sc-if>
+<div class="flex flex-col gap-2">
+<sc-if value="{{pendingIdle}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="rotate-cw"></x-import>Check again</x-import>
+</sc-if>
+<sc-if value="{{pendingChecking}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" disabled="{{yes}}" class-name="w-full"><x-import component-from-global-scope="Strata.Spinner"></x-import>Checking…</x-import>
+</sc-if>
+<x-import component-from-global-scope="Strata.Button" size="lg" variant="outline" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="log-out"></x-import>Sign out</x-import>
+</div>
+</section>
+</sc-if>
+
+<!-- Material Mule is unavailable: the server can't be reached -->
+<sc-if value="{{sDown}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="r10-down" class="flex flex-col gap-6">
+<div class="flex flex-col items-start gap-4">
+<span class="bg-stage-danger-bg text-stage-danger-fg flex size-10 items-center justify-center rounded-full"><x-import component-from-global-scope="Strata.Icon" name="server-off" class-name="size-5"></x-import></span>
+<div class="grid gap-1"><h1 id="r10-down" class="text-2xl font-semibold">Material Mule is unavailable.</h1><p class="text-muted-foreground text-sm">This computer can't reach the Material Mule server in the office. The server may be restarting, or this computer may be off the office network.</p></div>
+</div>
+<sc-if value="{{downKept}}" hint-placeholder-val="{{ true }}">
+<div class="bg-muted flex flex-col gap-2 rounded-lg p-4 text-sm">
+<p class="flex items-center gap-2 font-medium"><x-import component-from-global-scope="Strata.Icon" name="shield-check" class-name="text-stage-storage-mark"></x-import>Your work on this computer is kept.</p>
+<ul class="text-muted-foreground flex flex-col gap-1 pl-6 text-[13px]">
+<li>1 draft receipt for <span class="text-foreground font-mono">DEMO-2601</span></li>
+<li>3 moves waiting to be sent</li>
+</ul>
+<p class="text-muted-foreground pl-6 text-[13px]">They are sent once the server is back. Keep this window open.</p>
+</div>
+</sc-if>
+<sc-if value="{{downNothing}}" hint-placeholder-val="{{ false }}">
+<p class="bg-muted text-muted-foreground rounded-lg p-4 text-[13px]">Nothing from this computer is waiting to be sent.</p>
+</sc-if>
+<div class="flex flex-col gap-3">
+<sc-if value="{{downIdle}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" class-name="w-full"><x-import component-from-global-scope="Strata.Icon" name="rotate-cw"></x-import>Try again</x-import>
+<p role="status" class="text-muted-foreground flex items-center gap-2 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="timer"></x-import>Trying again by itself in 10 seconds.</p>
+</sc-if>
+<sc-if value="{{downTrying}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Button" size="lg" disabled="{{yes}}" class-name="w-full"><x-import component-from-global-scope="Strata.Spinner"></x-import>Trying again…</x-import>
+<p role="status" class="text-muted-foreground flex items-center gap-2 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="timer"></x-import>Still trying by itself. Third try.</p>
+</sc-if>
+<p class="text-muted-foreground text-[13px]">If it stays unavailable, tell your Lab Manager.</p>
+</div>
+</section>
+</sc-if>
+
+</div>
+<div class="text-muted-foreground flex items-center justify-between gap-3 text-[13px]">
+<p class="flex items-center gap-2"><x-import component-from-global-scope="Strata.Icon" name="building-2"></x-import>Works on the office network only</p>
+<sc-if value="{{helpLink}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Button" variant="link" size="sm" class-name="h-auto p-0"><x-import component-from-global-scope="Strata.Icon" name="circle-question-mark"></x-import>Help</x-import></sc-if>
+</div>
+</div>
+</main>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"size":{"editor":"select","options":["1280","1024"],"default":"1280"},"screen":{"editor":"select","options":["callback-pending","cancelled","consent","expired","mismatch","not-allowed","guest","removed","throttled","not-configured","failed","pending","pending-long","pending-checking","pending-still","unavailable","unavailable-trying","unavailable-nothing"],"default":"pending"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.props.screen || 'pending';
+    var neutral = 'bg-muted text-muted-foreground';
+    var due = 'bg-stage-due-bg text-stage-due-fg';
+    var danger = 'bg-stage-danger-bg text-stage-danger-fg';
+    // next: try = Try again + Back to sign in; back = Back to sign in only; wait = paused
+    var cases = {
+      'cancelled': { icon: 'circle-x', tone: neutral, next: 'try', title: 'Sign-in was cancelled.', body: 'You closed the Microsoft window or chose Cancel. Nothing was changed. You can start again.' },
+      'consent': { icon: 'shield-alert', tone: due, next: 'back', title: 'Material Mule wasn’t given permission.', body: 'Microsoft asked whether Material Mule may read your name and email, and it wasn’t allowed. An administrator can approve it for the whole office; ask your Lab Manager.' },
+      'expired': { icon: 'clock', tone: neutral, next: 'try', title: 'The sign-in link expired.', body: 'Sign-in has to finish within a few minutes of starting. Start again and finish it in one go.' },
+      'mismatch': { icon: 'app-window', tone: neutral, next: 'try', title: 'Sign-in took too long or moved to another browser.', body: 'Finish sign-in in the same browser window you started it in. Start again from here.' },
+      'not-allowed': { icon: 'user-x', tone: danger, next: 'back', account: true, title: 'This account can’t sign in here.', body: 'Use your work Microsoft account for the office. Personal accounts and accounts from other organisations aren’t accepted.' },
+      'guest': { icon: 'user-x', tone: danger, next: 'back', title: 'Guest accounts can’t sign in.', body: 'Your account is a guest in the office’s Microsoft directory. Ask an administrator for a member account, then sign in with it.' },
+      'removed': { icon: 'lock', tone: danger, next: 'back', title: 'Your access was removed.', body: 'An administrator turned off your access to Material Mule. If you think this is a mistake, ask your Lab Manager.' },
+      'throttled': { icon: 'pause', tone: due, next: 'wait', title: 'Too many sign-in attempts.', body: 'Sign-in from this computer is paused for a short while. Wait a few minutes, then try again.' },
+      'not-configured': { icon: 'settings', tone: due, next: 'back', lab: true, title: 'Microsoft sign-in isn’t set up on this server.', body: 'An administrator turns it on on the host PC. Ask your Lab Manager to arrange it.' },
+      'failed': { icon: 'circle-alert', tone: danger, next: 'try', title: 'Something went wrong finishing sign-in.', body: 'Material Mule couldn’t finish signing you in. Try again. If it keeps happening, tell your Lab Manager.' }
+    };
+    var c = cases[s];
+    var pending = /^pending/.test(s);
+    var down = /^unavailable/.test(s);
+    var longName = s === 'pending-long';
+    var small = String(this.props.size) === '1024';
+    return {
+      rootStyle: small ? 'width: 1024px; height: 768px; overflow: hidden;' : 'width: 1280px; height: 800px; overflow: hidden;',
+      dark: !!this.props.dark,
+      yes: true,
+      sPending: s === 'callback-pending',
+      sFail: !!c,
+      failIcon: c ? c.icon : 'circle-alert',
+      failTone: c ? c.tone : neutral,
+      failTitle: c ? c.title : '',
+      failBody: c ? c.body : '',
+      failTry: !!c && c.next === 'try',
+      failBackOnly: !!c && c.next === 'back',
+      failWait: !!c && c.next === 'wait',
+      failAccount: !!c && !!c.account,
+      failLab: !!c && !!c.lab,
+      sWaiting: pending,
+      pendingIni: longName ? 'AM' : 'JL',
+      pendingName: longName ? 'Alexandra Montgomery-Fairweather-Example' : 'Jordan Lab',
+      pendingEmail: longName ? 'alexandra.montgomery-fairweather.example@materialmule-demo.example' : 'jordan.lab@materialmule-demo.example',
+      pendingIdle: pending && s !== 'pending-checking',
+      pendingChecking: s === 'pending-checking',
+      pendingStill: s === 'pending-still',
+      sDown: down,
+      downKept: down && s !== 'unavailable-nothing',
+      downNothing: s === 'unavailable-nothing',
+      downIdle: down && s !== 'unavailable-trying',
+      downTrying: s === 'unavailable-trying',
+      helpLink: !down
+    };
+  }
+}
+</script>
+</body>
+</html>

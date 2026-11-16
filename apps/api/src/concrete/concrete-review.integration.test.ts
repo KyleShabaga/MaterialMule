@@ -400,6 +400,67 @@ describe.runIf(testDatabaseUrl)('concrete review queue and exceptions (MM-V2-C28
     }
   });
 
+  it('STRATA-97: the Exceptions tab, search and a chosen sort, on the server', async () => {
+    // Earlier tests leave reports behind, so this compares before and after on project B.
+    const before = await queue('?status=open_exceptions&pageSize=100', 'pe');
+    const open = await ok('submit', await draft('tech', completeFields(130), h.projects.b), 'tech');
+    const clean = await ok('submit', await draft('tech', completeFields(), h.projects.b), 'tech');
+    await documentAll(clean, 'pe');
+    const back = await ok(
+      'return',
+      await ok('submit', await draft('tech', completeFields(), h.projects.b), 'tech'),
+      'pe',
+      { comment: 'Recheck the mix number' },
+    );
+
+    // Awaiting review or returned, with exceptions not yet documented; never the documented one.
+    const after = await queue('?status=open_exceptions&pageSize=100', 'pe');
+    expect(after.openExceptionCount).toBe(before.openExceptionCount + 2);
+    expect(after.total).toBe(after.openExceptionCount);
+    const ids = after.items.map((r) => r.reportId);
+    expect(ids).toEqual(expect.arrayContaining([open.id, back.id]));
+    expect(ids).not.toContain(clean.id);
+    expect(after.items.find((r) => r.reportId === back.id)?.status).toBe('returned');
+    for (const row of after.items) {
+      expect(['awaiting_review', 'returned']).toContain(row.status);
+      expect(row.exceptions.reduce((n, e) => n + e.count, 0)).toBeGreaterThan(row.documentedCount);
+    }
+    // The status counts still count states; the filter has its own count.
+    expect(after.counts.awaiting_review).toBe(before.counts.awaiting_review + 2);
+    expect((await queue('', 'pe')).openExceptionCount).toBe(after.openExceptionCount);
+
+    // Needs my action: the reviewer acts on the open one, the technician on the returned one.
+    const peMine = await queue('?status=open_exceptions&mine=true&pageSize=100', 'pe');
+    expect(peMine.items.map((r) => r.reportId)).toContain(open.id);
+    expect(peMine.items.map((r) => r.reportId)).not.toContain(back.id);
+    expect(peMine.total).toBe(peMine.openExceptionCount);
+    const techMine = await queue('?status=open_exceptions&mine=true&pageSize=100', 'tech');
+    expect(techMine.items.map((r) => r.reportId)).toContain(back.id);
+    expect(techMine.items.map((r) => r.reportId)).not.toContain(open.id);
+
+    // Search: project number (any case) or the technician's name; % is matched literally.
+    const onB = await queue('?search=demo-2602&pageSize=100', 'pe');
+    expect(onB.items.every((r) => r.projectNumber === 'DEMO-2602')).toBe(true);
+    expect(onB.items.map((r) => r.reportId)).toEqual(expect.arrayContaining([open.id, clean.id]));
+    expect(
+      (await queue('?search=alex%20tes&pageSize=100', 'pe')).items.map((r) => r.reportId),
+    ).toEqual(expect.arrayContaining([open.id, clean.id]));
+    expect((await queue('?search=%25', 'pe')).total).toBe(0);
+    expect((await queue('?search=nobody-matches-this', 'pe')).counts.awaiting_review).toBe(0);
+
+    // A chosen sort, on the server's page and on the computed "needs my action" list.
+    const byProject = await queue('?sort=project&dir=desc&pageSize=100', 'pe');
+    const numbers = byProject.items.map((r) => r.projectNumber);
+    expect(numbers).toEqual([...numbers].sort().reverse());
+    const newest = await queue('?sort=submitted&dir=desc&pageSize=100', 'pe');
+    const times = newest.items.map((r) => r.submittedAt);
+    expect(times).toEqual([...times].sort().reverse());
+    const mineNewest = await queue('?mine=true&sort=submitted&dir=desc&pageSize=100', 'pe');
+    const mineTimes = mineNewest.items.map((r) => r.submittedAt);
+    expect(mineTimes).toEqual([...mineTimes].sort().reverse());
+    expect((await get('/api/concrete/review-queue?sort=technician', 'pe')).status).toBe(400);
+  });
+
   // ---------------------------------------------------------------------------------------------
   // Exception notes and the Mark reviewed rule (AC1)
   // ---------------------------------------------------------------------------------------------

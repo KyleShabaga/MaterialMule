@@ -28,6 +28,7 @@ const view = (overrides: Partial<StorageUnitRetention> = {}): StorageUnitRetenti
       reason: 'Claim review',
       placedBy: { userId: 'lm', initials: 'LM', name: 'Lee Manager' },
       placedAt: '2026-10-27T16:00:00.000Z',
+      holdUntil: null,
       fromRequestId: null,
       active: true,
       releasedBy: null,

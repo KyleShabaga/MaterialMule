@@ -83,7 +83,7 @@ describe.runIf(testDatabaseUrl)('lab amendments and accepted-request changes (MM
         'post',
         `/api/test-requests/${id}/review`,
         { action: 'complete', version, idempotencyKey: newKey() },
-        'tech',
+        'jo',
       )
     ).body.version as number;
     const accepted = await h.send(

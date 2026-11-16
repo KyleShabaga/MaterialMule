@@ -186,7 +186,7 @@ describe('storage unit labels page', () => {
     });
     renderRoute(`/sample-storage/${UNIT.readableId}`);
 
-    const history = await screen.findByRole('table');
+    const history = await screen.findByRole('table', { name: /Print history/ });
     expect(screen.getByRole('heading', { level: 1, name: UNIT.readableId })).toBeInTheDocument();
     expect(
       within(history).getByText('Unknown — check the printer before reprinting'),
@@ -334,13 +334,16 @@ describe('Settings → Printers', () => {
     stubApi((url) => (url === '/api/admin/printers' ? json(200, printers) : undefined));
     renderRoute('/settings/printers', me({ roles: ['admin'], permissions: ['printer.manage'] }));
     expect(await screen.findByRole('link', { name: 'Printers' })).toBeInTheDocument();
+    // STRATA-102: the Printers panel lists printers; a row opens its details.
+    await userEvent.click(await screen.findByText('Receiving ZD621'));
     expect(await screen.findByDisplayValue('10.0.0.50')).toBeInTheDocument();
   });
 
   it('is hidden from other users', async () => {
     stubApi(() => undefined);
     renderRoute('/settings/printers');
-    expect(await screen.findByText('Only administrators can change printers.')).toBeInTheDocument();
+    // STRATA-100: Printers has no page for them; Settings opens on My access with a notice.
+    expect(await screen.findByText('Printers isn’t available to you.')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Printers' })).not.toBeInTheDocument();
   });
 });

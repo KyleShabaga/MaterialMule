@@ -4,9 +4,11 @@ import { newUuid, normalizeUnit, type ReceiptDraft, type UnitDraft } from '../dr
 // A receiving draft as stored on this workstation (MM-T11). Drafts live only in this browser's
 // IndexedDB: no server copy, no cross-device sync (App Idea §3). They hold business data only,
 // never a token or password, and never a storage unit ID (IDs exist only after confirmation).
+// STRATA-108: the server keeps who started each draft (ownership metadata only, never its
+// contents), so only that person or a Lab Manager can delete it.
 
 /** Bump when the record shape changes, and add a step to RECORD_MIGRATIONS. */
-export const DRAFT_RECORD_VERSION = 3;
+export const DRAFT_RECORD_VERSION = 4;
 
 /**
  * Drafts not saved for this long are flagged for review. They are deleted automatically only when
@@ -48,6 +50,16 @@ export type DraftHistoryEntry =
       to: ReceiverSnapshot;
     };
 
+/**
+ * Who started a draft (STRATA-108): a personal account itself, or the person picked at the LAB
+ * station when it was started. Attribution only; it never changes, even when Received by does.
+ */
+export interface DraftStarter {
+  userId: string;
+  name: string;
+  initials: string | null;
+}
+
 export interface StoredDraft {
   version: typeof DRAFT_RECORD_VERSION;
   draftId: string;
@@ -63,6 +75,15 @@ export interface StoredDraft {
   createdAt: string;
   lastSavedAt: string;
   history: DraftHistoryEntry[];
+  /**
+   * Who started it. Null on a new LAB draft until its first save names the picked person, and
+   * on a legacy draft (unknown: never invented).
+   */
+  starter: DraftStarter | null;
+  /** When the server registry recorded its ownership; null until then (retried on later saves). */
+  registeredAt: string | null;
+  /** Saved before version 4: no recorded starter, so only a Lab Manager can delete it. */
+  legacy: boolean;
 }
 
 export function ownerTypeOf(me: Pick<MeResponse, 'accountType'>): DraftOwnerType {
@@ -75,14 +96,20 @@ export function snapshotOf(receiver: ReceiverOption | null): ReceiverSnapshot | 
     : null;
 }
 
-/** A new, not yet saved draft record around wizard data. */
+/**
+ * A new, not yet saved draft record around wizard data. A personal account is its own starter;
+ * on a LAB station pass the picked person as `starter` (otherwise the first save names them).
+ */
 export function newRecord(
   data: ReceiptDraft,
-  me: Pick<MeResponse, 'id' | 'accountType'>,
+  me: Pick<MeResponse, 'id' | 'accountType'> &
+    Partial<Pick<MeResponse, 'displayName' | 'initials'>>,
   now = new Date(),
+  starter: DraftStarter | null = null,
 ): StoredDraft {
   const at = now.toISOString();
   const receiver = snapshotOf(data.receiver);
+  const ownerType = ownerTypeOf(me);
   return {
     version: DRAFT_RECORD_VERSION,
     draftId: newUuid(),
@@ -95,6 +122,12 @@ export function newRecord(
     createdAt: at,
     lastSavedAt: at,
     history: [{ type: 'created', at, accountId: me.id, receiver }],
+    starter:
+      ownerType === 'personal'
+        ? { userId: me.id, name: me.displayName ?? '', initials: me.initials ?? null }
+        : starter,
+    registeredAt: null,
+    legacy: false,
   };
 }
 
@@ -193,6 +226,9 @@ export const RECORD_MIGRATIONS: RecordMigrations = {
       },
     };
   },
+  // Version 4 (STRATA-108): who started the draft. Older drafts never recorded it, so their
+  // starter stays unknown (legacy): only a Lab Manager can delete them, and nothing invents one.
+  3: (record) => ({ ...record, version: 4, starter: null, registeredAt: null, legacy: true }),
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -211,7 +247,11 @@ function looksCurrent(value: Record<string, unknown>): boolean {
     Array.isArray(value.data.units) &&
     (value.status === 'editing' || value.status === 'confirming') &&
     typeof value.lastSavedAt === 'string' &&
-    Array.isArray(value.history)
+    Array.isArray(value.history) &&
+    (value.starter === null ||
+      (isObject(value.starter) && typeof value.starter.userId === 'string')) &&
+    (value.registeredAt === null || typeof value.registeredAt === 'string') &&
+    typeof value.legacy === 'boolean'
   );
 }
 

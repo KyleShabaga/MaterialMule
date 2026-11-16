@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings › Preferences › Receiving</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* The canvas mounts this board in a block host; let the host fill its flex parent so this board can scroll inside it. */
+.sc-host:has(> .r2-pref-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- Settings › Preferences › Receiving, round 2: "After confirming a receipt". Only the section, as it sits inside the Settings modal (round 9 owns the modal). Saved per person, so on a LAB station it follows the picked person. -->
+<div class="r2-pref-root bg-background text-foreground flex flex-col gap-4 p-8 font-sans" style="height: 100%;">
+<x-import component-from-global-scope="Strata.Breadcrumb"><x-import component-from-global-scope="Strata.BreadcrumbList"><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#">Settings</x-import></x-import><x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#">Preferences</x-import></x-import><x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbPage" class-name="whitespace-nowrap">Receiving</x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.Separator"></x-import>
+<section aria-labelledby="pref-recv" class="flex flex-col gap-4">
+<div class="grid gap-0.5"><h2 id="pref-recv" class="text-base font-semibold">Receiving</h2><p class="text-muted-foreground text-[13px]">Saved for you, on any computer you sign in to.</p></div>
+<x-import component-from-global-scope="Strata.FieldSet"><x-import component-from-global-scope="Strata.FieldLegend" variant="label">After confirming a receipt</x-import><x-import component-from-global-scope="Strata.RadioGroup" default-value="{{choice}}" class-name="gap-3"><x-import component-from-global-scope="Strata.FieldLabel" html-for="pref-done"><x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="done" id="pref-done"></x-import><x-import component-from-global-scope="Strata.FieldContent"><x-import component-from-global-scope="Strata.FieldTitle">Show the done page (default)</x-import><x-import component-from-global-scope="Strata.FieldDescription">See the new IDs and label status, then choose Put away.</x-import></x-import></x-import></x-import><x-import component-from-global-scope="Strata.FieldLabel" html-for="pref-put"><x-import component-from-global-scope="Strata.Field" orientation="horizontal"><x-import component-from-global-scope="Strata.RadioGroupItem" value="put" id="pref-put"></x-import><x-import component-from-global-scope="Strata.FieldContent"><x-import component-from-global-scope="Strata.FieldTitle">Go straight to Put away</x-import><x-import component-from-global-scope="Strata.FieldDescription">Opens Put away with the new units ready to scan. A failed print still stops on the done page.</x-import></x-import></x-import></x-import></x-import></x-import>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["done","put"],"default":"done"},"$preview":{"width":640,"height":400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { choice: this.props.variant === 'put' ? 'put' : 'done' };
+  }
+}
+</script>
+</body>
+</html>

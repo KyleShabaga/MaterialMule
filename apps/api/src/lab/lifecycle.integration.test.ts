@@ -73,7 +73,7 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
       { to, version, idempotencyKey: newKey(), ...extra },
       as,
     );
-  const review = (id: string, body: Record<string, unknown>, as: As = 'tech') =>
+  const review = (id: string, body: Record<string, unknown>, as: As = 'jo') =>
     h.send('post', `/api/test-requests/${id}/review`, { idempotencyKey: newKey(), ...body }, as);
 
   /** Moves a Requested test to `target` and returns its version. */
@@ -241,8 +241,9 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
       [p.bucket.id],
     );
 
-    // Delegate, admin alone, Lab Manager, technician and LAB (with a Lead Project Engineer selected) are refused.
-    for (const as of ['js', 'admin', 'lm', 'tech'] as const) {
+    // Delegate, admin alone, another technician and LAB (with a Lead Project Engineer selected)
+    // are refused. (The requester and a Lab Manager may close too: STRATA-87, below.)
+    for (const as of ['js', 'admin', 'jo'] as const) {
       expect((await close(p.program.id, as)).status, as).toBe(403);
     }
     const lab = await h.send(
@@ -304,6 +305,94 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
       [q.program.id],
     );
     expect(accepted).toHaveLength(0);
+  });
+
+  it('STRATA-87: the requester, the lead or a Lab Manager closes a ready program; no one else does', async () => {
+    // Alex Tester (`tech`) submitted these programs from his own sign-in: he is the requester.
+    for (const as of ['tech', 'lm', 'pe'] as const) {
+      const p = await program([moisture]);
+      const before = await work(p.program.id, as);
+      // Ready presentation never bypasses the preconditions: an open test still blocks closing.
+      expect(before.lifecycle).toMatchObject({ canClose: false, closeBlockedReason: 'unresolved' });
+      const blocked = await close(p.program.id, as);
+      expect(blocked.status, as).toBe(422);
+      expect(blocked.body.code).toBe('closure_blocked');
+      await advance(p.ids[0]!, 'accepted');
+      for (const other of ['js', 'jo', 'admin'] as const) {
+        expect((await work(p.program.id, other)).lifecycle, other).toMatchObject({
+          canClose: false,
+          closeBlockedReason: 'not_lead_project_engineer',
+        });
+        expect((await close(p.program.id, other)).status, other).toBe(403);
+      }
+      expect((await work(p.program.id, as)).lifecycle).toMatchObject({
+        canClose: true,
+        closeAs: { tech: 'requester', pe: 'lead', lm: 'lab_manager' }[as],
+      });
+      const closed = await close(p.program.id, as);
+      expect(closed.status, `${as}: ${JSON.stringify(closed.body)}`).toBe(200);
+      expect(await programRow(p.program.id)).toMatchObject({
+        status: 'closed',
+        closed_by_user_id: h.users[as],
+      });
+    }
+    // A person a LAB station named as Requested by is attribution only: no close authority.
+    const holeId = (
+      await h.db.pool.query<{ id: string }>(
+        `INSERT INTO test_hole (project_id, name) VALUES ($1, $2) RETURNING id`,
+        [h.projects.a, `TH-${newKey().slice(0, 8)}`],
+      )
+    ).rows[0]!.id;
+    await h.bucket({ hole: holeId });
+    const created = await h.send(
+      'post',
+      '/api/lab-programs',
+      {
+        projectId: h.projects.a,
+        idempotencyKey: newKey(),
+        requestedByUserId: h.users.jo,
+        lines: [line({ kind: 'test_hole', id: holeId }, 'all', [moisture])],
+      },
+      'lab',
+    );
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const labReview = labProgramReviewSchema.parse(
+      (await h.get(`/api/lab-programs/${created.body.id}/review`, 'lab')).body,
+    );
+    const labSubmitted = await h.send(
+      'post',
+      `/api/lab-programs/${created.body.id}/submit`,
+      {
+        version: created.body.version,
+        idempotencyKey: newKey(),
+        requestedByUserId: h.users.jo,
+        coverage: labReview.lines.map((l) => ({
+          lineId: l.lineId,
+          unitIds: l.coverage.map((c) => c.storageUnitId),
+        })),
+      },
+      'lab',
+    );
+    expect(labSubmitted.status, JSON.stringify(labSubmitted.body)).toBe(200);
+    const labProgram = labProgramSchema.parse(labSubmitted.body);
+    await advance(labProgram.lines[0]!.requests[0]!.id, 'accepted');
+    expect((await close(labProgram.id, 'jo')).status).toBe(403);
+    expect((await close(labProgram.id, 'tech')).status).toBe(403);
+    expect((await close(labProgram.id, 'lm')).status).toBe(200);
+    // A missing program is refused (403) for everyone, Lab Managers included: nothing leaks.
+    const missing = '00000000-0000-4000-8000-0000000000ff';
+    expect(
+      (
+        await h.send(
+          'post',
+          `/api/lab-programs/${missing}/close`,
+          { version: 1, idempotencyKey: newKey(), actingStaffUserId: h.users.pe },
+          'lab',
+        )
+      ).status,
+    ).toBe(403);
+    expect((await close(missing, 'jo', 1)).status).toBe(403);
+    expect((await close(missing, 'lm', 1)).status).toBe(403);
   });
 
   it('empty-program rule: a submitted program with zero requests never closes (API and database)', async () => {
@@ -782,14 +871,17 @@ describe.runIf(testDatabaseUrl)('lab program lifecycle API (MM-T26)', () => {
 });
 
 async function waitForLockWait(h: LabHarness, table: string) {
-  for (let i = 0; i < 500; i += 1) {
+  // Up to 10 s of wall time, not a fixed number of event-loop turns: a slow CI runner may take
+  // longer to bring the request to its lock, but the assertion (something waits) is unchanged.
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
     const { rows } = await h.db.pool.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM pg_stat_activity
        WHERE wait_event_type = 'Lock' AND query ILIKE $1`,
       [`%${table}%`],
     );
     if (rows[0]!.n > 0) return;
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error(`nothing waited on ${table}`);
 }

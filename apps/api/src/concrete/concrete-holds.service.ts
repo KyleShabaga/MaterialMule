@@ -11,6 +11,7 @@ import {
   concreteHoldAuthorizeDisposalRequestSchema,
   concreteHoldListQuerySchema,
   concreteHoldScheduleTestRequestSchema,
+  concreteHoldUntilRequestSchema,
   concreteHoldStatusOf,
   concreteLabToday,
   concreteRecordDisposalRequestSchema,
@@ -48,7 +49,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const ORDINARY: Permission = 'concrete_ordinary_hold.manage';
 const FAILED: Permission = 'concrete_hold.manage';
 const RECORD: Permission = 'concrete_specimen.dispose_record';
-type CommandKind = 'schedule_test' | 'authorize_disposal' | 'record_disposal';
+type CommandKind = 'schedule_test' | 'authorize_disposal' | 'record_disposal' | 'hold_until';
 
 const forbidden = (extra: Record<string, unknown> = {}) =>
   new ForbiddenException({ code: 'forbidden', ...extra });
@@ -88,7 +89,7 @@ const HOLD_KIND_SQL = `COALESCE(d.hold_kind,
 const ROW_COLUMNS = `sp.id AS specimen_id, sp.set_id, st.field_report_id, sp.project_id,
   p.project_number, p.name AS project_name, sp.letter, st.temporary_id, st.permanent_id,
   st.permanent_number, sp.assigned_age, concrete_casting_date(r.cast_at)::text AS casting_date,
-  sp.hold_expires_on::text, sp.version, r.workflow_state, ${HOLD_KIND_SQL} AS hold_kind,
+  sp.hold_expires_on::text, sp.target_date::text, sp.version, r.workflow_state, ${HOLD_KIND_SQL} AS hold_kind,
   fh.reason AS failure_reason, d.id AS disposal_id, d.authorization_reason,
   d.authorized_at, d.authorized_by_user_id, d.authorized_by_initials_snapshot,
   d.authorized_by_name_snapshot, d.disposed_at, d.disposed_by_user_id,
@@ -108,6 +109,7 @@ interface HeldSql {
   assigned_age: string;
   casting_date: string | null;
   hold_expires_on: string | null;
+  target_date: string | null;
   version: number;
   workflow_state: string;
   hold_kind: ConcreteHoldKind;
@@ -167,6 +169,9 @@ function person(
  *   Manager holding the project's concrete grant).
  * - Record disposal (actual removal): `concrete_specimen.dispose_record` (lab staff; LAB names
  *   the performing person, who is attribution only).
+ * - Hold until (STRATA-121): scheduled specimens onto an ordinary HOLD until a chosen date:
+ *   `concrete_ordinary_hold.manage`, as the ordinary release. The shared LAB account never holds
+ *   it, whoever it names.
  * Each command takes up to 200 specimens and is all-or-nothing: it checks every specimen's
  * permission and eligibility under the D09 locks (reports, then sets, then specimens, each in id
  * order) and writes one history row and one audit event per specimen. Nothing runs on a date.
@@ -259,6 +264,9 @@ export class ConcreteHoldsService {
       newAge: null,
       newTargetDate: null,
       previousHoldExpiresOn: null,
+      previousAge: null,
+      previousTargetDate: null,
+      holdUntil: null,
       disposedAt: null,
       commandId: null,
     };
@@ -279,6 +287,40 @@ export class ConcreteHoldsService {
         at: h.created_at.toISOString(),
         by: { userId: h.placed_by_user_id, initials: null, name: h.placed_by_name_snapshot },
         reason: h.reason,
+      });
+    }
+    const { rows: assignments } = await db.query<{
+      created_at: Date;
+      reason: string;
+      previous_age: string;
+      previous_target_date: string;
+      hold_until: string;
+      assigned_by_user_id: string;
+      assigned_by_initials_snapshot: string | null;
+      assigned_by_name_snapshot: string;
+      command_id: string;
+    }>(
+      `SELECT created_at, reason, previous_age, previous_target_date::text, hold_until::text,
+              assigned_by_user_id, assigned_by_initials_snapshot, assigned_by_name_snapshot,
+              command_id
+       FROM concrete_specimen_hold_assignment WHERE specimen_id = $1 ORDER BY created_at, id`,
+      [specimenId],
+    );
+    for (const a of assignments) {
+      events.push({
+        ...blank,
+        kind: 'hold_assigned',
+        at: a.created_at.toISOString(),
+        by: {
+          userId: a.assigned_by_user_id,
+          initials: a.assigned_by_initials_snapshot,
+          name: a.assigned_by_name_snapshot,
+        },
+        reason: a.reason,
+        previousAge: Number(a.previous_age),
+        previousTargetDate: a.previous_target_date,
+        holdUntil: a.hold_until,
+        commandId: a.command_id,
       });
     }
     const { rows: schedules } = await db.query<{
@@ -531,6 +573,121 @@ export class ConcreteHoldsService {
                 version: s.version + 1,
                 assignedAge: input.newAge,
                 targetDate: newTarget,
+                commandId,
+              },
+              requestId,
+            });
+          }
+        };
+      },
+    );
+  }
+
+  /**
+   * STRATA-121 Hold until: scheduled specimens (an age in days, numbered set, casting known, no
+   * test entry) go on an ordinary HOLD until the chosen date. The HOLD expiry becomes that date
+   * (the database keeps it while the specimen is on HOLD); the previous age and target stay in
+   * the history. Released later by Schedule test or Authorize disposal, as any ordinary HOLD.
+   */
+  async holdUntil(
+    body: unknown,
+    user: AuthUser,
+    actor: AuditActor,
+    requestId: string | null,
+  ): Promise<ConcreteHoldActionResult> {
+    await this.assertMayManage(user);
+    const input = parseBody(concreteHoldUntilRequestSchema, body);
+    const hash = intentHash({
+      kind: 'hold_until',
+      items: input.items,
+      holdUntil: input.holdUntil,
+      reason: input.reason,
+    });
+    return this.command(
+      'hold_until',
+      input.idempotencyKey,
+      hash,
+      input.items,
+      user,
+      async (client, facts, authority) => {
+        // Checked after the replay, so an exact retry still returns its result on a later day.
+        if (input.holdUntil <= concreteLabToday()) {
+          throw validationError([
+            { field: 'holdUntil', code: 'not_after_today', message: 'Choose a date after today' },
+          ]);
+        }
+        const { rows: tested } = await client.query<{ specimen_id: string }>(
+          `SELECT DISTINCT specimen_id FROM concrete_test_result
+           WHERE specimen_id = ANY($1::uuid[])`,
+          [[...facts.keys()]],
+        );
+        const hasEntry = new Set(tested.map((t) => t.specimen_id));
+        const problems: Problem[] = [];
+        const refused: string[] = [];
+        for (const item of input.items) {
+          const s = facts.get(item.specimenId);
+          if (!s) {
+            problems.push({ specimenId: item.specimenId, code: 'not_found' });
+            continue;
+          }
+          if (s.has_failure_hold) {
+            problems.push({ specimenId: s.specimen_id, code: 'failed_hold' });
+            continue;
+          }
+          if (!(await authority(s.project_id)).ordinary) {
+            refused.push(s.specimen_id);
+            continue;
+          }
+          const code = holdUntilProblem(s, item.version, hasEntry.has(s.specimen_id));
+          if (code) problems.push({ specimenId: s.specimen_id, code });
+        }
+        settle(refused, problems);
+
+        const by = (await lockStanding(client, [user.userId])).get(user.userId)!;
+        return async (commandId) => {
+          for (const item of input.items) {
+            const s = facts.get(item.specimenId)!;
+            await client.query(
+              `INSERT INTO concrete_specimen_hold_assignment
+               (project_id, specimen_id, command_id, previous_age, previous_target_date,
+                hold_until, reason, assigned_by_user_id, assigned_by_initials_snapshot,
+                assigned_by_name_snapshot)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+              [
+                s.project_id,
+                s.specimen_id,
+                commandId,
+                s.assigned_age,
+                s.target_date,
+                input.holdUntil,
+                input.reason,
+                user.userId,
+                by.initials,
+                by.displayName,
+              ],
+            );
+            // The database sets the HOLD expiry to the chosen date (0045 dates trigger).
+            await client.query(
+              `UPDATE concrete_specimen
+               SET assigned_age = 'HOLD', hold_until = $2, version = version + 1, updated_at = now()
+               WHERE id = $1`,
+              [s.specimen_id, input.holdUntil],
+            );
+            await recordAudit(client, {
+              action: 'concrete_specimen.hold_assigned',
+              entityType: 'concrete_specimen',
+              entityId: s.specimen_id,
+              actor,
+              reason: input.reason,
+              before: {
+                version: s.version,
+                assignedAge: Number(s.assigned_age),
+                targetDate: s.target_date,
+              },
+              after: {
+                version: s.version + 1,
+                assignedAge: CONCRETE_HOLD_AGE,
+                holdUntil: input.holdUntil,
                 commandId,
               },
               requestId,
@@ -905,6 +1062,25 @@ function commonProblem(s: SpecimenFacts, version: number | null): ConcreteHoldPr
   if (s.disposal_id) return 'disposal_authorized';
   if (!s.has_failure_hold && s.assigned_age !== CONCRETE_HOLD_AGE) return 'not_on_hold';
   if (version !== null && version !== s.version) return 'version_conflict';
+  return null;
+}
+
+/** Why a specimen can't go on HOLD until a date (STRATA-121), or null when it can. */
+function holdUntilProblem(
+  s: SpecimenFacts,
+  version: number,
+  hasTestEntry: boolean,
+): ConcreteHoldProblemCode | null {
+  if (s.report_void) return 'report_void';
+  if (s.set_voided) return 'set_void';
+  if (s.disposed_at) return 'disposed';
+  if (s.disposal_id) return 'disposal_authorized';
+  if (s.assigned_age === CONCRETE_HOLD_AGE) return 'already_on_hold';
+  if (version !== s.version) return 'version_conflict';
+  if (s.casting_date === null || s.target_date === null) return 'no_casting_time';
+  // Owner decision (C38): an unnumbered set's ages change on its draft report only.
+  if (s.permanent_number === null) return 'unnumbered_set';
+  if (hasTestEntry) return 'tested_specimen';
   return null;
 }
 

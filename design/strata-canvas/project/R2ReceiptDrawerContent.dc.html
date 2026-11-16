@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Receipt drawer content</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+/* The canvas mounts this board in a block host; let the host fill its flex parent so this board can scroll inside it. */
+.sc-host:has(> .r2-rdrawer-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- Receipt drawer for the Receiving log’s PeekSplit, round 2: toolbar as in Inbox, the receipt facts, the main action Print all labels, and its storage units (each opens the unit drawer). Corrections and history only on the full page. -->
+<aside aria-labelledby="rd-title" class="r2-rdrawer-root bg-background text-foreground flex h-full min-h-0 flex-col font-sans" style="height: 100%;">
+<div class="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Close" title="Close (Esc)"><x-import component-from-global-scope="Strata.Icon" name="chevrons-right"></x-import></x-import><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open as full page" title="Open as full page"><x-import component-from-global-scope="Strata.Icon" name="maximize-2"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Separator" orientation="vertical" class-name="mx-1 data-[orientation=vertical]:h-5"></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Previous receipt" title="Previous (K)"><x-import component-from-global-scope="Strata.Icon" name="chevron-up"></x-import></x-import><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Next receipt" title="Next (J)"><x-import component-from-global-scope="Strata.Icon" name="chevron-down"></x-import></x-import>
+<span class="text-muted-foreground ml-auto pr-2 font-mono text-[13px]">1 of 214</span>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto px-6 py-5"><div class="flex flex-col gap-5">
+<div class="bg-card relative overflow-hidden rounded-xl border py-3 pr-4 pl-5"><span aria-hidden="true" class="bg-stage-storage-mark absolute inset-y-0 left-0 w-1"></span>
+<p class="text-muted-foreground text-[13px]">Receipt · <span class="font-mono whitespace-nowrap">DEMO-2601</span> Riverbank investigation</p>
+<h2 id="rd-title" class="text-xl font-bold whitespace-nowrap"><span class="font-mono">2026-11-11</span> <span class="text-muted-foreground font-mono text-base font-semibold">9:52 AM</span></h2>
+</div>
+<div class="flex flex-wrap items-center gap-2"><x-import component-from-global-scope="Strata.Badge" variant="storage" class-name="h-6 px-2.5 text-[13px] font-semibold"><span aria-hidden="true" class="bg-stage-storage-mark size-1.5 rounded-full"></span>Confirmed</x-import><span class="text-muted-foreground text-[13px]">4 storage units · 2 test holes · 1 location</span></div>
+<div class="flex flex-wrap gap-2"><x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="printer"></x-import>Print all labels</x-import></div>
+<x-import component-from-global-scope="Strata.Separator"></x-import>
+<section aria-labelledby="rd-facts" class="flex flex-col gap-3"><h3 id="rd-facts" class="text-sm font-semibold">Receipt</h3>
+<dl class="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 text-sm">
+<dt class="text-muted-foreground">Received</dt><dd class="font-mono">2026-11-11</dd>
+<dt class="text-muted-foreground">Received by</dt><dd><span class="flex min-w-0 items-center gap-2"><x-import component-from-global-scope="Strata.Avatar" class-name="size-5 shrink-0"><x-import component-from-global-scope="Strata.AvatarFallback" class-name="text-[11px] font-semibold">PE</x-import></x-import><span class="truncate">Pat Example</span></span></dd>
+<dt class="text-muted-foreground">Recorded on</dt><dd>LAB station · Receiving lab</dd>
+</dl></section>
+<x-import component-from-global-scope="Strata.Separator"></x-import>
+<section aria-labelledby="rd-units" class="flex flex-col gap-3"><h3 id="rd-units" class="text-sm font-semibold">Storage units</h3>
+<x-import component-from-global-scope="Strata.ItemGroup" role="list" aria-label="Storage units in this receipt" class-name="gap-0"><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" role="listitem" class-name="relative overflow-hidden pl-6 py-2 pr-1"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1.5 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="w-full min-w-0 flex-wrap"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">BKT-2026-000041</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none">Bucket · Receiving, not put away</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open BKT-2026-000041 in the unit drawer" title="Open BKT-2026-000041 in the unit drawer"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" role="listitem" class-name="relative overflow-hidden pl-6 py-2 pr-1"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1.5 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="w-full min-w-0 flex-wrap"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">BKT-2026-000042</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none">Bulk bucket · Receiving, not put away</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open BKT-2026-000042 in the unit drawer" title="Open BKT-2026-000042 in the unit drawer"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" role="listitem" class-name="relative overflow-hidden pl-6 py-2 pr-1"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1.5 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="w-full min-w-0 flex-wrap"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">ST-2026-000012</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none">Shelby tube · Receiving, not put away</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open ST-2026-000012 in the unit drawer" title="Open ST-2026-000012 in the unit drawer"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import><x-import component-from-global-scope="Strata.Item" variant="default" size="sm" role="listitem" class-name="relative overflow-hidden pl-6 py-2 pr-1"><span aria-hidden="true" class="bg-stage-draft-mark absolute top-2.5 bottom-2.5 left-1.5 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><x-import component-from-global-scope="Strata.ItemTitle" class-name="w-full min-w-0 flex-wrap"><span class="font-mono text-[13px] font-semibold whitespace-nowrap">CRE-2026-000005</span></x-import><x-import component-from-global-scope="Strata.ItemDescription" class-name="line-clamp-none">Core box · Receiving, not put away</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open CRE-2026-000005 in the unit drawer" title="Open CRE-2026-000005 in the unit drawer"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import></x-import>
+</section>
+<p class="text-muted-foreground text-[13px]">The original record, corrections and history are on the full page.</p>
+</div></div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true };
+  }
+}
+</script>
+</body>
+</html>

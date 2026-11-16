@@ -20,9 +20,18 @@ test('capabilities and job titles are administered with reasons and shown on My 
   const person = testInfo.project.name.startsWith('phone') ? PEOPLE.phone : PEOPLE.desktop;
 
   await signInAs(page, 'admin');
-  await page.goto('/settings/staff');
+  await page.goto('/admin/staff');
+  // STRATA-102: search (20 people per page), then the person opens beside the table from
+  // 1024 px and in a sheet on phones.
+  await page
+    .getByRole('toolbar', { name: 'Staff tools' })
+    .getByRole('button', { name: 'Search', exact: true })
+    .click();
+  await page.getByRole('searchbox', { name: 'Search staff' }).fill(person.name);
   await page.getByRole('button', { name: `Manage ${person.name}` }).click();
-  const drawer = page.getByRole('dialog', { name: person.name });
+  const drawer = page
+    .getByRole('region', { name: person.name, exact: true })
+    .or(page.getByRole('dialog', { name: person.name, exact: true }));
 
   // A firm job title, with a reason.
   const title = drawer.getByRole('form', { name: 'Job title' });
@@ -36,7 +45,8 @@ test('capabilities and job titles are administered with reasons and shown on My 
   // "Can create and lead projects", with a reason.
   const grants = drawer.getByRole('group', { name: 'Eligibility and capabilities' });
   const capability = grants.getByRole('form', { name: 'Grant capability' });
-  await capability.getByLabel('Capability').selectOption('project.create_and_lead');
+  await capability.getByRole('combobox', { name: 'Capability' }).click();
+  await page.getByRole('option', { name: 'Can create and lead projects' }).click();
   await capability.getByLabel('Reason').fill('Leads small jobs');
   await capability.getByRole('button', { name: 'Grant capability' }).click();
   await expect(grants.getByRole('list', { name: 'Current grants' })).toContainText(
@@ -51,10 +61,10 @@ test('capabilities and job titles are administered with reasons and shown on My 
     .getByRole('link', { name: 'My access' })
     .click();
   await expect(page.getByRole('heading', { name: 'My access' })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Held everywhere' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Held everywhere' })).toContainText(
     'Can create and lead projects',
   );
-  await expect(page.getByText('Senior Technician (Set by an administrator)')).toBeVisible();
+  await expect(page.getByText(/Senior Technician \(Set by an administrator\)/)).toBeVisible();
 
   // Revoked meanwhile (through the API, as another admin would).
   await signInAs(page, 'admin');
@@ -85,12 +95,16 @@ test('capabilities and job titles are administered with reasons and shown on My 
   await expect(page.getByText(/Set by an administrator/)).toHaveCount(0);
 });
 
-test('the shared LAB account has no My access', async ({ page }) => {
+test('on the shared LAB station, My access describes the shared account read-only (STRATA-119)', async ({
+  page,
+}) => {
   await signInAsLabStation(page);
   await page.goto('/settings/profile');
-  await expect(
-    page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'My access' }),
-  ).toHaveCount(0);
-  await page.goto('/settings/access');
-  await expect(page.getByText(/The shared LAB account has no personal access/)).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Settings' })
+    .getByRole('link', { name: 'My access' })
+    .click();
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText(/What this shared LAB account can do/)).toBeVisible();
+  await expect(page.getByText('From: Shared LAB account').first()).toBeVisible();
 });

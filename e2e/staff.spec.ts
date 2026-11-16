@@ -1,42 +1,61 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+
+/** STRATA-102: a person opens beside the table from 1024 px, and in a sheet on phones. */
+function staffDrawer(page: Page, name: string) {
+  return page
+    .getByRole('region', { name, exact: true })
+    .or(page.getByRole('dialog', { name, exact: true }));
+}
+
+/** The toolbar's search box opens from its Search button. */
+async function searchStaff(page: Page, text: string) {
+  const box = page.getByRole('searchbox', { name: 'Search staff' });
+  const open = page
+    .getByRole('toolbar', { name: 'Staff tools' })
+    .getByRole('button', { name: 'Search', exact: true });
+  // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+  await expect(box.or(open)).toBeVisible();
+  if (!(await box.isVisible())) await open.click();
+  await box.fill(text);
+}
 
 // MM-T07 T6. Each viewport approves its own seeded applicant (apps/api/seed/dev.sql), so the
 // desktop and phone runs never race for the same person.
 test('an admin approves a pending applicant', async ({ page }, testInfo) => {
   const applicant = testInfo.project.name.startsWith('phone') ? 'Casey Pending' : 'Riley Pending';
   await signInAs(page, 'admin');
-  await page.goto('/settings/staff');
-  await expect(page.getByRole('heading', { name: 'Staff & access' })).toBeVisible();
+  await page.goto('/admin/staff');
+  await expect(page.getByRole('heading', { level: 1, name: 'Staff' })).toBeVisible();
 
-  const pending = page.getByRole('region', { name: /Waiting for approval/ });
-  await expect(pending).toContainText(applicant);
-  await pending.getByRole('button', { name: `Approve ${applicant}` }).click();
-
-  await expect(
-    page.getByRole('status').filter({ hasText: `${applicant} is approved.` }),
-  ).toBeVisible();
-  await expect(pending.getByText(applicant)).toHaveCount(0);
-  // The directory now lists them as active.
-  await page.getByLabel('Search staff').fill(applicant);
-  await expect(page.getByRole('row').filter({ hasText: applicant })).toContainText('Active');
+  // Round 9: applicants are on the Pending tab; Approve is in their drawer.
+  await page.getByRole('tab', { name: /^Pending/ }).click();
+  await page.getByRole('button', { name: `Manage ${applicant}` }).click();
+  const drawer = staffDrawer(page, applicant);
+  await drawer.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(page.getByText(`${applicant} is approved.`)).toBeVisible();
 
   // MTR-12: the drawer says who approved, disabled and re-enabled them, and when. Approve and
-  // re-enable take no reason; disable needs one.
-  await page.getByRole('button', { name: `Manage ${applicant}` }).click();
-  const drawer = page.getByRole('dialog', { name: applicant });
+  // re-enable take no reason; disable needs one, given inline.
   const history = drawer.getByRole('list', { name: 'Access history' });
   await expect(history.getByRole('listitem')).toHaveText([/^Approved by .+ on .+\d{4}$/]);
   await drawer.getByRole('button', { name: 'Disable access…' }).click();
-  const confirm = page.getByRole('dialog', { name: `Disable ${applicant}?` });
+  const confirm = drawer.getByRole('group', { name: `Disable ${applicant}'s access` });
   await confirm.getByRole('textbox', { name: 'Reason' }).fill('Example leave of absence');
-  await confirm.getByRole('button', { name: 'Disable' }).click();
+  await confirm.getByRole('button', { name: 'Disable access', exact: true }).click();
   await drawer.getByRole('button', { name: 'Re-enable access' }).click();
   await expect(history.getByRole('listitem')).toHaveText([
     /^Approved by .+ on /,
     /^Disabled by .+ on .+: Example leave of absence$/,
     /^Re-enabled by .+ on .+\d{4}$/,
   ]);
+
+  // The directory now lists them as active.
+  await drawer.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(drawer).toHaveCount(0);
+  await page.getByRole('tab', { name: /^People/ }).click();
+  await searchStaff(page, applicant);
+  await expect(page.getByRole('row').filter({ hasText: applicant })).toContainText('Active');
 });
 
 test('receiver selector: keyboard picks one of two people sharing "JS"', async ({ page }) => {
@@ -73,10 +92,26 @@ test('receiver selector: keyboard picks one of two people sharing "JS"', async (
   await expect(input).toHaveAttribute('aria-invalid', 'true');
 });
 
-test('non-admins cannot manage staff, in the UI or the API', async ({ page }) => {
-  await signInAs(page, 'lab');
+test('technicians cannot manage staff, in the UI or the API', async ({ page }) => {
+  await signInAs(page, 'at');
   await page.goto('/settings/staff');
-  await expect(page.getByText('Only administrators can manage staff and access.')).toBeVisible();
+  // STRATA-100: Staff has no page for them; Settings opens on My access with a notice.
+  await expect(page).toHaveURL(/\/settings\/access$/);
+  await expect(page.getByText('Staff isn’t available to you.')).toBeVisible();
   const response = await page.request.get('/api/staff');
   expect(response.status()).toBe(403);
+});
+
+test('STRATA-118: a Lab Manager manages staff but not admins, the LAB account or feedback', async ({
+  page,
+}) => {
+  await signInAs(page, 'lab'); // "Lab (test)": a Lab Manager
+  await page.goto('/settings/staff');
+  await expect(page).toHaveURL(/\/admin\/staff$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Staff' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add staff' })).toBeVisible();
+  await expect(page.getByText('Shared receiving account (LAB)')).toHaveCount(0);
+  expect((await page.request.get('/api/staff')).status()).toBe(200);
+  expect((await page.request.get('/api/feedback')).status()).toBe(403);
+  expect((await page.request.get('/api/admin/lab')).status()).toBe(403);
 });

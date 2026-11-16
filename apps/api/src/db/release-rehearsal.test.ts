@@ -149,6 +149,8 @@ const INTERNAL_PERMISSIONS = [
   'label.print',
   'location_conflict.resolve',
   'notification.read',
+  // Strata 1C: one's own sidebar layout, pins, recents, preferences and columns.
+  'personal_settings.manage',
   'program.close_request',
   'project.create',
   'project_access.read',
@@ -164,6 +166,8 @@ const INTERNAL_PERMISSIONS = [
   'test.progress',
   'test.review',
   'test_hole.create',
+  // Strata lane A: Needs you on one's own Today.
+  'today.read',
 ];
 
 interface ExpectedGrant {
@@ -192,6 +196,9 @@ const EXPECTED_GRANTS: ExpectedGrant[] = [
       'project.create',
       'receipt.confirm',
       'receipt.draft',
+      // Strata lane A: the station's counts, and a picked person's Inbox only with consent.
+      'station.inbox.read',
+      'station.today.read',
       'storage_unit.move',
       'test.progress',
       'test_hole.create',
@@ -243,11 +250,15 @@ const EXPECTED_GRANTS: ExpectedGrant[] = [
     contexts: ALL_CONTEXTS,
     permissions: [
       'action_item.reassign',
+      // STRATA-118: administrator-only parts of staff management, the LAB password and feedback.
+      'admin_role.manage',
       'concrete_settings.attachment_limit.manage',
       'concrete_settings.curing_standard.manage',
       'concrete_settings.holiday.manage',
       'concrete_settings.report_header.manage',
       'concrete_settings.supplier.manage',
+      'feedback.read',
+      'lab_account.manage',
       'location.manage',
       'printer.manage',
       'project.edit',
@@ -283,10 +294,16 @@ const EXPECTED_GRANTS: ExpectedGrant[] = [
       'concrete_test.enter',
       'disposal.approve',
       'location.manage',
+      // STRATA-118: Staff and Printers.
+      'printer.manage',
       'program.priority.set',
       'program.reopen',
       'retention.manage',
       'settings.drafts.manage',
+      'staff.manage',
+      // Strata lane A (STRATA-21, 36): Customize this station from their own account.
+      'station.configure',
+      'station.today.read',
       'test.cancel',
       'test.correction_done',
       'test_catalog.manage',

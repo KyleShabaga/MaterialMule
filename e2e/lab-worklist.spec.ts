@@ -2,7 +2,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { signInAsLabStation } from './support/lab-station';
+import { STATION_PEOPLE, signInAsLabStation } from './support/lab-station';
 
 // MM-T24: worklist, per-test progress with actor/time and comments (card T5), two LAB stations
 // acting for different people (T6), and exact Shelby tube completion evidence (T11/T12 lab
@@ -83,19 +83,20 @@ test('T5: a Technician starts and completes a test, comments and edits; actor an
   await signInAs(page, 'at');
   const program = await submitProgram(page.request, ids);
 
-  await page.goto('/lab-testing');
-  await expect(page.getByRole('heading', { name: 'Worklist', level: 2 })).toBeVisible();
-  await page.getByRole('link', { name: program.programNumber }).click();
+  // The Workboard's list view finds the program (the board scrolls sideways on a phone).
+  await page.goto(`/lab-testing?view=list&search=${program.programNumber}`);
+  await expect(page.getByRole('heading', { name: 'Workboard', level: 2 })).toBeVisible();
+  await page.getByRole('link', { name: program.programNumber, exact: true }).click();
   await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
 
   await testRow(page, a).getByRole('button', { name: 'Start' }).click();
-  await expect(testRow(page, a)).toContainText('In progress');
+  await expect(testRow(page, a)).toContainText('In testing');
   await expect(testRow(page, a)).toContainText('Alex Tester');
   await testRow(page, a).getByRole('button', { name: 'Mark completed' }).click();
   await testRow(page, a).getByRole('group').getByRole('button', { name: 'Mark completed' }).click();
-  await expect(testRow(page, a)).toContainText('Completed');
+  await expect(testRow(page, a)).toContainText('Done');
   // AC4: the other test keeps its own status; AC5: no jump buttons are offered.
-  await expect(testRow(page, b)).toContainText('Requested');
+  await expect(testRow(page, b)).toContainText('Waiting');
   await expect(testRow(page, b).getByRole('button', { name: 'Mark completed' })).toHaveCount(0);
 
   const line = page.getByRole('region', { name: /^Line 1/ });
@@ -124,13 +125,14 @@ test('T6: two LAB stations act for different people on different tests and comme
 
   const stations = await Promise.all([browser.newContext(), browser.newContext()]);
   const pages = await Promise.all(stations.map((context) => context.newPage()));
+  // STRATA-125: each station records as its own person (the Recording as chip).
   const plan = [
-    { code: x, search: 'Jordan', person: /Jordan Smith/ },
-    { code: y, search: 'Pat', person: /Pat Example/ },
+    { code: x, recordAs: STATION_PEOPLE.jordan, person: /Jordan Smith/ },
+    { code: y, recordAs: STATION_PEOPLE.pat, person: /Pat Example/ },
   ];
   try {
-    for (const page of pages) {
-      await signInAsLabStation(page);
+    for (const [i, page] of pages.entries()) {
+      await signInAsLabStation(page, { person: plan[i]!.recordAs });
       await page.goto(`/lab-testing/programs/${program.id}`);
       await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
     }
@@ -138,10 +140,12 @@ test('T6: two LAB stations act for different people on different tests and comme
       const row = testRow(page, plan[i]!.code);
       await row.getByRole('button', { name: 'Start' }).click();
       const panel = row.getByRole('group', { name: /Start/ });
-      await panel.getByRole('combobox', { name: /Who is doing this/ }).fill(plan[i]!.search);
-      await page.getByRole('option', { name: plan[i]!.person }).click();
+      // Who is doing this? follows the chip, read-only.
+      await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+        plan[i]!.person,
+      );
       await panel.getByRole('button', { name: 'Start' }).click();
-      await expect(row).toContainText('In progress');
+      await expect(row).toContainText('In testing');
       await expect(row).toContainText('LAB for');
       await expect(row).toContainText(plan[i]!.person);
     }
@@ -151,8 +155,9 @@ test('T6: two LAB stations act for different people on different tests and comme
 
     const box = pages[1]!.locator('.program-comments');
     await box.getByLabel('Comment on the program').fill('Second station note');
-    await box.getByRole('combobox', { name: /Who is doing this/ }).fill('Pat');
-    await pages[1]!.getByRole('option', { name: /Pat Example/ }).click();
+    await expect(box.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+      /Pat Example/,
+    );
     await box.getByRole('button', { name: 'Post comment' }).click();
     await expect(box.getByRole('list', { name: 'Program comments' })).toContainText(
       /LAB for .*Pat Example/,
@@ -202,24 +207,25 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   });
   const program = await submitProgram(page.request, [id], { holeId });
 
-  await signInAsLabStation(page);
+  // Jordan Smith is recording at the station (STRATA-125): the performer follows the chip.
+  await signInAsLabStation(page, { person: STATION_PEOPLE.jordan });
   await page.goto(`/lab-testing/programs/${program.id}`);
   const row = testRow(page, code);
   await row.getByRole('button', { name: 'Start' }).click();
-  await row.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
-  await expect(row).toContainText('In progress');
+  await expect(row).toContainText('In testing');
 
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
   await expect(panel.getByText('Units actually used (required)')).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Mark completed' })).toBeDisabled();
-  await panel.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+    /Jordan Smith/,
+  );
   await panel.getByRole('checkbox', { name: new RegExp(tubes[0]!) }).check();
   await panel.getByRole('button', { name: 'Mark completed' }).click();
-  await expect(row).toContainText('Completed');
+  await expect(row).toContainText('Done');
   await expect(row).toContainText(`Used: ${tubes[0]}`);
   await expect(row).not.toContainText(tubes[1]!);
 
@@ -241,4 +247,39 @@ test('T11/T12 (lab side): completion records the exact Shelby tube used; the oth
   ]);
   // No removal action is offered from the lab screens (MM-T36 owns it; LAB can never confirm).
   await expect(page.getByRole('button', { name: /remov|dispos/i })).toHaveCount(0);
+});
+
+test('STRATA-88: the Workboard shows a new program on the board and in the list, with no Start', async ({
+  page,
+}) => {
+  const code = unique('DEMO-WB');
+  const id = await addTestType(page, code);
+  await signInAs(page, 'at');
+  const program = await submitProgram(page.request, [id]);
+
+  await page.goto(`/lab-testing?search=${encodeURIComponent(program.programNumber)}`);
+  const board = page.getByRole('region', { name: 'Workboard by status' });
+  // Nothing started and no unit to pull on a fresh hole: In testing.
+  const card = board
+    .getByRole('list', { name: 'In testing' })
+    .getByRole('listitem', { name: program.programNumber });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('0 of 1 tests');
+  await expect(card.getByRole('link', { name: `Open ${program.programNumber}` })).toBeVisible();
+  // Tests start on the program page, never from a card.
+  await expect(board.getByRole('button', { name: /start/i })).toHaveCount(0);
+
+  // List view from the View menu: kept in the URL and remembered for this person.
+  await page.getByRole('button', { name: 'View, Board' }).click();
+  await page.getByRole('menuitemradio', { name: 'List' }).click();
+  const table = page.getByRole('table', { name: 'Workboard' });
+  await expect(table.getByRole('link', { name: program.programNumber, exact: true })).toBeVisible();
+  await expect(table).toContainText('In lab · Testing');
+  await expect(page).toHaveURL(/view=list/);
+  await page.goto('/lab-testing');
+  await expect(page.getByRole('table', { name: 'Workboard' })).toBeVisible();
+  await expect(page).toHaveURL(/view=list/);
+
+  await table.getByRole('link', { name: program.programNumber, exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: program.programNumber })).toBeVisible();
 });

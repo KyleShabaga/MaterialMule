@@ -2,8 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { insertInventoryFixture } from './support/inventory';
 
-// MM-T35: projects list (cards), project detail, add test hole and edit. Each test makes its own tagged
-// fictional projects (via the T12 inventory fixture), so viewports never see each other's rows.
+// MM-T35, STRATA-83/84: the Projects list (tabs, table tools), the project page (header, line
+// tabs with their own URLs), Overview test holes, add test hole and edit. Each test makes its own
+// tagged fictional projects (via the T12 inventory fixture), so viewports never see each other's
+// rows.
 
 async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(
@@ -11,83 +13,109 @@ async function horizontalOverflow(page: Page): Promise<number> {
   );
 }
 
-test('T5: projects table → detail → add test hole (duplicate rejected) → edit', async ({
+const projectHeading = (page: Page, number: string) =>
+  page.getByRole('heading', { level: 1, name: new RegExp(`^${number}`) });
+
+async function openEdit(page: Page) {
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit project' }).click();
+}
+
+test('T5: projects list → project page tabs → add test hole (duplicate rejected) → edit', async ({
   page,
 }) => {
   const data = await insertInventoryFixture();
   await signInAs(page, 'pe');
-  await page.goto('/projects');
-  await expect(page.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
-
-  await page.getByRole('searchbox', { name: 'Search' }).fill(data.tag);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'project' })).toHaveText('2 projects');
-  // Field Ledger: one card per project.
-  const cards = page.getByRole('list', { name: 'Projects' });
-  const rowA = cards.getByRole('listitem').filter({ hasText: data.projectA });
-  // Two holes; three in-stock units (the disposed one isn't counted).
+  await page.goto(`/projects?tab=all&search=${data.tag}`);
+  await expect(page.getByRole('tab', { name: /All projects/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const table = page.getByRole('table', { name: 'All projects' });
+  const rowA = table.getByRole('row').filter({ hasText: data.projectA });
   await expect(rowA).toContainText('Inventory demo A');
-  await expect(rowA).toContainText('PE');
+  await expect(rowA).toContainText('Pat Example');
   await expect(rowA).toContainText('2026-10-12');
+  await expect(page.getByText('1–2 of 2 projects')).toBeVisible();
 
-  await page.getByRole('link', { name: `Open project ${data.projectA}` }).click();
+  await rowA.getByRole('link', { name: `Open project ${data.projectA}` }).click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole('heading', { level: 1, name: data.projectA })).toBeVisible();
-  const details = page.getByRole('region', { name: 'Project details' });
-  await expect(details).toContainText('PE · Pat Example');
-  await expect(details).toContainText('3 units in stock of 4 units received');
-  await expect(page.getByRole('table', { name: 'Receipts' }).locator('tbody tr')).toHaveCount(4);
-  // Field Ledger "Units by test hole": one table per hole, in the project's hole order.
-  const units = page.getByRole('region', { name: 'Units by test hole' });
-  const hole1 = units.getByRole('table', { name: 'Storage units in TH26-01' });
-  await expect(hole1.locator('tbody tr')).toHaveCount(3);
-  await expect(hole1).toContainText(data.aReceiving);
-  const hole2 = units.getByRole('table', { name: 'Storage units in TH26-02' });
-  await expect(hole2.locator('tbody tr')).toHaveCount(1);
-  await expect(hole2).toContainText(data.aOtherHole);
-  await expect(units).toContainText(data.aDisposed);
-  const holes = page.getByRole('list', { name: 'Test holes' });
-  await expect(holes.locator('li').filter({ hasText: 'TH26-01' })).toContainText('3 units');
+  await expect(projectHeading(page, data.projectA)).toBeVisible();
+  const counts = page.getByRole('list', { name: 'Counts' });
+  await expect(counts).toContainText('3units in stock');
+  await expect(counts).toContainText('4units received');
+  await expect(page.getByRole('link', { name: 'Receive for this project' })).toBeVisible();
+
+  // Overview: test holes, each opening its units on the Storage units tab.
+  const holes = page.getByRole('table', { name: 'Test holes' });
+  await expect(holes.getByRole('row').filter({ hasText: 'TH26-01' })).toContainText('3');
+  await holes.getByRole('link', { name: 'TH26-01: open its storage units' }).click();
+  await expect(page).toHaveURL(/\/units\?hole=/);
+  const units = page.getByRole('table', { name: `Storage units on ${data.projectA}` });
+  await expect(units).toContainText(data.aReceiving);
+  await expect(units).not.toContainText(data.aOtherHole);
+  // Refresh and Back keep the tab and its filter.
+  await page.reload();
+  await expect(page.getByRole('tab', { name: /Storage units/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: 'Remove filter Test hole TH26-01' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 
   // Add a hole, then try the same name with different case and a trailing space.
-  const addHole = page.getByRole('textbox', { name: 'Add test hole' });
-  await addHole.fill('TH26-03');
-  await page.getByRole('button', { name: 'Add test hole', exact: true }).click();
-  await expect(page.getByText('Added test hole TH26-03.')).toBeVisible();
-  await expect(holes.locator('li').filter({ hasText: 'TH26-03' })).toContainText('0 units');
-  await addHole.fill('th26-01 ');
-  await page.getByRole('button', { name: 'Add test hole', exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('TH26-01 already exists in this project.');
-  await expect(holes.locator('li')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Add test hole' }).click();
+  let dialog = page.getByRole('dialog', { name: 'Add test hole' });
+  await dialog.getByRole('textbox', { name: 'Test hole name' }).fill('TH26-03');
+  await dialog.getByRole('button', { name: 'Add test hole' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(holes.getByRole('row').filter({ hasText: 'TH26-03' })).toContainText('No units yet');
+  await page.getByRole('button', { name: 'Add test hole' }).click();
+  dialog = page.getByRole('dialog', { name: 'Add test hole' });
+  await dialog.getByRole('textbox', { name: 'Test hole name' }).fill('th26-01 ');
+  await dialog.getByRole('button', { name: 'Add test hole' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('TH26-01 already exists in this project.');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(holes.locator('tbody tr')).toHaveCount(3);
 
-  // Edit as the Lead Project Engineer: the number is locked (receipts exist); the Lead Project Engineer is admin-only.
-  await page.getByRole('button', { name: 'Edit project' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit project' });
-  await expect(dialog.getByRole('textbox', { name: 'Project number' })).toHaveAttribute('readonly');
-  await expect(dialog.getByRole('combobox', { name: 'Lead Project Engineer' })).toBeDisabled();
-  await dialog.getByRole('textbox', { name: 'Name' }).fill(`Inventory demo A ${data.tag}`);
-  await dialog
+  // Edit as the Lead Project Engineer: the number is locked (receipts exist); the lead is admin-only.
+  await openEdit(page);
+  const edit = page.getByRole('dialog', { name: 'Edit project' });
+  await expect(edit.getByRole('textbox', { name: 'Project number' })).toHaveAttribute('readonly');
+  await expect(edit.getByRole('combobox', { name: 'Lead Project Engineer' })).toBeDisabled();
+  await edit.getByRole('textbox', { name: 'Name' }).fill(`Inventory demo A ${data.tag}`);
+  await edit
     .getByRole('textbox', { name: 'Server folder path' })
     .fill(`P:\\Projects\\${data.projectA}`);
-  await dialog.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Project saved.')).toBeVisible();
-  await expect(page.getByText(`Inventory demo A ${data.tag}`)).toBeVisible();
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await expect(edit).toBeHidden();
+  await expect(projectHeading(page, data.projectA)).toContainText(`Inventory demo A ${data.tag}`);
+  const details = page.getByRole('region', { name: 'Project details' });
   await expect(details.locator('code')).toHaveText(`P:\\Projects\\${data.projectA}`);
   await expect(details.getByRole('button', { name: 'Copy' })).toBeVisible();
 
-  // Back keeps the search.
-  await page.getByRole('link', { name: '← Back to Projects' }).click();
-  await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveValue(data.tag);
+  // The breadcrumb returns to the list with its search.
+  await page
+    .getByRole('navigation', { name: 'breadcrumb' })
+    .getByRole('link', { name: 'Projects', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/projects\\?tab=all&search=${data.tag}`));
 });
 
-test('T3: a technician sees the project but no Edit button', async ({ page }) => {
+test('T3: a technician sees the project but no Edit project', async ({ page }) => {
   const data = await insertInventoryFixture();
   await signInAs(page, 'at');
   await page.goto(`/projects?search=${data.projectB}`);
   await page.getByRole('link', { name: `Open project ${data.projectB}` }).click();
-  await expect(page.getByRole('heading', { level: 1, name: data.projectB })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Receipts' })).toContainText('2026-10-23');
-  await expect(page.getByRole('button', { name: 'Edit project' })).toHaveCount(0);
+  await expect(projectHeading(page, data.projectB)).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Recent receipts' })).toContainText('2026-10-23');
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Copy link' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Edit project' })).toHaveCount(0);
 });
 
 test('MTR-26: Edit project shows what changed and asks before discarding it', async ({ page }) => {
@@ -95,8 +123,7 @@ test('MTR-26: Edit project shows what changed and asks before discarding it', as
   await signInAs(page, 'pe');
   await page.goto(`/projects?search=${data.projectB}`);
   await page.getByRole('link', { name: `Open project ${data.projectB}` }).click();
-  const edit = page.getByRole('button', { name: 'Edit project' });
-  await edit.click();
+  await openEdit(page);
   const dialog = page.getByRole('dialog', { name: 'Edit project' });
   await dialog.getByRole('textbox', { name: 'Client' }).fill('Changed client (fictional)');
   await expect(dialog).toContainText('Changed: client');
@@ -118,28 +145,30 @@ test('MTR-26: Edit project shows what changed and asks before discarding it', as
   await expect(page.getByRole('region', { name: 'Project details' })).not.toContainText(
     'Changed client (fictional)',
   );
-  await expect(edit).toBeFocused();
 });
 
-test('T6: phone width list and detail are usable without horizontal scroll', async ({
+test('T6: phone width list and project page are usable without horizontal scroll', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone-chromium', 'phone layout only');
   const data = await insertInventoryFixture();
   await signInAs(page, 'pe');
   await page.goto(`/projects?search=${data.tag}`);
-  const cards = page.getByRole('list', { name: 'Projects' });
-  await expect(cards.getByRole('listitem')).toHaveCount(2);
-  const card = cards.getByRole('listitem').filter({ hasText: data.projectA });
-  await expect(card).toBeVisible();
+  const table = page.getByRole('table', { name: 'All projects' });
+  await expect(table.locator('tbody tr')).toHaveCount(2);
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
-  await card.getByRole('link', { name: `Open project ${data.projectA}` }).click();
-  await expect(page.getByRole('heading', { level: 1, name: data.projectA })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Units by test hole' })).toContainText(data.a1);
+  await table.getByRole('link', { name: `Open project ${data.projectA}` }).click();
+  await expect(projectHeading(page, data.projectA)).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
-  await page.getByRole('button', { name: 'Edit project' }).click();
+  await page.getByRole('tab', { name: /Storage units/ }).click();
+  await expect(
+    page.getByRole('table', { name: `Storage units on ${data.projectA}` }),
+  ).toContainText(data.a1);
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+
+  await openEdit(page);
   await expect(page.getByRole('dialog', { name: 'Edit project' })).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });

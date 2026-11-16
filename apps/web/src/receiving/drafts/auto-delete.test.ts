@@ -102,6 +102,45 @@ describe('autoDeleteDrafts (MM-T45)', () => {
     expect(store.ids()).toHaveLength(2);
   });
 
+  it('closes a deleted registered draft on the server as expired, only while online', async () => {
+    const registered = { ...draft(LAB, 120), registeredAt: daysAgo(120).toISOString() };
+    const unregistered = draft(LAB, 120);
+    const legacy = { ...draft(LAB, 120), legacy: true, registeredAt: null };
+    const recent = { ...draft(LAB, 10), registeredAt: daysAgo(10).toISOString() };
+    const all = [registered, unregistered, legacy, recent];
+    const closeExpired = vi.fn(async () => true);
+    const store = memoryStore(all);
+    expect(
+      await autoDeleteDrafts(store, all, LAB, on(), NOW, { closeExpired, online: () => true }),
+    ).toBe(3);
+    expect(closeExpired.mock.calls).toEqual([[registered.draftId]]);
+
+    // Offline: deleted locally, nothing sent (the station count drops it by age instead).
+    const offlineClose = vi.fn(async () => true);
+    const offline = { ...draft(LAB, 120), registeredAt: daysAgo(120).toISOString() };
+    const offlineStore = memoryStore([offline]);
+    expect(
+      await autoDeleteDrafts(offlineStore, [offline], LAB, on(), NOW, {
+        closeExpired: offlineClose,
+        online: () => false,
+      }),
+    ).toBe(1);
+    expect(offlineClose).not.toHaveBeenCalled();
+    expect(offlineStore.ids()).toEqual([]);
+  });
+
+  it('a failing close never stops the clean-up', async () => {
+    const a = { ...draft(AT, 120), registeredAt: daysAgo(120).toISOString() };
+    const b = { ...draft(AT, 130), registeredAt: daysAgo(130).toISOString() };
+    const store = memoryStore([a, b]);
+    const closeExpired = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+    expect(
+      await autoDeleteDrafts(store, [a, b], AT, on(), NOW, { closeExpired, online: () => true }),
+    ).toBe(2);
+    expect(closeExpired).toHaveBeenCalledTimes(2);
+    expect(store.ids()).toEqual([]);
+  });
+
   it('touches nothing when the setting could not be loaded', async () => {
     const old = draft(AT, 400);
     const store = memoryStore([old]);

@@ -75,3 +75,25 @@ export function buildProjectListQuery(query: ProjectListQuery, userId: string): 
     offset: (query.page - 1) * query.pageSize,
   };
 }
+
+/**
+ * STRATA-83: one query counting each Projects tab (My projects, All projects, Waiting for a lead)
+ * with the same search applied, so a tab's count matches what opening it shows.
+ */
+export function buildProjectTabCountsQuery(
+  query: ProjectListQuery,
+  userId: string,
+): { text: string; params: unknown[] } {
+  const base = buildProjectListQuery({ ...query, mine: false, waitingForLead: false }, userId);
+  const params = [...base.params, userId];
+  const user = `$${params.length}`;
+  return {
+    text: `SELECT count(*)::int AS all_count,
+                  (count(*) FILTER (WHERE p.lead_project_engineer_user_id IS NULL))::int
+                    AS waiting_for_lead,
+                  (count(*) FILTER (WHERE p.id IN (SELECT i.project_id
+                                                   FROM (${involvementSql(user)}) i)))::int AS mine
+           FROM project p ${base.where}`,
+    params,
+  };
+}

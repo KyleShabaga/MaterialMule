@@ -1,4 +1,4 @@
-import { BandedCard } from '../components/ui';
+import { BandedCard } from '../components/app-ui';
 import { useMe } from '../session/context';
 
 /**

@@ -1,4 +1,11 @@
-import { ConflictException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { effectiveJobTitle, type ProfileResponse } from '@materialmule/shared';
 import type { PoolClient } from 'pg';
 import { recordAudit, type AuditActor } from '../audit/audit.js';
@@ -8,6 +15,7 @@ import { MICROSOFT_SETTINGS } from '../auth/providers/microsoft/microsoft.consta
 import type { MicrosoftSettings } from '../auth/providers/microsoft/entra-provider.js';
 import type { AuthUser } from '../auth/policy.js';
 import { DatabaseService } from '../database/database.service.js';
+import { applyGraphPhoto, fetchGraphPhoto } from '../people/photo-sync.js';
 import { withTransaction } from '../db/transaction.js';
 import {
   mergeProfile,
@@ -116,6 +124,8 @@ export function actorOf(row: ProfileRow, accountType: AuditActor['accountType'] 
 /** The signed-in person's own profile, first-login position and Microsoft profile refresh. */
 @Injectable()
 export class ProfileService {
+  private readonly logger = new Logger(ProfileService.name);
+
   constructor(
     private readonly database: DatabaseService,
     private readonly tokens: MicrosoftTokenCache,
@@ -175,6 +185,8 @@ export class ProfileService {
     }
     let graph: GraphProfile | null = null;
     let failureStatus: number | null = null;
+    // STRATA-52: the directory photo is refreshed with the profile; it never throws.
+    const photo = fetchGraphPhoto(this.microsoft.graphBaseUrl, token);
     try {
       graph = await fetchGraphProfile(this.microsoft.graphBaseUrl, token);
     } catch (error) {
@@ -191,6 +203,9 @@ export class ProfileService {
         { actor: actorOf(row, user.accountType), requestId, failureStatus },
       );
     });
+    await applyGraphPhoto(this.database.pool, user.userId, await photo, (message) =>
+      this.logger.warn(message),
+    );
     return this.get(user);
   }
 }

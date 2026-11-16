@@ -84,20 +84,24 @@ export class LabAuthController {
   }
 }
 
-/** Administration of the LAB account. Lives in the staff admin area (MM-T07). */
+/**
+ * Administration of the LAB account. Lives in the staff admin area (MM-T07). STRATA-118: the
+ * shared credential stays administrator-only (`lab_account.manage`), apart from `staff.manage`,
+ * which Lab Managers now hold.
+ */
 @Controller('admin/lab')
 export class LabAdminController {
   constructor(private readonly lab: LabAuthService) {}
 
   @Get()
-  @RequirePermission('staff.manage')
+  @RequirePermission('lab_account.manage')
   account(): Promise<LabAccountResponse> {
     return this.lab.account();
   }
 
   /** Sets or resets the LAB password; every LAB session stops working on its next request. */
   @Post('password')
-  @RequirePermission('staff.manage')
+  @RequirePermission('lab_account.manage')
   @HttpCode(HttpStatus.OK)
   async setPassword(
     @Body() body: unknown,

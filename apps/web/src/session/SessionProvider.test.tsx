@@ -1,15 +1,16 @@
 import type { MeResponse } from '@materialmule/shared';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '../api/client';
 import { routes } from '../routes';
+import { unavailableRetryDelay } from './context';
 import { SessionProvider } from './SessionProvider';
 
 // MM-T61 review follow-up: a successful /api/me answer whose body isn't readable JSON (empty, an
 // HTML page from a proxy, cut off mid-way) must end in the recoverable "unavailable" state with a
-// Reload button, never an endless "Loading…". A 401 still goes to sign-in.
+// Try again button, never an endless "Loading…". A 401 still goes to sign-in.
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -67,15 +68,16 @@ describe('SessionProvider with an unreadable successful /api/me answer', () => {
         }),
     ],
     ['a body that fails mid-read', brokenBody],
-  ])('shows the unavailable state with Reload for %s', async (_name, response) => {
+  ])('shows Material Mule is unavailable with Try again for %s', async (_name, response) => {
     stubMe(response);
     renderApp('/sample-storage');
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Material Mule is unavailable');
-    expect(alert).toHaveTextContent('Reload the page to try again.');
+    expect(alert).toHaveTextContent('couldn’t read');
     expect(alert).not.toHaveTextContent(/API|JSON|Unexpected/);
-    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.getByText('Your work on this computer is kept.')).toBeInTheDocument();
     expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
   });
 
@@ -86,6 +88,139 @@ describe('SessionProvider with an unreadable successful /api/me answer', () => {
     await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sign-in'));
     expect(router.state.location.search).toContain('returnTo=%2Fsample-storage');
     expect(screen.queryByRole('alert', { name: /unavailable/ })).not.toBeInTheDocument();
+  });
+});
+
+// Round 10 / STRATA-105: while the server can't be reached the app retries by itself after 5, 10
+// and 20 seconds, then every 30 seconds; Try again retries at once without a second loop.
+describe('Material Mule is unavailable', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const STAFF: MeResponse = {
+    id: 'alex',
+    displayName: 'Alex Tester',
+    initials: 'AT',
+    accountType: 'personal',
+    status: 'active',
+    roles: [],
+    permissions: [],
+    sessionExpiresAt: '2026-11-26T16:00:00.000Z',
+    profileRefreshFailed: false,
+  };
+
+  function stubDown() {
+    let up = false;
+    const meCalls = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/api/me') {
+          meCalls();
+          if (!up) throw new TypeError('Failed to fetch');
+          return new Response(JSON.stringify(STAFF), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('[]', { status: 200 });
+      }),
+    );
+    return {
+      meCalls,
+      comeBack: () => {
+        up = true;
+      },
+    };
+  }
+
+  async function tick(ms: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  it('the back-off steps are 5, 10 and 20 seconds, then every 30', () => {
+    expect([0, 1, 2, 3, 4, 9].map(unavailableRetryDelay)).toEqual([
+      5_000, 10_000, 20_000, 30_000, 30_000, 30_000,
+    ]);
+  });
+
+  it('retries by itself with back-off and opens the app once the server is back', async () => {
+    vi.useFakeTimers();
+    const { meCalls, comeBack } = stubDown();
+    renderApp('/sample-storage');
+    await tick(0);
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Material Mule is unavailable' }),
+    ).toBeVisible();
+    expect(screen.getByText(/can’t reach the Material Mule server/)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Trying again by itself in 5 seconds.');
+    expect(meCalls).toHaveBeenCalledTimes(1);
+
+    await tick(4_999);
+    expect(meCalls).toHaveBeenCalledTimes(1);
+    await tick(1);
+    expect(meCalls).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('status')).toHaveTextContent('Trying again by itself in 10 seconds.');
+
+    await tick(10_000);
+    expect(meCalls).toHaveBeenCalledTimes(3);
+    expect(screen.getByRole('status')).toHaveTextContent('Trying again by itself in 20 seconds.');
+
+    await tick(20_000);
+    expect(meCalls).toHaveBeenCalledTimes(4);
+    expect(screen.getByRole('status')).toHaveTextContent('Trying again by itself in 30 seconds.');
+
+    await tick(30_000);
+    expect(meCalls).toHaveBeenCalledTimes(5);
+    await tick(29_999);
+    expect(meCalls).toHaveBeenCalledTimes(5);
+
+    comeBack();
+    await tick(1);
+    expect(meCalls).toHaveBeenCalledTimes(6);
+    expect(screen.queryByRole('heading', { name: 'Material Mule is unavailable' })).toBeNull();
+    // Recovered: no more retries.
+    await tick(120_000);
+    expect(meCalls).toHaveBeenCalledTimes(6);
+  });
+
+  it('Try again retries at once, never overlapping, and restarts the wait', async () => {
+    vi.useFakeTimers();
+    const { meCalls } = stubDown();
+    renderApp('/sample-storage');
+    await tick(0);
+    expect(meCalls).toHaveBeenCalledTimes(1);
+
+    await tick(3_000);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    fireEvent.click(screen.getByRole('button', { name: /Try/ }));
+    await tick(0);
+    expect(meCalls).toHaveBeenCalledTimes(2);
+    // The 5 s timer started before Try again doesn't fire as well; the next wait is 10 s.
+    expect(screen.getByRole('status')).toHaveTextContent('Trying again by itself in 10 seconds.');
+    await tick(9_999);
+    expect(meCalls).toHaveBeenCalledTimes(2);
+    await tick(1);
+    expect(meCalls).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops retrying when the page goes away', async () => {
+    vi.useFakeTimers();
+    const { meCalls } = stubDown();
+    const router = createMemoryRouter(routes, { initialEntries: ['/'] });
+    const { unmount } = render(
+      <SessionProvider>
+        <RouterProvider router={router} />
+      </SessionProvider>,
+    );
+    await tick(0);
+    unmount();
+    await tick(120_000);
+    expect(meCalls).toHaveBeenCalledTimes(1);
   });
 });
 

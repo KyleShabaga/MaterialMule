@@ -1,16 +1,26 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
 
-// MM-AO05: a Lead Project Engineer manages the project team and a scoped reviewer on Team &
-// Permissions, by keyboard, and sees both responsibilities on the same supporting engineer. A
-// colleague without authority sees the same people and no controls. Fictional data only: the
-// project number is unique per run and viewport; Dana Example is made eligible for "Concrete
-// field" review by the admin first.
+// STRATA-85 / MM-AO05: on the project's Team & permissions tab a Lead Project Engineer adds a
+// supporting engineer to the team and assigns her as a scoped reviewer, by keyboard where it
+// matters, and sees both responsibilities on one row of People. A colleague without authority
+// sees the same people, no controls, the server's reasons, and is refused by the API directly.
+// Fictional data only: the project number is unique per run and viewport; Dana Example is made
+// eligible for "Concrete field" review by the admin first.
 
 const CSRF = { 'x-materialmule-csrf': '1' };
 const PE_ID = '00000000-0000-4000-8000-000000000101';
 const DE_ID = '00000000-0000-4000-8000-000000000105';
+
+/** Opens one entry of People › Add a person. */
+async function addPerson(page: Page, item: string) {
+  await page
+    .getByRole('region', { name: 'People' })
+    .getByRole('button', { name: 'Add a person' })
+    .click();
+  await page.getByRole('menuitem', { name: item }).click();
+}
 
 test('the lead adds a team member who also reviews; others see it read-only', async ({
   page,
@@ -40,66 +50,60 @@ test('the lead adds a team member who also reviews; others see it read-only', as
   }
 
   await signInAs(page, 'pe');
-  await page.goto(`/projects/${projectId}`);
-  await page.getByRole('link', { name: 'Team & Permissions' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Team & Permissions' })).toBeVisible();
+  await page.goto(`/projects/${projectId}/team`);
+  const people = page.getByRole('region', { name: 'People' });
+  await expect(people).toContainText('Job titles and team places grant no approvals.');
 
-  // Add Dana to the team, keyboard only.
-  const team = page.getByRole('region', { name: 'Project team' });
-  await expect(team).toContainText('No team members yet.');
-  const person = team.getByRole('combobox', { name: 'Add a team member' });
+  // Add Dana to the team, keyboard only inside the dialog.
+  await addPerson(page, 'Add to the team…');
+  const addTeam = page.getByRole('dialog', { name: 'Add to the team' });
+  const person = addTeam.getByRole('combobox', { name: 'Add a team member' });
   await person.fill('DE');
   await expect(page.getByRole('option', { name: /^DE · Dana Example/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
   await person.press('Enter');
-  await team
-    .getByRole('form', { name: 'Add team member' })
-    .getByLabel('Reason')
-    .fill('Supporting engineer on site');
-  await team.getByRole('button', { name: 'Add to team' }).press('Enter');
-  await expect(
-    page.getByRole('status').filter({ hasText: 'Added Dana Example to the team.' }),
-  ).toBeVisible();
-  await expect(team.getByRole('list', { name: 'Team members' })).toContainText('DE · Dana Example');
+  await addTeam.getByLabel('Reason (required)').fill('Supporting engineer on site');
+  await addTeam.getByRole('button', { name: 'Add to team' }).press('Enter');
+  await expect(page.getByText('Added Dana Example to the team.')).toBeVisible();
+  await expect(addTeam).toBeHidden();
+  await expect(people.getByRole('row').filter({ hasText: 'Dana Example' })).toContainText(
+    'Team member',
+  );
 
   // Assign her as the Concrete field reviewer.
-  const review = page.getByRole('region', { name: 'Review responsibilities' });
-  const assign = review.getByRole('form', { name: 'Assign reviewer' });
-  await assign.getByLabel('Review scope', { exact: true }).selectOption('concrete_field');
-  await assign.getByLabel('Reviewer', { exact: true }).selectOption(DE_ID);
-  await review
-    .getByRole('form', { name: 'Assign reviewer' })
-    .getByLabel('Reason')
-    .fill('Reviews field reports');
+  await addPerson(page, 'Assign a reviewer…');
+  const assign = page.getByRole('dialog', { name: 'Assign a reviewer' });
+  await assign.getByRole('combobox', { name: 'Review scope' }).click();
+  await page.getByRole('option', { name: 'Concrete field' }).click();
+  await assign.getByRole('combobox', { name: 'Reviewer' }).click();
+  await page.getByRole('option', { name: /Dana Example/ }).click();
+  await assign.getByLabel('Reason (required)').fill('Reviews field reports');
   await assign.getByRole('button', { name: 'Assign reviewer' }).click();
-  await expect(review.getByRole('list', { name: 'Reviewers: Concrete field' })).toContainText(
-    'DE · Dana Example',
-  );
+  await expect(page.getByText('Assigned Dana Example as reviewer.')).toBeVisible();
 
   // Both responsibilities on one person; grants listed apart.
-  const people = page.getByRole('region', { name: 'People on this project' });
-  const dana = people.getByRole('row').filter({ hasText: 'DE · Dana Example' });
-  await expect(dana).toContainText('Team member; Reviewer: Concrete field');
+  const dana = people.getByRole('row').filter({ hasText: 'Dana Example' });
+  await expect(dana).toContainText('Team member · Reviewer, Concrete field');
   await expect(page.getByRole('region', { name: 'History' })).toContainText(
-    'Concrete field reports reviewer Dana Example assigned by PE · Pat Example (Reviews field reports)',
+    'Pat Example assigned Dana Example as reviewer, Concrete field',
   );
-  const mine = page.getByRole('region', { name: 'Your permissions here' });
   await expect(
-    mine.getByRole('listitem').filter({ hasText: 'Add or remove team members' }),
+    page
+      .getByRole('region', { name: 'Your permissions here' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Add or remove team members' }),
   ).toContainText('As Lead Project Engineer');
 
   // A colleague with no authority here: same people, no controls, and the reason why.
   await signInAs(page, 'at');
   await page.goto(`/projects/${projectId}/team`);
-  await expect(
-    page.getByRole('region', { name: 'People on this project' }).getByRole('row', {
-      name: /Dana Example/,
-    }),
-  ).toContainText('Reviewer: Concrete field');
-  await expect(page.getByRole('form', { name: 'Add team member' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
+  await expect(people.getByRole('row').filter({ hasText: 'Dana Example' })).toContainText(
+    'Reviewer, Concrete field',
+  );
+  await expect(people.getByRole('button', { name: 'Add a person' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Needs review' })).toHaveCount(0);
   await expect(
     page
       .getByRole('region', { name: 'Your permissions here' })
@@ -107,23 +111,21 @@ test('the lead adds a team member who also reviews; others see it read-only', as
       .filter({ hasText: 'Assign or remove reviewers' }),
   ).toContainText(/Allowed for: .*Lead Project Engineer/);
 
-  // MTR-21: each person shows a job title column and expands to their permissions here, with the
-  // source of each.
-  const colleagues = page.getByRole('region', { name: 'People on this project' });
-  // A column on desktop, a field label on phone cards.
-  await expect(colleagues).toContainText('Job title');
-  const pat = colleagues.getByRole('row').filter({ hasText: 'PE · Pat Example' });
-  await pat.getByText(/^Permissions here/).click();
-  const patPermissions = pat.getByRole('list', { name: 'Permissions of Pat Example' });
+  // The server refuses the same change asked for directly.
+  const refused = await page.request.post(`/api/projects/${projectId}/team-members`, {
+    headers: CSRF,
+    data: { userId: DE_ID, reason: 'Trying anyway', idempotencyKey: crypto.randomUUID() },
+  });
+  expect(refused.status()).toBe(403);
+
+  // MTR-21: the person drawer lists what Pat may do here, with the source of each.
+  await people.getByRole('row').filter({ hasText: 'Pat Example' }).click();
+  await expect(page).toHaveURL(new RegExp(`open=${PE_ID}`));
+  const patPermissions = page.getByRole('list', { name: 'Permissions of Pat Example' });
   await expect(
     patPermissions.getByRole('listitem').filter({ hasText: 'Add or remove team members' }),
-  ).toHaveText('Add or remove team members: Yes · As Lead Project Engineer');
-  const danaRow = colleagues.getByRole('row').filter({ hasText: 'DE · Dana Example' });
-  await danaRow.getByText(/^Permissions here/).click();
-  await expect(
-    danaRow
-      .getByRole('list', { name: 'Permissions of Dana Example' })
-      .getByRole('listitem')
-      .filter({ hasText: 'Add or remove team members' }),
-  ).toHaveText(/: No · Allowed for: .*Lead Project Engineer/);
+  ).toContainText('As Lead Project Engineer');
+  await expect(page.getByRole('button', { name: 'Remove from the team' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page).not.toHaveURL(/open=/);
 });

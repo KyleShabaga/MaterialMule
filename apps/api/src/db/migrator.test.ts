@@ -76,6 +76,18 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0035_concrete_field_report_issued_version',
       '0036_print_job_printer_contact',
       '0037_core_box_runs',
+      '0038_person_settings',
+      '0039_inbox_request_read',
+      '0040_person_photo',
+      '0041_movement_reversal',
+      '0042_feedback_notifications',
+      '0043_location_storage_term',
+      '0044_receipt_draft_registry',
+      '0045_concrete_hold_until',
+      '0046_retention_pipeline',
+      '0047_disposal_scan_intents',
+      '0048_station_config',
+      '0049_receipt_draft_close',
     ]);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);

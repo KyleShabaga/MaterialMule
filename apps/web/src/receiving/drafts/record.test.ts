@@ -134,7 +134,38 @@ describe('draft record (MM-T11)', () => {
       ...RECORD_MIGRATIONS,
       0: (old) => ({ ...old, version: 1, history: [] }),
     });
-    expect(upgraded).toEqual({ ...current, history: [] });
+    // Step 3 (STRATA-108) leaves its starter unknown: a legacy draft.
+    expect(upgraded).toEqual({
+      ...current,
+      history: [],
+      starter: null,
+      registeredAt: null,
+      legacy: true,
+    });
+  });
+
+  it('STRATA-108: a version-3 draft keeps everything and gets an unknown starter', () => {
+    const current = newRecord(newDraft(AT, '2026-10-26'), AT_ACCOUNT, T0);
+    const { starter: _s, registeredAt: _r, legacy: _l, ...v3body } = current;
+    const v3 = { ...v3body, version: 3 };
+    const upgraded = upgradeRecord(structuredClone(v3));
+    expect(upgraded).toEqual({ ...current, starter: null, registeredAt: null, legacy: true });
+  });
+
+  it('STRATA-108: a personal draft is started by its account; LAB by the person passed in', () => {
+    const data = newDraft(PE, '2026-10-26');
+    const personal = newRecord(data, { ...PE_ACCOUNT, displayName: 'Pat Example', initials: 'PE' });
+    expect(personal).toMatchObject({
+      starter: { userId: PE.id, name: 'Pat Example', initials: 'PE' },
+      registeredAt: null,
+      legacy: false,
+    });
+    expect(newRecord(data, LAB).starter).toBeNull();
+    const picked = { userId: AT.id, name: 'Alex Tester', initials: 'AT' };
+    expect(newRecord(data, LAB, T0, picked).starter).toEqual(picked);
+    // Changing Received by never changes the starter.
+    const changed = withData(personal, { ...data, receiver: AT }, PE.id, T1);
+    expect(changed.starter).toEqual(personal.starter);
   });
 
   it('MM-T36: a draft saved before Shelby tubes and bulk samples opens as ordinary buckets', () => {

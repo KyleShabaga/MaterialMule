@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import {
+  LAB_PROGRAM_PHASE_TAG,
   PROGRAM_PRIORITIES,
   TEST_REQUEST_STATUSES,
   accountSnapshotSchema,
+  labProgramPhase,
   personSnapshotSchema,
+  type LabProgramPhase,
   type ProgramPriority,
   type TestRequestStatus,
 } from './lab-programs';
@@ -14,6 +17,7 @@ import {
   reviewEventSchema,
 } from './lab-review';
 import { programLifecycleSchema, requestLifecycleSchema } from './lab-lifecycle';
+import type { StageKey } from './stage';
 
 // Lab worklist, per-test progress, priority and comments (MM-T24).
 //
@@ -270,6 +274,70 @@ export type ProgramWork = z.infer<typeof programWorkSchema>;
 
 export const STATUS_COUNT_KEYS = TEST_REQUEST_STATUSES;
 
+// ---------------------------------------------------------------------------------------------
+// Workboard (STRATA-88): the board's four columns, derived on the server from lifecycle facts
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The Workboard's columns, left to right: the open phases of `labProgramPhase` (STRATA-87), so
+ * the board, the list and the program page agree. Placement is display only and never changes a
+ * status.
+ */
+export const WORKBOARD_COLUMNS = [
+  'review',
+  'pull',
+  'testing',
+  'ready',
+] as const satisfies readonly LabProgramPhase[];
+export type WorkboardColumn = (typeof WORKBOARD_COLUMNS)[number];
+
+export const WORKBOARD_COLUMN_LABEL: Record<WorkboardColumn, string> = {
+  review: 'Waiting for review',
+  pull: 'Units to pull',
+  testing: 'In testing',
+  ready: 'Ready to close',
+};
+
+/** The program status tag for each column: the phase's tag (`LAB_PROGRAM_PHASE_TAG`). */
+export const WORKBOARD_COLUMN_TAG: Record<WorkboardColumn, { stage: StageKey; label: string }> = {
+  review: LAB_PROGRAM_PHASE_TAG.review,
+  pull: LAB_PROGRAM_PHASE_TAG.pull,
+  testing: LAB_PROGRAM_PHASE_TAG.testing,
+  ready: LAB_PROGRAM_PHASE_TAG.ready,
+};
+
+/**
+ * Where a submitted program sits on the Workboard: its `labProgramPhase`. The SQL in the worklist
+ * query mirrors that rule (open lab work → Units to pull or In testing; else a test in Review →
+ * Waiting for review; else no tests or a cancellation without a reason → In testing; else Ready
+ * to close); an integration test holds them together.
+ */
+export function workboardColumn(facts: {
+  counts: Partial<Record<TestRequestStatus, number>>;
+  unitsToPull: number;
+  cancelledWithoutReason?: boolean;
+}): WorkboardColumn {
+  const phase = labProgramPhase({
+    status: 'submitted',
+    counts: facts.counts,
+    cancelledWithoutReason: facts.cancelledWithoutReason,
+    unitsToPull: facts.unitsToPull > 0,
+  });
+  return phase === 'draft' || phase === 'closed' ? 'testing' : phase;
+}
+
+/**
+ * Worklist orders (`?sort=`). Without one the list keeps the D52 order (Urgent first, then the
+ * oldest submission). `priority`: Urgent first, then the oldest open test; `oldest`: the oldest
+ * open test first, whatever the priority; `newest`: the newest submission first. Programs with
+ * no open test come after those with one in `priority` and `oldest`.
+ */
+export const WORKLIST_SORTS = ['priority', 'oldest', 'newest'] as const;
+export type WorklistSort = (typeof WORKLIST_SORTS)[number];
+
+/** Longest `?search=` the worklist reads; longer text is cut to this. */
+export const WORKLIST_SEARCH_MAX = 100;
+
 export const worklistItemSchema = z.object({
   programId: z.string(),
   programNumber: z.string(),
@@ -281,6 +349,16 @@ export const worklistItemSchema = z.object({
   openCount: z.number().int(),
   /** Age in seconds of the oldest open test (from submission), null when none is open. */
   oldestOpenSeconds: z.number().nullable(),
+  /** STRATA-88: the Workboard column, derived on the server (`workboardColumn`). */
+  column: z.enum(WORKBOARD_COLUMNS),
+  /** Covered units still to pull for a Requested or In progress test (in stock, not at the lab). */
+  unitsToPull: z.number().int(),
+  /**
+   * The signed-in account may review a test of this program now: a personal account with
+   * `test.review`, a test in Review that can be completed or returned, and not the program's own
+   * requester (review is never one's own work). The card shows Review only then.
+   */
+  canReview: z.boolean(),
 });
 export type WorklistItem = z.infer<typeof worklistItemSchema>;
 /** Programs per page of GET /api/worklist (`?page=`, from 1). */
@@ -294,6 +372,8 @@ export const worklistSchema = z.object({
   items: z.array(worklistItemSchema),
   /** Programs matching every filter, across all pages. */
   total: z.number().int(),
+  /** STRATA-88: how many of `total` are Urgent. */
+  urgentTotal: z.number().int().default(0),
   page: z.number().int(),
   pageSize: z.number().int(),
   /** Every project with a matching program, whatever the project filter and page (BUG-006). */

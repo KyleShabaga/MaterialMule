@@ -11,6 +11,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson } from '../session/station-test-person';
 
 // MM-T36 removal after testing on the storage unit page and in Sample Storage: a tested Shelby
 // tube's destroyed contents, the personal-only confirmation, and "Disposed after testing".
@@ -130,6 +131,7 @@ function stubApi(handler: (url: URL, init?: RequestInit) => Response | undefined
 
 function renderAt(path: string, user = me()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
+  pickStationPerson(user);
   render(
     <SessionContext.Provider
       value={{
@@ -173,10 +175,10 @@ describe('MM-T36 removal after testing', () => {
     expect(within(section).getByText('Disposed after testing')).toBeInTheDocument();
     expect(section).toHaveTextContent('Can’t be tested again');
     expect(section).toHaveTextContent('LAB for JS · Jordan Smith');
-    expect(screen.getByText('In stock')).toBeInTheDocument();
-    const retention = screen.getByRole('region', { name: 'Where it is' });
-    expect(retention).toHaveTextContent('Not applicable — tested Shelby tube');
-    expect(retention).not.toHaveTextContent('2027-10-23');
+    // Still on the shelf until removal is confirmed: the record tag is a storage word, not Disposed.
+    const tags = document.querySelector('.unit-status-tags');
+    expect(tags).toHaveTextContent('Short-term');
+    expect(tags).not.toHaveTextContent('Disposed');
 
     // The confirmation is explicit: without it nothing is sent.
     const confirm = within(section).getByRole('button', { name: 'Confirm removal after testing' });
@@ -238,7 +240,9 @@ describe('MM-T36 removal after testing', () => {
     expect(within(section).getByText('Available for testing')).toBeInTheDocument();
     expect(within(section).queryByRole('button', { name: /Confirm removal/ })).toBeNull();
     expect(section).toHaveTextContent('another unit doesn’t count');
-    expect(screen.getByRole('region', { name: 'Where it is' })).toHaveTextContent('2027-10-23');
+    expect(screen.getByRole('region', { name: 'Where it is' })).toHaveTextContent(
+      sibling.location.code,
+    );
   });
 
   it('Sample Storage marks removed units "Disposed after testing" and tested tubes still on the shelf', async () => {

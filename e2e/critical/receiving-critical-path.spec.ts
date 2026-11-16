@@ -3,11 +3,13 @@ import { signInAs } from '../support/auth';
 import { withDatabase } from '../support/db';
 import { E2E_LAB_STATION_ID, signInAsLabStation } from '../support/lab-station';
 import { dropNextPrintJobContaining } from '../support/printer';
-import { closeMore, openAccount } from '../support/shell';
+import { closeMore, isPhoneLayout, openAccount } from '../support/shell';
 import {
   addHole,
+  addUnit,
   bucket,
   chooseDemoProject,
+  chooseProject,
   chooseReceiver,
   confirmDelivery,
   createProjectThroughApi,
@@ -48,11 +50,13 @@ test(
     await toUnits(page);
     await addHole(bucket(page, 1), 'TH26-01');
     await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-    await page.getByRole('button', { name: 'Add a storage unit' }).click();
+    await addUnit(page);
     await addHole(bucket(page, 2), 'TH26-01');
     await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
     // D41: the quantity is calculated from the units; never an individual sample list (CLAUDE.md).
-    await expect(page.getByText('2 storage units').first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirm receipt' })).toContainText(
+      '2 storage units · IDs issue on confirm',
+    );
     await expect(page.getByLabel(/sample (number|id)/i)).toHaveCount(0);
 
     await confirmDelivery(page);
@@ -75,9 +79,12 @@ test(
     await page.getByRole('link', { name: `Open ${ids[0]}` }).click();
     await expect(page.getByRole('heading', { level: 1, name: ids[0]! })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('Receiving lab');
-    await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-      'TH26-01: G1–S12',
-    );
+    await expect(
+      page
+        .getByRole('table', { name: 'Test hole summaries' })
+        .getByRole('row')
+        .filter({ hasText: 'TH26-01' }),
+    ).toContainText('G1–S12');
   },
 );
 
@@ -88,10 +95,11 @@ test(
     const description = uniqueTag('T18-lab');
     await signInAsLabStation(page);
     await openWizard(page);
-    // The account row sits in the rail (desktop) or the More sheet (phone).
-    await expect(await openAccount(page)).toContainText('Shared station: LAB');
+    // The account row sits in the sidebar footer (desktop) or the sidebar Sheet (phone).
+    await expect(await openAccount(page)).toContainText('LAB station');
     await closeMore(page);
-    // LAB starts blank every time and must pick a listed person (App Idea §8).
+    // LAB starts blank every time and must pick a listed person (App Idea §8, T8/AC5). The
+    // Recording as person (Alex Tester here) never fills Received by (STRATA-107).
     const receiver = page.getByRole('combobox', { name: 'Received by', exact: true });
     await expect(receiver).toHaveValue('');
     await receiver.fill('JS');
@@ -108,9 +116,10 @@ test(
     await sampleRange(unit, 'TH26-01', 'G1', 'S12');
     await addHole(unit, 'TH26-02');
     await summaryOf(unit, 'TH26-02').getByLabel('Summary type').selectOption('all');
+    // One unit, two holes: the second is an "Also holds" line with its own summary.
     await expect(
-      unit.getByRole('list', { name: 'Bucket 1 contents' }).getByRole('listitem'),
-    ).toHaveText(['TH26-01G1–S12', 'TH26-02All samples']);
+      unit.getByRole('list', { name: 'Bucket 1 samples and depth' }).getByRole('listitem'),
+    ).toHaveCount(2);
     await confirmDelivery(page);
     const [id] = await issuedIds(page);
 
@@ -143,9 +152,18 @@ test(
     const receiptCard = page.getByRole('region', { name: 'Receipt' });
     await expect(receiptCard).toContainText('JS · Jordan Smith');
     await expect(receiptCard).toContainText('LAB');
-    await expect(page.getByRole('list', { name: 'Test hole summaries' })).toContainText(
-      'TH26-02: All samples',
-    );
+    await expect(
+      page
+        .getByRole('table', { name: 'Test hole summaries' })
+        .getByRole('row')
+        .filter({ hasText: 'TH26-01' }),
+    ).toContainText('G1–S12');
+    await expect(
+      page
+        .getByRole('table', { name: 'Test hole summaries' })
+        .getByRole('row')
+        .filter({ hasText: 'TH26-02' }),
+    ).toContainText('All samples');
   },
 );
 
@@ -164,14 +182,14 @@ test(
     await page.getByRole('combobox', { name: /Find project/ }).fill(projectNumber);
     await expect(page.getByRole('option', { name: 'No matching project' })).toBeVisible();
     await page.getByRole('button', { name: 'Add project' }).click();
-    const form = page.getByRole('group', { name: 'Add project' });
+    const form = page.getByRole('dialog', { name: 'Add project' });
     await expect(form.getByLabel('Project number')).toHaveValue(projectNumber);
     await form.getByLabel('Project name').fill('Example Ridge');
     await form.getByLabel('Client').fill('Example Client');
     await form
       .getByLabel('Nominate a Lead Project Engineer (optional)')
       .selectOption({ label: 'PE · Pat Example' });
-    await form.getByRole('button', { name: 'Save project' }).click();
+    await form.getByRole('button', { name: 'Add project' }).click();
     await expect(page.getByLabel('Project number')).toHaveValue(projectNumber);
     await toUnits(page);
 
@@ -182,9 +200,10 @@ test(
     await summaryOf(unit, 'TH26-03').getByLabel('Summary type').selectOption('all');
 
     // Nothing typed earlier was lost.
-    const delivery = page.getByRole('group', { name: 'Delivery' });
-    await expect(delivery).toContainText('AT · Alex Tester');
-    await expect(delivery).toContainText(description);
+    await expect(page.getByRole('combobox', { name: 'Received by', exact: true })).toHaveValue(
+      /^AT · Alex Tester/,
+    );
+    await expect(page.getByLabel('Description (optional)')).toHaveValue(description);
     await confirmDelivery(page);
     const [id] = await issuedIds(page);
 
@@ -228,7 +247,12 @@ test(
     // 1. Double-click: one receipt, one unit.
     const doubled = uniqueTag('T18-dblclick');
     await fillOneBucket(doubled);
-    await page.getByRole('button', { name: 'Confirm and issue IDs' }).dblclick();
+    // The dialog's Confirm is double-clicked: the receipt is sent once.
+    await page.getByRole('button', { name: 'Confirm and print labels' }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Confirm 1 unit and print labels' })
+      .dblclick();
     const [first] = await issuedIds(page);
     expect(await receiptsDescribed(doubled)).toMatchObject([
       { quantity: 1, readable_ids: [first] },
@@ -265,34 +289,37 @@ test(
 
 test('a failed print then a reprint keep the same IDs and location', critical, async ({ page }) => {
   const description = uniqueTag('T18-print');
+  // A project of its own, so the printer can be told to drop this receipt's labels (they carry
+  // the project number) before the confirm sends them.
+  const projectNumber = uniqueTag('E2E-PRINT').toUpperCase();
   await signInAs(page, 'at');
+  await createProjectThroughApi(page, projectNumber, 'TH26-01');
   await openWizard(page);
-  await chooseDemoProject(page);
+  await chooseProject(page, projectNumber, `${projectNumber} · Example Ridge · Example Client`);
   await page.getByLabel('Description (optional)').fill(description);
   await toUnits(page);
   await addHole(bucket(page, 1), 'TH26-01');
   await sampleRange(bucket(page, 1), 'TH26-01', 'G1', 'S12');
-  await page.getByRole('button', { name: 'Add a storage unit' }).click();
-  await addHole(bucket(page, 2), 'TH26-02');
-  await summaryOf(bucket(page, 2), 'TH26-02').getByLabel('Summary type').selectOption('all');
-  // Print from the confirmation screen, so the printer can be told to drop this job first.
-  await page.getByRole('checkbox', { name: /Print 2 labels/ }).uncheck();
+  await addUnit(page);
+  await addHole(bucket(page, 2), 'TH26-01');
+  await sampleRange(bucket(page, 2), 'TH26-01', 'G13', 'S32');
+
+  // The printer drops the connection part-way through this receipt's labels.
+  await dropNextPrintJobContaining(projectNumber);
   await confirmDelivery(page);
   const ids = await issuedIds(page);
   const before = await unitState(ids);
-
-  // The printer drops the connection part-way through this receipt's labels.
-  await dropNextPrintJobContaining(ids[0]!);
-  const labels = page.getByRole('region', { name: 'Next: put them away' });
-  await labels.getByRole('button', { name: 'Print all labels' }).click();
-  await expect(labels.getByText('Unknown — check the printer before reprinting')).toBeVisible({
+  // STRATA-77: an uncertain print makes Print again the primary; nothing is confirmed again.
+  await expect(page.getByText(/it isn’t known whether the labels printed/)).toBeVisible({
     timeout: 15_000,
   });
   // D03: a failed print changes nothing about the units.
   expect(await unitState(ids)).toEqual(before);
 
-  await labels.getByRole('button', { name: 'Reprint' }).click();
-  await expect(labels.getByText('Sent to printer')).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Print again' }).click();
+  await expect(
+    page.getByRole('list', { name: 'New storage units' }).getByText('Sent to printer'),
+  ).toHaveCount(2, { timeout: 15_000 });
 
   // Same IDs, same location, same receipt; two jobs (uncertain initial, sent reprint), no new unit.
   expect(await unitState(ids)).toEqual(before);
@@ -325,22 +352,39 @@ test(
     const before = await unitState([unit!.suNumber]);
     const writes: string[] = [];
     page.on('request', (r) => {
-      if (r.method() !== 'GET' && new URL(r.url()).pathname.startsWith('/api/'))
+      const path = new URL(r.url()).pathname;
+      // Opening the unit adds it to the person's sidebar Recent (their view history, not a record
+      // change), so that one POST is not a write here.
+      if (r.method() !== 'GET' && path.startsWith('/api/') && path !== '/api/me/recents')
         writes.push(r.url());
     });
 
     await page.goto('/sample-storage/scan');
-    const field = page.getByRole('textbox', { name: 'Scan a storage unit label' });
+    // Phones keep the Scan page; on desktop the URL opens the Ctrl K menu, which takes the scan
+    // and opens the unit (STRATA-81).
+    const phone = isPhoneLayout(page);
+    const field = phone
+      ? page.getByRole('textbox', { name: 'Scan a storage unit label' })
+      : page
+          .getByRole('dialog', { name: 'Search or scan' })
+          .getByRole('combobox', { name: 'Search or scan a label' });
     await expect(field).toBeFocused();
     // The DS3678-XR is a keyboard: the label's data, then its Enter suffix (MM-T16).
     await page.keyboard.type(unit!.suNumber);
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('status').filter({ hasText: unit!.suNumber })).toHaveText(
-      `Success: Found ${unit!.suNumber}`,
-    );
-    const card = page.getByRole('region', { name: unit!.suNumber });
-    await expect(card).toContainText('DEMO-2601');
-    await expect(card).toContainText('Receiving lab');
+    if (phone) {
+      await expect(page.getByRole('status').filter({ hasText: unit!.suNumber })).toHaveText(
+        `Success: Found ${unit!.suNumber}`,
+      );
+      const card = page.getByRole('region', { name: unit!.suNumber });
+      await expect(card).toContainText('DEMO-2601');
+      await expect(card).toContainText('Receiving lab');
+    } else {
+      await expect(page).toHaveURL(new RegExp(`/sample-storage/${unit!.suNumber}$`));
+      await expect(page.getByRole('heading', { level: 1, name: unit!.suNumber })).toBeVisible();
+      await expect(page.getByRole('main')).toContainText('DEMO-2601');
+      await expect(page.getByRole('main')).toContainText('Receiving lab');
+    }
 
     expect(writes).toEqual([]);
     expect(await unitState([unit!.suNumber])).toEqual(before);
@@ -356,7 +400,8 @@ test(
     const id = unit!.suNumber;
 
     await page.goto(`/sample-storage/${id}`);
-    await page.getByRole('button', { name: 'Correct details' }).click();
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Correct' }).click();
     const form = page.getByRole('form', { name: 'Correct details' });
     await form.getByLabel('Received date').fill('2026-10-19');
     await form.getByRole('button', { name: 'Save correction' }).click();
@@ -367,9 +412,9 @@ test(
     await expect(form).toBeHidden();
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
     // D46: retention follows the corrected date; the ID and location stay.
-    await expect(
-      page.getByRole('region', { name: 'Where it is' }).getByText('2027-10-19'),
-    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
+      'Retain until 2027-10-19',
+    );
     await expect(page.getByRole('region', { name: 'Where it is' })).toContainText('Receiving lab');
     await expect(page.getByRole('list', { name: 'History events' })).toContainText(
       'Reason: wrong date on tag',
@@ -381,8 +426,15 @@ test(
     await signInAsLabStation(page);
     await page.goto(`/sample-storage/${id}`);
     await expect(page.getByRole('heading', { level: 1, name: id })).toBeVisible();
+    // STRATA-72: Correct sits in More, disabled for LAB with its reason under it.
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Correct' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await expect(page.getByText('Corrections need a personal account.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Correct details' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('form', { name: 'Correct details' })).toHaveCount(0);
     const refused = await page.request.patch(`/api/storage-units/${unit!.storageUnitId}`, {
       headers: { 'x-materialmule-csrf': '1' },
       data: {
@@ -407,9 +459,28 @@ test('inventory search and filters find newly received units', critical, async (
   });
   const ids = units.map((u) => u.suNumber);
 
+  // STRATA-79: the toolbar's search opens from its Search button; filters are chips, each with
+  // its own picker, added from "+ Add filter".
   await page.goto('/sample-storage');
-  await page.getByRole('searchbox', { name: 'Search' }).fill(projectNumber);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  const searchBox = page.getByRole('searchbox', { name: 'Search storage units' });
+  const search = async (text: string) => {
+    // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+    await expect(
+      searchBox.or(
+        page
+          .getByRole('toolbar', { name: 'Storage unit tools' })
+          .getByRole('button', { name: 'Search', exact: true }),
+      ),
+    ).toBeVisible();
+    if (!(await searchBox.isVisible())) {
+      await page
+        .getByRole('toolbar', { name: 'Storage unit tools' })
+        .getByRole('button', { name: 'Search', exact: true })
+        .click();
+    }
+    await searchBox.fill(text);
+  };
+  await search(projectNumber);
   const count = page.getByRole('status').filter({ hasText: 'storage unit' });
   await expect(count).toHaveText('2 storage units');
   const table = page.getByRole('table', { name: 'Storage units' });
@@ -417,25 +488,34 @@ test('inventory search and filters find newly received units', critical, async (
 
   // Narrow by project, location and type, one at a time as a person would (each applied before
   // the next; see defect D2 in docs/testing/receiving-regression-results.md): the new units stay.
-  const chips = page.getByRole('list', { name: 'Active filters' });
-  await page.getByRole('searchbox', { name: 'Project' }).fill(projectNumber);
-  await page.getByRole('button', { name: new RegExp(`^${projectNumber} ·`) }).click();
-  await expect(chips).toContainText(`Project: ${projectNumber}`);
-  await page.getByRole('combobox', { name: 'Location' }).selectOption({ label: 'Receiving lab' });
-  await expect(chips).toContainText('Location: Receiving lab');
-  await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Bucket' });
-  await expect(chips).toContainText('Type: Bucket');
-  await expect(chips).toContainText(`Project: ${projectNumber}`);
-  await expect(chips).toContainText('Location: Receiving lab');
+  const addFilter = async (field: string) => {
+    await page.getByRole('button', { name: 'Add filter' }).click();
+    await page.getByRole('menuitem', { name: field }).click();
+  };
+  const chip = (field: string) => page.getByRole('group', { name: `Filter ${field}` });
+  await addFilter('Project');
+  await page.getByRole('combobox', { name: 'Project' }).fill(projectNumber);
+  await page.getByRole('option', { name: new RegExp(`^${projectNumber} ·`) }).click();
+  await expect(chip('Project')).toContainText(projectNumber);
+  await addFilter('Location');
+  await page.getByRole('option', { name: 'Receiving lab' }).click();
+  await expect(chip('Location')).toContainText('Receiving lab');
+  await addFilter('Type');
+  await page.getByRole('option', { name: 'Bucket', exact: true }).click();
+  await expect(chip('Type')).toContainText('Bucket');
+  await expect(chip('Project')).toContainText(projectNumber);
+  await expect(chip('Location')).toContainText('Receiving lab');
   await expect(count).toHaveText('2 storage units');
   for (const id of ids) await expect(table.getByText(id)).toBeVisible();
 
   // And by ID alone, from a search by the readable ID.
-  await page.getByRole('button', { name: 'Clear filters' }).click();
-  await expect(chips).toHaveCount(0);
-  await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveValue('');
-  await page.getByRole('searchbox', { name: 'Search' }).fill(ids[1]!);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page
+    .getByRole('group', { name: 'Filters' })
+    .getByRole('button', { name: 'Clear filters' })
+    .click();
+  await expect(page.getByRole('group', { name: /^Filter / })).toHaveCount(0);
+  await expect(page).not.toHaveURL(/search=/);
+  await search(ids[1]!);
   await expect(count).toHaveText('1 storage unit');
   await expect(table.getByText(ids[1]!)).toBeVisible();
 });

@@ -8,9 +8,9 @@ import { openWizard } from './support/receiving';
 test('MTR-128-2: error-summary links are 24 px targets that do not touch', async ({ page }) => {
   await signInAs(page, 'at');
   await openWizard(page);
-  // No project and no received date: two problems on Delivery.
+  // No project, no received date and a bucket without a test hole: several problems.
   await page.getByLabel(/^Received date/).fill('');
-  await page.getByRole('button', { name: 'Next: add the units' }).click();
+  await page.getByRole('button', { name: 'Confirm and print labels' }).click();
   const links = page.locator('.error-summary li a');
   await expect(links.first()).toBeVisible();
   expect(await links.count()).toBeGreaterThan(1);

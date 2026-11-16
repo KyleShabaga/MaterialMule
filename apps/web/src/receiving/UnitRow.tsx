@@ -1,99 +1,138 @@
-import type { ReactNode } from 'react';
+import { CopyPlus, Ellipsis, MapPin, Plus, Trash2 } from 'lucide-react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import {
-  UNIT_PREFIX,
-  UNIT_TYPE_LABEL,
-  unitContentLines,
-  unitName,
-  type ReceiptDraft,
-  type UnitDraft,
-} from './draft';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { unitName, type UnitDraft } from './draft';
 
 /**
- * One storage unit of a delivery (Field Ledger "Receive"): the holder prefix block, one samples
- * summary line per test hole (depth written as text, never drawn), and where it will go. No ID:
- * IDs are issued only when the delivery is confirmed. The editor opens under the row.
+ * One storage unit of a receipt (STRATA-76): its number, a heading for assistive technology, the
+ * row's fields (UnitEditor) and an actions menu. No ID: IDs are issued only when the receipt is
+ * confirmed. Enter on the last row adds a unit; Shift+Enter copies this one below (the page
+ * handles both through `onKeyDown`).
  */
 export function UnitRow({
   unit,
   index,
-  draft,
-  open,
-  canClose,
-  onToggle,
-  onDuplicate,
+  canRemove,
+  invalid = false,
+  onAddHole,
+  onUseLocation,
+  onCopy,
   onRemove,
+  onKeyDown,
+  onKeyDownCapture,
   children,
 }: {
   unit: UnitDraft;
   index: number;
-  draft: Pick<ReceiptDraft, 'units'>;
-  open: boolean;
-  /** False while the unit has problems to fix: it stays open so the error links reach them. */
-  canClose: boolean;
-  onToggle: () => void;
-  onDuplicate: () => void;
+  /** False for the only row: a receipt needs at least one unit. */
+  canRemove: boolean;
+  /** The row has a problem on show. */
+  invalid?: boolean;
+  /** Buckets: puts focus in the test hole search, to add another hole ("Also holds"). */
+  onAddHole?: () => void;
+  /** Tubes and new bulk samples: the source is a standalone location instead of a test hole. */
+  onUseLocation?: () => void;
+  onCopy: () => void;
   onRemove: () => void;
-  /** The unit's editor, shown while open. */
+  onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
+  onKeyDownCapture?: (event: KeyboardEvent<HTMLElement>) => void;
+  /** The unit's fields. */
   children: ReactNode;
 }) {
   const name = unitName(index, unit);
   const headingId = `unit-${unit.clientRowId}-heading`;
-  const lines = unitContentLines(draft, unit);
-  const target = (unit.targetLocation ?? '').trim();
-  const holder =
-    unit.unitType === 'bucket' && unit.bulk ? 'Bulk soil' : UNIT_TYPE_LABEL[unit.unitType];
+  /** An action moves focus itself (the new row, the search): the menu must not take it back. */
+  const acted = useRef(false);
+  const act = (action: () => void) => () => {
+    acted.current = true;
+    action();
+  };
   return (
-    <section
-      id={`unit-${unit.clientRowId}`}
-      className={open ? 'receive-unit is-open' : 'receive-unit'}
-      aria-labelledby={headingId}
+    <li
+      className={cn(
+        'border-t px-4 py-4 first:border-t-0 sm:px-5',
+        invalid && 'bg-stage-danger-bg/40',
+      )}
     >
-      <div className="receive-unit-row">
-        <div className="receive-unit-prefix" aria-hidden="true">
-          <span className="receive-unit-prefix-code">{UNIT_PREFIX[unit.unitType]}</span>
-          <span className="receive-unit-prefix-type">{holder}</span>
-        </div>
-        <div className="receive-unit-main">
-          <h3 id={headingId} tabIndex={-1} className="receive-unit-name">
+      <section
+        id={`unit-${unit.clientRowId}`}
+        aria-labelledby={headingId}
+        className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-start gap-x-3"
+        onKeyDown={onKeyDown}
+        onKeyDownCapture={onKeyDownCapture}
+      >
+        <span
+          aria-hidden="true"
+          className="text-muted-foreground flex h-11 items-center self-start pt-5 font-mono text-[13px] tabular-nums"
+        >
+          {index + 1}
+        </span>
+        <div className="min-w-0">
+          <h3 id={headingId} tabIndex={-1} className="sr-only">
             {name}
           </h3>
-          <ul className="receive-unit-lines" aria-label={`${name} contents`}>
-            {lines.map((line, lineIndex) => (
-              <li key={`${line.hole}-${lineIndex}`}>
-                <span className="receive-unit-hole">{line.hole}</span>
-                <span className="receive-unit-summary">{line.text}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="receive-unit-target">
-            {target ? `Goes to ${target}` : 'Shelf decided when it is put away'}
-          </p>
-        </div>
-        <div className="receive-unit-actions">
-          {open && !canClose ? null : (
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-controls={open ? `unit-${unit.clientRowId}-editor` : undefined}
-              aria-label={open ? `Done with ${name}` : `Edit ${name}`}
-              onClick={onToggle}
-            >
-              {open ? 'Done' : 'Edit'}
-            </button>
-          )}
-          <button type="button" onClick={onDuplicate} aria-label={`Duplicate ${name}`}>
-            Duplicate
-          </button>
-          <button type="button" className="danger" onClick={onRemove} aria-label={`Remove ${name}`}>
-            Remove
-          </button>
-        </div>
-      </div>
-      {open ? (
-        <div id={`unit-${unit.clientRowId}-editor`} className="receive-unit-body">
           {children}
         </div>
-      ) : null}
-    </section>
+        <div className="pt-5">
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`${name} actions`}
+                title={`${name} actions`}
+              >
+                <Ellipsis aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-64"
+              onCloseAutoFocus={(event) => {
+                if (acted.current) event.preventDefault();
+                acted.current = false;
+              }}
+            >
+              {onAddHole ? (
+                <DropdownMenuItem onSelect={act(onAddHole)}>
+                  <Plus aria-hidden="true" />
+                  Add a test hole to this unit
+                </DropdownMenuItem>
+              ) : null}
+              {onUseLocation ? (
+                <DropdownMenuItem onSelect={act(onUseLocation)}>
+                  <MapPin aria-hidden="true" />
+                  Use a location reference instead
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onSelect={act(onCopy)}>
+                <CopyPlus aria-hidden="true" />
+                Copy this unit below
+                <DropdownMenuShortcut>Shift+Enter</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!canRemove}
+                onSelect={act(onRemove)}
+              >
+                <Trash2 aria-hidden="true" />
+                Remove {name}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </section>
+    </li>
   );
 }

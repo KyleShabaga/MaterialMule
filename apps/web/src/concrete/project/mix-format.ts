@@ -6,7 +6,7 @@ import {
   type ConcreteMixStatus,
   type ConcreteSpecimenAge,
 } from '@materialmule/shared';
-import type { BadgeTone } from '../../components/ui';
+import type { BadgeTone } from '../../components/app-ui';
 
 export const ADMIXTURE_LABEL: Record<ConcreteAdmixtureKind, string> = {
   superplasticizer: 'Superplasticizer',

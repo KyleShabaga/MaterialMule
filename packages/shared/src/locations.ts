@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { printJobSchema } from './printing';
+import { effectiveStorageTermSchema, storageTermSchema } from './stage';
 
 // Storage locations administration and location labels (MM-T37). Shared by the API and the web
 // app so both validate codes, payloads and requests the same way.
@@ -36,6 +37,11 @@ export const LOCATION_NAME_MAX = 100;
 export const LOCATION_AREA_MAX = 60;
 export const LOCATION_REASON_MAX = 500;
 export const LOCATION_SEARCH_MAX = 100;
+/** STRATA-106/74: a shelf's countable places; matches location_capacity_check. */
+export const LOCATION_CAPACITY_MIN = 1;
+export const LOCATION_CAPACITY_MAX = 200;
+/** STRATA-106: warehouse › bay › shelf; matches location_parent_depth_check. */
+export const LOCATION_MAX_LEVELS = 3;
 
 /** What a typed code is stored and compared as: trimmed and upper case. " wh-c1 " → "WH-C1". */
 export function normalizeLocationCode(code: string): string {
@@ -103,12 +109,39 @@ const area = z
 
 const kind = z.enum(SELECTABLE_LOCATION_KINDS, { error: 'Choose a kind' });
 
+/**
+ * STRATA-106: the location this one sits in (a bay in a warehouse, a shelf in a bay); null for a
+ * top-level location such as a warehouse. At most three levels; never itself or a descendant.
+ */
+const parentId = z.uuid({ error: 'Choose a location' }).nullable();
+
+/**
+ * STRATA-106: this location's own storage term. On a top-level location it is the default its
+ * bays and shelves inherit; on a bay or shelf it overrides the inherited term. Null means inherit
+ * (or, at the top, not set yet), never a third storage class.
+ */
+const ownStorageTerm = storageTermSchema.nullable();
+
+/**
+ * STRATA-106/74: how many units the shelf holds in countable places (the shelf page draws one
+ * cell per place). Null means unknown; the app never assumes a number.
+ */
+const capacity = z
+  .number({ error: 'Enter a whole number' })
+  .int({ error: 'Enter a whole number' })
+  .min(LOCATION_CAPACITY_MIN, { error: `Use ${LOCATION_CAPACITY_MIN}–${LOCATION_CAPACITY_MAX}` })
+  .max(LOCATION_CAPACITY_MAX, { error: `Use ${LOCATION_CAPACITY_MIN}–${LOCATION_CAPACITY_MAX}` })
+  .nullable();
+
 /** `POST /api/locations`. */
 export const createLocationRequestSchema = z.strictObject({
   code,
   name,
   kind,
   area: area.optional().transform((value) => value ?? null),
+  parentId: parentId.optional().transform((value) => value ?? null),
+  storageTerm: ownStorageTerm.optional().transform((value) => value ?? null),
+  capacity: capacity.optional().transform((value) => value ?? null),
 });
 export type CreateLocationRequest = z.input<typeof createLocationRequestSchema>;
 
@@ -121,6 +154,9 @@ export const updateLocationRequestSchema = z.strictObject({
   name: name.optional(),
   kind: kind.optional(),
   area: area.optional(),
+  parentId: parentId.optional(),
+  storageTerm: ownStorageTerm.optional(),
+  capacity: capacity.optional(),
   version: z.number({ error: 'Version is required' }).int().positive(),
 });
 export type UpdateLocationRequest = z.input<typeof updateLocationRequestSchema>;
@@ -194,6 +230,14 @@ export const locationSchema = z.object({
   labelPrintedAt: z.string().nullable(),
   /** Units whose saved location this is and that aren't disposed (Current stock). */
   inStockCount: z.number(),
+  /** STRATA-106: the containing location, or null at the top. Optional for older fixtures. */
+  parentId: z.string().nullable().optional(),
+  /** STRATA-106: this location's own term (null = inherit / not set). Optional for fixtures. */
+  storageTerm: storageTermSchema.nullable().optional(),
+  /** STRATA-106: the term units here follow, from the one server resolver. Optional for fixtures. */
+  effectiveStorageTerm: effectiveStorageTermSchema.optional(),
+  /** STRATA-106/74: countable places on the shelf, or null when unknown. Optional for fixtures. */
+  capacity: z.number().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   version: z.number(),

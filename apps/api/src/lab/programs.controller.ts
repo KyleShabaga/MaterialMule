@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res } from 
 import {
   createLabProgramRequestSchema,
   discardLabProgramRequestSchema,
-  LAB_PROGRAM_SEARCH_MAX,
+  labProgramListQuerySchema,
   labSourceRefSchema,
   submitLabProgramRequestSchema,
   updateLabProgramRequestSchema,
@@ -11,6 +11,7 @@ import {
   type LabProgramReview,
   type LabSource,
   type LabSourceUnit,
+  type ProgramUnits,
 } from '@materialmule/shared';
 import type { Response } from 'express';
 import { CurrentUser, RequirePermission } from '../auth/auth.decorators.js';
@@ -32,28 +33,22 @@ export class LabProgramsController {
 
   @Get('lab-programs')
   @RequirePermission('lab_program.read')
-  list(
-    @CurrentUser() user: AuthUser,
-    @Query('status') status?: string,
-    @Query('projectId') projectId?: string,
-    @Query('page') page?: string,
-    @Query('search') search?: string,
-  ): Promise<LabProgramList> {
-    const pageNumber = Number(page);
-    return this.programs.list(user, {
-      status,
-      projectId,
-      // Field Ledger top-bar search: program number, project number or project name.
-      search:
-        typeof search === 'string' ? search.trim().slice(0, LAB_PROGRAM_SEARCH_MAX) : undefined,
-      page: Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1,
-    });
+  list(@CurrentUser() user: AuthUser, @Query() query: unknown): Promise<LabProgramList> {
+    // STRATA-47: allowlisted sort and direction, bounded paging; anything else is a 400.
+    return this.programs.list(user, parseBody(labProgramListQuerySchema, query ?? {}));
   }
 
   @Get('lab-programs/:id')
   @RequirePermission('lab_program.read')
   get(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<LabProgram> {
     return this.programs.get(id, user);
+  }
+
+  /** STRATA-87: covered units, where each is now and which the lab still has to pull. */
+  @Get('lab-programs/:id/units')
+  @RequirePermission('lab_program.read')
+  units(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<ProgramUnits> {
+    return this.programs.units(id, user);
   }
 
   /** What submitting now would record: coverage per line, warnings and blocking problems. */

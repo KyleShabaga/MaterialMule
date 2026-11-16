@@ -236,12 +236,20 @@ describe('Strength report page', () => {
     const cells = within(row('7 days', 1)).getAllByRole('cell');
     expect(cells[4]).toHaveTextContent(/^—$/);
     expect(cells[6]).toHaveTextContent(/^—$/);
-    // The four facts: version, workflow, specified strength and method, each its own cell.
-    const facts = document.querySelector('.fact-cells[aria-label="Strength report"]')!;
-    expect(
-      Array.from(facts.querySelectorAll('.fact-cell > dt')).map((dt) => dt.textContent),
-    ).toEqual(['Version', 'Workflow', 'Specified', 'Method']);
-    expect(facts).toHaveTextContent('Not submitted');
+    // The four facts in the panel: version, workflow, specified strength and method.
+    const facts = screen
+      .getByRole('complementary', { name: 'Review panel' })
+      .querySelector('dl[aria-label="Strength report"]')!;
+    expect(Array.from(facts.querySelectorAll('dt')).map((dt) => dt.textContent)).toEqual([
+      'Version',
+      'Workflow',
+      'Specified',
+      'Method',
+    ]);
+    // The status word is the header's tag; the paper is marked provisional (G2).
+    expect(screen.getByText('Not submitted')).toBeVisible();
+    expect(screen.getByText('Provisional · G2 open')).toBeVisible();
+    expect(screen.getByText('Provisional design · G2 open · not for issue as drawn')).toBeVisible();
     expect(screen.getByText(/32 MPa at 28 d/)).toBeVisible();
     expect(screen.getByText(/to be confirmed by owner/)).toBeVisible();
   });

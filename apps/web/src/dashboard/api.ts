@@ -1,21 +1,19 @@
 import {
-  activityResponseSchema,
-  inventoryPageSchema,
-  locationListSchema,
-  recentlyReceivedResponseSchema,
-  worklistSchema,
-  type ActivityItem,
-  type InventoryPage,
-  type RecentlyReceivedResponse,
-  type RecentlyReceivedShow,
-  type StorageLocation,
-  type Worklist,
+  DEFAULT_DATE_FORMAT,
+  needsYouResponseSchema,
+  PROJECT_LIST_PAGE_SIZE_MAX,
+  projectListPageSchema,
+  scopedActivityItemSchema,
+  type ActivityScope,
+  type DateFormatPreference,
+  type NeedsYouResponse,
+  type ScopedActivityItem,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
+import { fetchPreferences } from '../settings/account/preferences-api';
 
-// Today's data, each through the list or count the app already has. Every call resolves; a
-// failure carries a message for ErrorState. `forbidden` marks a refusal (this account can't
-// read that kind of record), which Today leaves out rather than showing as an error.
+// Today's data (Strata): Needs you, the last 24 hours, and whether the person leads a project
+// (which picks the shortcut set). Every call resolves; a failure carries a message.
 
 export type Loaded<T> = { ok: true; data: T } | { ok: false; message: string; forbidden?: boolean };
 
@@ -31,10 +29,10 @@ async function get<T>(path: string, what: string, schema: Schema<T>): Promise<Lo
     return { ok: false, message: `${what} couldn't load. Check the connection.` };
   }
   if (!response.ok) {
-    // No status codes on screen (design guide): say what failed and offer Retry.
+    // No status codes on screen: say what failed and offer Try again.
     return {
       ok: false,
-      message: `${what} couldn't load. Try again.`,
+      message: `${what} couldn't load.`,
       forbidden: response.status === 403,
     };
   }
@@ -44,56 +42,47 @@ async function get<T>(path: string, what: string, schema: Schema<T>): Promise<Lo
     : { ok: false, message: `${what} couldn't load: unexpected response.` };
 }
 
-/** Hours Today's ledger covers. */
-export const LEDGER_HOURS = 24;
-export const LEDGER_LIMIT = 12;
+/** `GET /api/today/needs-you`: requests waiting on me plus system work (STRATA-56). */
+export function fetchNeedsYou(): Promise<Loaded<NeedsYouResponse>> {
+  return get('/api/today/needs-you', 'Needs you', needsYouResponseSchema);
+}
 
-/** Today's ledger: the last 24 hours of receipts, labels, corrections, moves and disposals. */
-export function fetchLedger(): Promise<Loaded<ActivityItem[]>> {
+/** Hours and lines in "Last 24 hours". */
+export const ACTIVITY_HOURS = 24;
+export const ACTIVITY_LIMIT = 12;
+
+const scopedActivitySchema = scopedActivityItemSchema.array();
+
+/** `GET /api/activity/recent?hours=24&limit=12&scope=` (STRATA-23). */
+export function fetchActivity(scope: ActivityScope): Promise<Loaded<ScopedActivityItem[]>> {
   return get(
-    `/api/activity/recent?limit=${LEDGER_LIMIT}&hours=${LEDGER_HOURS}`,
-    'The ledger',
-    activityResponseSchema,
+    `/api/activity/recent?hours=${ACTIVITY_HOURS}&limit=${ACTIVITY_LIMIT}&scope=${scope}`,
+    'The last 24 hours',
+    scopedActivitySchema,
   );
 }
 
-/** Kept for callers of the former dashboard list. */
-export function fetchRecentActivity(): Promise<Loaded<ActivityItem[]>> {
-  return get('/api/activity/recent?limit=8', 'Recent activity', activityResponseSchema);
-}
-
-export function fetchRecentlyReceived(
-  show: RecentlyReceivedShow,
-  limit?: number,
-): Promise<Loaded<RecentlyReceivedResponse>> {
-  return get(
-    `/api/inventory/recently-received?show=${show}${limit ? `&limit=${limit}` : ''}`,
-    'Recently received',
-    recentlyReceivedResponseSchema,
+/**
+ * Whether the signed-in person is the Lead Project Engineer of any project (My projects, D12
+ * involvement). Relevance only: it picks shortcuts and grants nothing. False when unknown.
+ */
+export async function fetchLeadsAnyProject(): Promise<boolean> {
+  const result = await get(
+    `/api/projects?mine=true&pageSize=${PROJECT_LIST_PAGE_SIZE_MAX}`,
+    'Projects',
+    projectListPageSchema,
+  );
+  return (
+    result.ok &&
+    result.data.items.some((project) => project.involvement.includes('lead_project_engineer'))
   );
 }
 
-/** Units whose retain-until date has been reached (the Retention screen decides what happens). */
-export const RETENTION_PAGE = 100;
-
-export function fetchRetentionDue(): Promise<Loaded<InventoryPage>> {
-  return get(
-    `/api/inventory?retention=eligible_by_date&pageSize=${RETENTION_PAGE}`,
-    'Retention',
-    inventoryPageSchema,
-  );
-}
-
-/** Units whose saved location has an open conflict a person must confirm (MM-T81). */
-export function fetchOpenConflicts(): Promise<Loaded<InventoryPage>> {
-  return get('/api/inventory?conflict=open&pageSize=1', 'Location conflicts', inventoryPageSchema);
-}
-
-export function fetchLocations(): Promise<Loaded<StorageLocation[]>> {
-  return get('/api/locations', 'The storage room', locationListSchema);
-}
-
-/** Lab programs with open tests (the lab worklist). */
-export function fetchOpenPrograms(): Promise<Loaded<Worklist>> {
-  return get('/api/worklist?open=true', 'Lab programs', worklistSchema);
+/** The person's Date format setting; the default when it can't be read. */
+export async function fetchDateFormat(): Promise<DateFormatPreference> {
+  try {
+    return (await fetchPreferences()).preferences.dateFormat;
+  } catch {
+    return DEFAULT_DATE_FORMAT;
+  }
 }

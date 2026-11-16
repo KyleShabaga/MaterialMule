@@ -2,7 +2,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { withDatabase } from './support/db';
-import { signInAsLabStation } from './support/lab-station';
+import { STATION_PEOPLE, signInAsLabStation } from './support/lab-station';
 
 // MM-T36 removal after testing through the real MM-T24 route (T24 AC14 / T12, T36 AC9–AC11):
 // LAB completes a test with the exact tube or bucket linked, LAB can't confirm removal, and a
@@ -145,22 +145,23 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   const [tubeA, tubeB] = await insertUnits(holeId, 'tube', 2);
   const program = await submitProgram(page.request, testTypeId, holeId);
 
-  // LAB station: Start and Mark completed for Jordan Smith, linking only ST-A.
-  await signInAsLabStation(page);
+  // LAB station, recording as Jordan Smith (the performer follows the chip, STRATA-125): Start
+  // and Mark completed, linking only ST-A.
+  await signInAsLabStation(page, { person: STATION_PEOPLE.jordan });
   await page.goto(`/lab-testing/programs/${program.id}`);
   const row = page.locator('.request-list li', { hasText: code });
   await row.getByRole('button', { name: 'Start' }).click();
-  await row.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(row.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(/Jordan Smith/);
   await row.getByRole('group').getByRole('button', { name: 'Start' }).click();
-  await expect(row).toContainText('In progress');
+  await expect(row).toContainText('In testing');
   await row.getByRole('button', { name: 'Mark completed' }).click();
   const panel = row.getByRole('group', { name: /Mark completed/ });
-  await panel.getByRole('combobox', { name: /Who is doing this/ }).fill('Jordan');
-  await page.getByRole('option', { name: /Jordan Smith/ }).click();
+  await expect(panel.getByRole('textbox', { name: /Who is doing this/ })).toHaveValue(
+    /Jordan Smith/,
+  );
   await panel.getByRole('checkbox', { name: new RegExp(tubeA!.readableId) }).check();
   await panel.getByRole('button', { name: 'Mark completed' }).click();
-  await expect(row).toContainText('Completed');
+  await expect(row).toContainText('Done');
 
   // Testing alone: both tubes still in stock at Receiving lab.
   expect((await unitState([tubeA!.readableId, tubeB!.readableId])).map((u) => u.status)).toEqual([
@@ -202,32 +203,23 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   const storageRow = page.getByRole('row', { name: new RegExp(tubeA!.readableId) });
   await expect(storageRow).toContainText('Not applicable');
   await expect(storageRow).not.toContainText('On hold');
-  await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}`);
-  await expect(page.getByText(/current units, by storage unit ID/)).toBeVisible();
-  const tested = page.getByRole('region', { name: 'Tested: removed after testing' });
-  for (
-    let next = 2;
-    (await tested.getByRole('link', { name: tubeA!.readableId }).count()) === 0;
-    next += 1
-  ) {
-    expect(next, 'tested tube not found on any Disposal page').toBeLessThan(50);
-    await page
-      .getByRole('navigation', { name: 'Pages' })
-      .getByRole('button', { name: 'Next' })
-      .click();
-    await expect(page.getByText(new RegExp(`Page ${next} of`))).toBeVisible();
-  }
-  const testedItem = tested.getByRole('listitem').filter({ hasText: tubeA!.readableId });
-  await expect(testedItem).toContainText('Retention: Not applicable');
-  await expect(testedItem).not.toContainText(/On hold|Retain until/);
-  await expect(page.getByRole('region', { name: 'Not eligible' })).not.toContainText(
-    tubeA!.readableId,
+  // Retention lists the tested tube apart from the bands: retention (and its hold) doesn't apply.
+  await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}&search=${tubeA!.readableId}`);
+  const tested = page.getByRole('region', { name: 'Tested units' });
+  await expect(tested).toContainText(
+    'Retention doesn’t apply. Open each unit and use “Confirm removal after testing”.',
   );
+  const testedRow = tested.getByRole('row', { name: new RegExp(tubeA!.readableId) });
+  await expect(testedRow.getByRole('link', { name: 'Open unit' })).toBeVisible();
+  await expect(testedRow).not.toContainText(/On hold|Retain until|Retention ends/);
+  for (const band of ['Overdue', 'Within 30 days', 'Within 90 days']) {
+    await expect(page.getByRole('region', { name: band })).not.toContainText(tubeA!.readableId);
+  }
 
   // A personal account confirms the physical removal (the hold doesn't block it).
   await signInAs(page, 'at');
   await page.goto(`/sample-storage/${tubeA!.readableId}`);
-  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
     'Not applicable — tested Shelby tube',
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
@@ -250,8 +242,13 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
   await expect(page.getByRole('region', { name: 'Testing and removal' })).toContainText(
     'Available for testing',
   );
-  await page.goto(`/sample-storage?search=${tubeA!.readableId}`);
-  await expect(page.getByText(/No storage units match/)).toBeVisible();
+  // Gone from stock: neither storage tab lists it (the All tab includes disposed units).
+  for (const stage of ['short_term', 'long_term']) {
+    await page.goto(`/sample-storage?search=${tubeA!.readableId}&stage=${stage}`);
+    await expect(
+      page.getByText('No storage units match this search and these filters.'),
+    ).toBeVisible();
+  }
   await page.goto(`/sample-storage?search=${tubeA!.readableId}&status=disposed`);
   await expect(page.getByRole('row', { name: new RegExp(tubeA!.readableId) })).toContainText(
     'Disposed after testing',
@@ -259,7 +256,7 @@ test('T12: LAB completes ST-A for a person; LAB can’t remove it; a personal ac
 
   // The test itself is unchanged: removal is not review or acceptance.
   await page.goto(`/lab-testing/programs/${program.id}`);
-  await expect(page.locator('.request-list li', { hasText: code })).toContainText('Completed');
+  await expect(page.locator('.request-list li', { hasText: code })).toContainText('Done');
 });
 
 test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B stays in stock', async ({
@@ -285,7 +282,7 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
 
   await page.goto(`/sample-storage/${bucketA!.readableId}`);
   const section = page.getByRole('region', { name: 'Testing and removal' });
-  await expect(page.getByRole('region', { name: 'Where it is' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Retention', exact: true })).toContainText(
     'Not applicable — tested bulk sample',
   );
   await section.getByRole('checkbox', { name: /has physically left the lab/ }).check();
@@ -304,7 +301,8 @@ test('tested bulk bucket: removal of BKT-A without approval or closure; BKT-B st
     ].sort((x, y) => x[0]!.localeCompare(y[0]!)),
   );
   await page.goto(`/sample-storage/${bucketB!.readableId}`);
-  await expect(page.locator('.unit-status-tags')).toContainText('In stock');
+  // Still stored: its record tag is a storage word, never Disposed.
+  await expect(page.locator('.unit-status-tags')).not.toContainText('Disposed');
   await expect(page.getByRole('region', { name: 'Testing and removal' })).toContainText(
     'No completed test has recorded this exact unit',
   );

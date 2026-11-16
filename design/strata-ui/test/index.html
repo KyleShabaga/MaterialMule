@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Strata UI test</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="strata-ui.css">
+<script src="react.production.min.js"></script>
+<script src="react-dom.production.min.js"></script>
+<script src="strata-ui.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const h = React.createElement, S = window.Strata;
+const item = (icon, label, active) => h(S.SidebarMenuItem, null, h(S.SidebarMenuButton, { isActive: active, tooltip: label }, h(S.Icon, { name: icon }), h('span', null, label)));
+const app = h(S.SidebarProvider, null,
+  h(S.Sidebar, { collapsible: 'icon' },
+    h(S.SidebarHeader, null, h(S.SidebarMenu, null, item('house', 'Material Mule'))),
+    h(S.SidebarContent, null,
+      h(S.SidebarGroup, null, h(S.SidebarMenu, null, item('house', 'Today', true), item('inbox', 'Inbox'))),
+      h(S.SidebarGroup, null, h(S.SidebarGroupLabel, null, 'Lab'), h(S.SidebarMenu, null, item('folder', 'Projects'), item('package', 'Inventory')))),
+    h(S.SidebarFooter, null, h(S.DropdownMenu, null,
+      h(S.DropdownMenuTrigger, { asChild: true }, h(S.SidebarMenuButton, { size: 'lg' }, h('span', null, 'Alex Tester'))),
+      h(S.DropdownMenuContent, { side: 'top' }, h(S.DropdownMenuItem, null, h(S.Icon, { name: 'settings' }), 'Settings'), h(S.DropdownMenuItem, null, h(S.Icon, { name: 'log-out' }), 'Sign out'))))),
+  h(S.SidebarInset, null, h('header', { className: 'flex h-14 items-center gap-2 px-4' }, h(S.SidebarTrigger), 'Today')));
+ReactDOM.createRoot(document.getElementById('root')).render(app);
+</script>
+</body>
+</html>

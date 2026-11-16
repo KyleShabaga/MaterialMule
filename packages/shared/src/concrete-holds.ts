@@ -16,6 +16,9 @@ import { personSnapshotSchema } from './lab-programs';
 //   (`concrete_specimen.dispose_record`; LAB names the performing person). Authorized-but-not-
 //   removed specimens appear in Ready for disposal (MISC-13 list, Concrete specimens filter) and
 //   stay distinct from disposed ones.
+// - STRATA-121 Hold until: scheduled specimens (an age in days, numbered set, no test entry) are
+//   put on an ordinary HOLD until a chosen calendar date with a reason, by the same callers as
+//   the ordinary HOLD release (`concrete_ordinary_hold.manage`). The date only flags review.
 
 export const CONCRETE_HOLD_KIND_VALUES = ['ordinary', 'failed'] as const;
 export type ConcreteHoldKind = (typeof CONCRETE_HOLD_KIND_VALUES)[number];
@@ -104,7 +107,10 @@ export const concreteHoldRowSchema = z.object({
   holdKind: z.enum(CONCRETE_HOLD_KIND_VALUES),
   assignedAge: concreteSpecimenAgeSchema,
   castingDate: z.string().nullable(),
-  /** Ordinary HOLD only: casting date + the set's HOLD duration. */
+  /**
+   * Ordinary HOLD only: the date chosen with Hold until (STRATA-121), else casting date + the
+   * set's HOLD duration.
+   */
   holdExpiresOn: z.string().nullable(),
   status: z.enum(CONCRETE_HOLD_STATUSES),
   /** Failed-specimen hold only: why it was held (C25). */
@@ -181,6 +187,20 @@ export type ConcreteHoldAuthorizeDisposalRequest = z.infer<
 >;
 
 /**
+ * `POST /api/concrete/holds/hold-until` (STRATA-121, `concrete_ordinary_hold.manage`): scheduled
+ * specimens (an age in days) go on an ordinary HOLD until `holdUntil` (a calendar date after the
+ * lab's today, America/Edmonton). Their previous age and target are kept in the history. All or
+ * nothing, like every bulk HOLD action; nothing is scheduled, released or disposed of on the date.
+ */
+export const concreteHoldUntilRequestSchema = z.strictObject({
+  idempotencyKey: idSchema,
+  items: itemsSchema,
+  holdUntil: z.iso.date({ error: 'Enter the hold-until date (YYYY-MM-DD)' }),
+  reason: reasonSchema,
+});
+export type ConcreteHoldUntilRequest = z.infer<typeof concreteHoldUntilRequestSchema>;
+
+/**
  * `POST /api/concrete/disposal/record` (`concrete_specimen.dispose_record`): actual removal of
  * specimens already authorized. LAB must name the performing staff member.
  */
@@ -210,6 +230,8 @@ export const CONCRETE_HOLD_PROBLEM_CODES = [
   'not_authorized_for_disposal',
   'disposed',
   'before_authorization',
+  'already_on_hold',
+  'tested_specimen',
 ] as const;
 export type ConcreteHoldProblemCode = (typeof CONCRETE_HOLD_PROBLEM_CODES)[number];
 
@@ -226,6 +248,8 @@ export const CONCRETE_HOLD_PROBLEM_LABEL: Record<ConcreteHoldProblemCode, string
   not_authorized_for_disposal: 'Not authorized for disposal',
   disposed: 'Already disposed',
   before_authorization: 'Removal time is before the disposal authorization',
+  already_on_hold: 'Already on hold',
+  tested_specimen: 'Already has a test entry',
 };
 
 /** 409 body of a bulk action that changed nothing because some specimens aren't eligible. */
@@ -249,6 +273,7 @@ export type ConcreteHoldActionResult = z.infer<typeof concreteHoldActionResultSc
 
 export const CONCRETE_HOLD_EVENT_KINDS = [
   'failure_hold',
+  'hold_assigned',
   'test_scheduled',
   'disposal_authorized',
   'disposed',
@@ -265,6 +290,10 @@ export const concreteHoldEventSchema = z.object({
   newAge: z.number().int().nullable(),
   newTargetDate: z.string().nullable(),
   previousHoldExpiresOn: z.string().nullable(),
+  /** hold_assigned (STRATA-121): the age and target it had, and the chosen hold-until date. */
+  previousAge: z.number().int().nullable(),
+  previousTargetDate: z.string().nullable(),
+  holdUntil: z.string().nullable(),
   disposedAt: z.string().nullable(),
   /** The bulk command the entry belongs to. */
   commandId: z.string().nullable(),

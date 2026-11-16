@@ -58,8 +58,18 @@ function amountRule<T extends { retainUntil?: string; extendMonths?: number }>(
   }
 }
 
+/**
+ * STRATA-91: the date a hold is meant to last until. Shown only: a hold never releases itself,
+ * it stays in force until someone releases it with a reason. Omitted = until released.
+ */
+const holdUntilField = {
+  holdUntil: z.iso.date({ error: 'must be a date (YYYY-MM-DD)' }).optional(),
+};
+
 /** `POST /api/retention/holds` (Lead Project Engineer or Lab Manager). */
-export const placeHoldSchema = z.strictObject(scopeFields).superRefine(scopeRule);
+export const placeHoldSchema = z
+  .strictObject({ ...scopeFields, ...holdUntilField })
+  .superRefine(scopeRule);
 export type PlaceHold = z.output<typeof placeHoldSchema>;
 
 /** `POST /api/retention/extensions` (Lead Project Engineer or Lab Manager). */
@@ -82,11 +92,20 @@ export type ReleaseRetention = z.output<typeof releaseRetentionSchema>;
 
 /** `POST /api/retention/requests` (any internal personal account; never LAB). */
 export const retentionRequestSchema = z
-  .strictObject({ kind: z.enum(['hold', 'extension']), ...scopeFields, ...amountFields })
+  .strictObject({
+    kind: z.enum(['hold', 'extension']),
+    ...scopeFields,
+    ...amountFields,
+    ...holdUntilField,
+  })
   .superRefine((v, ctx) => {
     scopeRule(v, ctx);
-    if (v.kind === 'extension') amountRule(v, ctx);
-    else if (v.retainUntil !== undefined || v.extendMonths !== undefined) {
+    if (v.kind === 'extension') {
+      amountRule(v, ctx);
+      if (v.holdUntil !== undefined) {
+        ctx.addIssue({ code: 'custom', path: ['holdUntil'], message: 'only for a hold' });
+      }
+    } else if (v.retainUntil !== undefined || v.extendMonths !== undefined) {
       ctx.addIssue({ code: 'custom', path: ['retainUntil'], message: 'only for an extension' });
     }
   });
@@ -108,6 +127,8 @@ export const retentionHoldSchema = z.object({
   reason: z.string(),
   placedBy: personSnapshotSchema,
   placedAt: z.string(),
+  /** STRATA-91: the date it is meant to last until (shown only); null = until released. */
+  holdUntil: z.string().nullable().default(null),
   fromRequestId: z.string().nullable(),
   active: z.boolean(),
   releasedBy: personSnapshotSchema.nullable(),
@@ -118,7 +139,7 @@ export const retentionHoldSchema = z.object({
 export type RetentionHold = z.infer<typeof retentionHoldSchema>;
 
 export const retentionExtensionSchema = retentionHoldSchema
-  .omit({ placedBy: true, placedAt: true })
+  .omit({ placedBy: true, placedAt: true, holdUntil: true })
   .extend({
     retainUntil: z.string().nullable(),
     extendMonths: z.number().int().nullable(),
@@ -134,6 +155,8 @@ export const retentionRequestViewSchema = z.object({
   units: z.array(z.object({ id: z.string(), readableId: z.string() })),
   retainUntil: z.string().nullable(),
   extendMonths: z.number().int().nullable(),
+  /** A hold request's date (shown only); null = until released or not a hold. */
+  holdUntil: z.string().nullable().default(null),
   reason: z.string(),
   requestedBy: personSnapshotSchema,
   requestedAt: z.string(),

@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
@@ -5,7 +7,9 @@ import { defineConfig } from 'vitest/config';
 const apiTarget = process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:3000';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  // '@/' is src/, the alias shadcn components use (components.json).
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // Only VITE_-prefixed variables can reach the browser bundle; never put secrets in them.
   envPrefix: 'VITE_',
   // Bind IPv4 explicitly: on Windows "localhost" can resolve to ::1 only, and the API,

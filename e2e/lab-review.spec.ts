@@ -94,20 +94,37 @@ test('T4: return for correction → correction done → fresh review → accept 
   const code = unique('DEMO-RV');
   const typeId = await addTestType(page, code);
   await signInAs(page, 'at');
-  const { programId, programNumber } = await testInReview(page.request, typeId);
+  const { programId, programNumber, testRequestId, version } = await testInReview(
+    page.request,
+    typeId,
+  );
 
-  // A Technician reviews and returns it with a required comment; it stays in Review.
+  // STRATA-87: the requester (Alex Tester submitted it) never reviews; the server refuses too.
   await page.goto(`/lab-testing/programs/${programId}`);
   await expect(page.getByRole('heading', { name: programNumber })).toBeVisible();
   const row = testRow(page, code);
   await expect(row).toContainText('Awaiting review');
+  await expect(row.getByRole('button', { name: 'Mark review complete' })).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Return for correction' })).toHaveCount(0);
+  const own = await page.request.post(`/api/test-requests/${testRequestId}/review`, {
+    headers: CSRF,
+    data: { action: 'complete', version, idempotencyKey: crypto.randomUUID() },
+  });
+  expect(own.status()).toBe(403);
+
+  // Another engineer reviews and returns it with a required reason; it stays In review.
+  await signInAs(page, 'de');
+  await page.goto(`/lab-testing/programs/${programId}`);
+  await expect(page.getByText('Due · Review')).toBeVisible();
   await expect(row.getByRole('button', { name: 'Accept' })).toBeDisabled();
   await expect(row).toContainText('You don’t have acceptance authority for this project');
   await row.getByRole('button', { name: 'Return for correction' }).click();
-  const returnButton = row.getByRole('form').getByRole('button', { name: 'Return for correction' });
+  const returnDialog = page.getByRole('dialog', { name: 'Return for correction' });
+  const returnButton = returnDialog.getByRole('button', { name: 'Return for correction' });
   await expect(returnButton).toBeDisabled();
-  await row.getByLabel(/What needs correcting/).fill('Moisture tin weight missing');
+  await returnDialog.getByLabel(/What needs correcting/).fill('Moisture tin weight missing');
   await returnButton.click();
+  await expect(returnDialog).toBeHidden();
   await expect(row).toContainText('Returned to Lab Manager');
   await expect(row).toContainText('Moisture tin weight missing');
   await expect(row).toContainText('In review');
@@ -117,8 +134,9 @@ test('T4: return for correction → correction done → fresh review → accept 
   await page.goto(`/lab-testing/programs/${programId}`);
   await expect(row.getByRole('button', { name: 'Accept' })).toBeDisabled();
   await row.getByRole('button', { name: 'Mark correction done' }).click();
-  await row.getByLabel(/What was corrected/).fill('Tin weight re-entered from the sheet');
-  await row.getByRole('form').getByRole('button', { name: 'Mark correction done' }).click();
+  const doneDialog = page.getByRole('dialog', { name: 'Mark correction done' });
+  await doneDialog.getByLabel(/What was corrected/).fill('Tin weight re-entered from the sheet');
+  await doneDialog.getByRole('button', { name: 'Mark correction done' }).click();
   await expect(row).toContainText('Correction done — awaiting re-review');
 
   // Acceptance stays blocked until a fresh review completes.
@@ -126,7 +144,7 @@ test('T4: return for correction → correction done → fresh review → accept 
   await page.goto(`/lab-testing/programs/${programId}`);
   await expect(row.getByRole('button', { name: 'Accept' })).toBeDisabled();
   await expect(row).toContainText('Review not complete');
-  await signInAs(page, 'at');
+  await signInAs(page, 'de');
   await page.goto(`/lab-testing/programs/${programId}`);
   await row.getByRole('button', { name: 'Mark review complete' }).click();
   await expect(row).toContainText('Review complete');
@@ -136,8 +154,11 @@ test('T4: return for correction → correction done → fresh review → accept 
   await row.getByRole('button', { name: 'Accept' }).click();
   await expect(row).toContainText('Accepted');
   await expect(row).toContainText('Accepted by PE · Pat Example');
+  // Every test is accepted: the program is ready to close, the requester's or lead's main action.
+  await expect(page.getByText('Due · Ready to close')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close program' })).toBeEnabled();
   await row.getByText(/Review history/).click();
-  await expect(row).toContainText('Returned for correction by AT · Alex Tester');
+  await expect(row).toContainText('Returned for correction by DE · Dana Example');
   await expect(row).toContainText('Correction done by LAB · Lab (test)');
 });
 
@@ -182,49 +203,56 @@ test('T5: LAB stations may send to review but every review and acceptance action
   }
 });
 
-test('Acceptance delegates: the Lead Project Engineer adds and revokes a delegate on the project page', async ({
+test('Acceptance delegates: only the Lead Project Engineer adds and revokes one, each with a reason', async ({
   page,
 }, testInfo) => {
+  // The switch lives in the person drawer on the Team tab (covered by team-permissions.spec);
+  // this keeps the delegation rules acceptance relies on.
   const projectId = PROJECTS[testInfo.project.name as keyof typeof PROJECTS] ?? DEMO_PROJECT_ID;
+  const path = `/api/projects/${projectId}/acceptance-delegates`;
   await signInAs(page, 'pe');
   // Start clean if an earlier interrupted run left Dana delegated.
-  const current = await (
-    await page.request.get(`/api/projects/${projectId}/acceptance-delegates`)
-  ).json();
+  const current = await (await page.request.get(path)).json();
   for (const grant of current.active as { id: string }[]) {
-    await page.request.delete(`/api/projects/${projectId}/acceptance-delegates/${grant.id}`, {
+    await page.request.delete(`${path}/${grant.id}`, {
       headers: CSRF,
       data: { reason: 'E2E clean start' },
     });
   }
+  // D15 (MM-AO03): adding needs a reason.
+  const noReason = await page.request.post(path, {
+    headers: CSRF,
+    data: { delegateUserId: DANA, idempotencyKey: crypto.randomUUID() },
+  });
+  expect([400, 422]).toContain(noReason.status());
+  const added = await page.request.post(path, {
+    headers: CSRF,
+    data: {
+      delegateUserId: DANA,
+      reason: 'Covers acceptance in March',
+      idempotencyKey: crypto.randomUUID(),
+    },
+  });
+  expect(added.status()).toBe(201);
+  const grant = (
+    (await added.json()).active as { id: string; delegate: { userId: string } }[]
+  ).find((g) => g.delegate.userId === DANA)!;
 
-  await page.goto(`/projects/${projectId}`);
-  const section = page.getByRole('region', { name: 'Acceptance delegates' });
-  await expect(section).toContainText('No acceptance delegates.');
-  await section.getByRole('combobox', { name: /Add a delegate/ }).fill('Dana');
-  await page.getByRole('option', { name: /Dana Example/ }).click();
-  // D15 (MM-AO03): adding and revoking each need a reason.
-  await expect(section.getByRole('button', { name: 'Add delegate' })).toBeDisabled();
-  await section.getByRole('textbox', { name: 'Reason' }).fill('Covers acceptance in March');
-  await section.getByRole('button', { name: 'Add delegate' }).click();
-  await expect(section.getByRole('list', { name: 'Acceptance delegates' })).toContainText(
-    'Dana Example',
-  );
-  await expect(section).toContainText('Reason: Covers acceptance in March');
-  await section.getByRole('button', { name: 'Revoke Dana Example' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Revoke Dana Example?' });
-  await dialog.getByRole('button', { name: 'Revoke' }).click();
-  await expect(dialog).toContainText('Enter a reason.');
-  await dialog.getByRole('textbox', { name: 'Reason' }).fill('Back from leave');
-  await dialog.getByRole('button', { name: 'Revoke' }).click();
-  await expect(section).toContainText('No acceptance delegates.');
-  await section.getByText(/Delegation history/).click();
-  await expect(section).toContainText(/Dana Example: added by PE · Pat Example/);
-  await expect(section).toContainText('(Back from leave)');
-
-  // Someone who isn't the Lead Project Engineer sees the list but no controls.
+  // Someone who isn't the Lead Project Engineer reads the list but can't change it.
   await signInAs(page, 'de');
-  await page.goto(`/projects/${projectId}`);
-  await expect(page.getByRole('region', { name: 'Acceptance delegates' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add delegate' })).toHaveCount(0);
+  const read = await (await page.request.get(path)).json();
+  expect(read.canManage).toBe(false);
+  const refused = await page.request.delete(`${path}/${grant.id}`, {
+    headers: CSRF,
+    data: { reason: 'Trying anyway' },
+  });
+  expect(refused.status()).toBe(403);
+
+  await signInAs(page, 'pe');
+  const revoked = await page.request.delete(`${path}/${grant.id}`, {
+    headers: CSRF,
+    data: { reason: 'Back from leave' },
+  });
+  expect(revoked.status()).toBe(200);
+  expect((await revoked.json()).active).toEqual([]);
 });

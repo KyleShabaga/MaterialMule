@@ -47,6 +47,23 @@ describe('concreteReviewQueueQuerySchema', () => {
     ).toMatchObject({ mine: true, page: 2, status: 'issued' });
   });
 
+  it('STRATA-97: takes the open-exceptions filter, a search and a sort', () => {
+    expect(
+      concreteReviewQueueQuerySchema.parse({
+        status: 'open_exceptions',
+        search: '  DEMO ',
+        sort: 'project',
+        dir: 'desc',
+      }),
+    ).toMatchObject({ status: 'open_exceptions', search: 'DEMO', sort: 'project', dir: 'desc' });
+    expect(concreteReviewQueueQuerySchema.parse({ sort: 'submitted' }).dir).toBe('asc');
+    expect(concreteReviewQueueQuerySchema.safeParse({ sort: 'technician' }).success).toBe(false);
+    expect(concreteReviewQueueQuerySchema.safeParse({ dir: 'up' }).success).toBe(false);
+    expect(concreteReviewQueueQuerySchema.safeParse({ search: 'x'.repeat(101) }).success).toBe(
+      false,
+    );
+  });
+
   it('refuses unknown statuses, report types and reversed date ranges', () => {
     expect(concreteReviewQueueQuerySchema.safeParse({ status: 'draft' }).success).toBe(false);
     expect(concreteReviewQueueQuerySchema.safeParse({ reportType: 'summary' }).success).toBe(false);

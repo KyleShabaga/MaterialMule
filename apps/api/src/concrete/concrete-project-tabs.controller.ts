@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import type {
   ConcreteMixPropagationPreview,
   ConcreteMixPropagationResult,
+  ConcreteProjectSetList,
   ConcreteProjectSpecimenList,
 } from '@materialmule/shared';
 import { actorFor, requestIdOf } from '../auth/auth.controller.js';
@@ -16,7 +17,8 @@ import { ConcreteMixPropagationService } from './concrete-mix-propagation.servic
 import { ConcreteProjectSpecimensService } from './concrete-project-specimens.service.js';
 
 /**
- * The project Concrete section (MM-V2-C30): the Specimens tab and the mix propagation review.
+ * The project Concrete section (MM-V2-C30): the Specimens and Sets (STRATA-98) tabs and the mix
+ * propagation review.
  * Reads follow the project (`inventory.read`, LAB included, like the project's mixes and field
  * reports). Applying a propagation is `@ActiveUser()`; the service checks `concrete_mix.approve`
  * (the project's Lead only) against the project as it stands, under the D09 locks.
@@ -35,6 +37,16 @@ export class ConcreteProjectTabsController {
     @Query() query: Record<string, unknown>,
   ): Promise<ConcreteProjectSpecimenList> {
     return this.specimens.list(projectId, query);
+  }
+
+  // STRATA-98: the Sets tab (one row per set, "n of m tested").
+  @Get('concrete/projects/:projectId/specimen-sets')
+  @RequirePermission('inventory.read')
+  listSets(
+    @Param('projectId') projectId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<ConcreteProjectSetList> {
+    return this.specimens.listSets(projectId, query);
   }
 
   @Get('concrete-mixes/:id/propagation')

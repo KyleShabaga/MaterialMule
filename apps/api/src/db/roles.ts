@@ -71,9 +71,13 @@ export const APPEND_ONLY_TABLES: AppendOnlyTable[] = [
   },
   rowGuard('movement_event', 'movement_history_is_append_only'),
   rowGuard('move_action', 'movement_history_is_append_only'),
+  // STRATA-123 (0041): the link from an undone move to the move that undid it.
+  rowGuard('movement_reversal', 'movement_history_is_append_only'),
   ...[
     'action_item_assignment',
     'disposal_removal',
+    // STRATA-92 (0047): disposal scan intents, written once per intent ID.
+    'disposal_scan_intent',
     'lab_comment_revision',
     'program_amendment',
     'program_lifecycle_event',

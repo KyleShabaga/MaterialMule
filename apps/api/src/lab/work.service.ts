@@ -12,8 +12,13 @@ import {
   TEST_REQUEST_STATUSES,
   UNITS_TO_PULL_LIMIT,
   type UnitsToPull,
+  WORKBOARD_COLUMNS,
   WORKLIST_MAX_PAGE,
   WORKLIST_PAGE_SIZE,
+  WORKLIST_SEARCH_MAX,
+  WORKLIST_SORTS,
+  type WorkboardColumn,
+  type WorklistSort,
   isAllowedTransition,
   type AddCommentRequest,
   changePriorityRequestSchema,
@@ -46,7 +51,7 @@ import {
   type LifecycleRequestRow,
 } from './lifecycle.service.js';
 import { loadSampleIdentities } from '../storage-units/sample-identity.js';
-import { activeDelegateIds } from './review.service.js';
+import { activeDelegateIds, isRequester } from './review.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -102,13 +107,34 @@ export class LabWorkService {
   // Worklist
   // -------------------------------------------------------------------------------------------
 
-  async worklist(query: {
-    priority?: string;
-    projectId?: string;
-    openOnly?: boolean;
-    testTypeId?: string;
-    page?: number;
-  }): Promise<Worklist> {
+  async worklist(
+    query: {
+      priority?: string;
+      /** One project, or several (repeated `?projectId=`); invalid IDs are ignored. */
+      projectId?: string | string[];
+      openOnly?: boolean;
+      testTypeId?: string;
+      page?: number;
+      /** STRATA-88: program, project or test text (cut to WORKLIST_SEARCH_MAX). */
+      search?: string;
+      /** STRATA-88: one Workboard column only. */
+      column?: string;
+      /** STRATA-88: a WORKLIST_SORTS order; anything else keeps the D52 order. */
+      sort?: string;
+    },
+    user?: AuthUser,
+  ): Promise<Worklist> {
+    const projectIds = (Array.isArray(query.projectId) ? query.projectId : [query.projectId])
+      .filter((id): id is string => typeof id === 'string' && UUID_PATTERN.test(id))
+      .slice(0, 50);
+    const search =
+      typeof query.search === 'string' ? query.search.trim().slice(0, WORKLIST_SEARCH_MAX) : '';
+    const column = (WORKBOARD_COLUMNS as readonly string[]).includes(query.column ?? '')
+      ? (query.column as WorkboardColumn)
+      : null;
+    const sort = (WORKLIST_SORTS as readonly string[]).includes(query.sort ?? '')
+      ? (query.sort as WorklistSort)
+      : null;
     /**
      * The filters as SQL after `seed` parameters (each query passes only parameters it uses, or
      * PostgreSQL can't type them); the project filter is left out for the project options.
@@ -120,9 +146,9 @@ export class LabWorkService {
         params.push(query.priority);
         where.push(`lp.priority = $${params.length}`);
       }
-      if (withProject && query.projectId && UUID_PATTERN.test(query.projectId)) {
-        params.push(query.projectId);
-        where.push(`lp.project_id = $${params.length}`);
+      if (withProject && projectIds.length > 0) {
+        params.push(projectIds);
+        where.push(`lp.project_id = ANY ($${params.length}::uuid[])`);
       }
       if (query.testTypeId && UUID_PATTERN.test(query.testTypeId)) {
         params.push(query.testTypeId);
@@ -136,10 +162,71 @@ export class LabWorkService {
           `EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id AND r.status = ANY ($${params.length}::text[]))`,
         );
       }
+      if (search) {
+        params.push(`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+        const like = `ILIKE $${params.length} ESCAPE '\\'`;
+        where.push(
+          `(lp.program_number ${like}
+            OR EXISTS (SELECT 1 FROM project sp WHERE sp.id = lp.project_id
+                       AND (sp.project_number ${like} OR sp.name ${like}))
+            OR EXISTS (SELECT 1 FROM test_request r WHERE r.program_id = lp.id
+                       AND (r.test_code_snapshot ${like} OR r.test_name_snapshot ${like})))`,
+        );
+      }
       return { params, where: where.join(' AND ') };
     };
-    // $1: the open statuses, used by the per-program counts in the list query.
+    /**
+     * Each matching program with its Workboard facts and column, mirroring the shared
+     * `labProgramPhase` (STRATA-87) so the board, list and program page agree: open lab work →
+     * Units to pull (units still to pull) or In testing; else a test in Review → Waiting for
+     * review; else no tests or a cancellation without a reason → In testing; else Ready to close.
+     * `$1` must be the open statuses.
+     */
+    const placed = (where: string) => `
+      WITH facts AS (
+        SELECT lp.*,
+               (SELECT count(*)::int FROM test_request r WHERE r.program_id = lp.id) AS test_count,
+               (SELECT count(*)::int FROM test_request r
+                WHERE r.program_id = lp.id AND r.status = ANY ($1::text[])) AS open_count,
+               (SELECT count(*)::int FROM test_request r
+                WHERE r.program_id = lp.id AND r.status = 'review') AS review_count,
+               (SELECT count(*)::int FROM test_request r
+                WHERE r.program_id = lp.id AND r.status = 'review'
+                  AND r.review_state IN ('awaiting_review', 'correction_done')) AS reviewable_count,
+               (SELECT count(*)::int FROM test_request r
+                WHERE r.program_id = lp.id AND r.status = 'cancelled'
+                  AND r.cancel_reason IS NULL) AS cancelled_without_reason,
+               (SELECT count(DISTINCT pss.storage_unit_id)::int
+                FROM program_scope_snapshot pss
+                JOIN storage_unit su ON su.id = pss.storage_unit_id
+                JOIN location l ON l.id = su.current_location_id
+                WHERE pss.program_id = lp.id AND pss.included
+                  AND su.status = 'in_stock' AND l.kind <> 'lab'
+                  AND EXISTS (SELECT 1 FROM test_request r
+                              WHERE r.line_id = pss.line_id
+                                AND r.status IN ('requested', 'in_progress'))) AS units_to_pull,
+               (SELECT extract(epoch FROM now() - min(r.created_at))::float FROM test_request r
+                WHERE r.program_id = lp.id AND r.status = ANY ($1::text[])) AS oldest_open_seconds
+        FROM lab_program lp
+        WHERE ${where}
+      ), placed AS (
+        SELECT facts.*,
+               CASE WHEN open_count > 0 AND units_to_pull > 0 THEN 'pull'
+                    WHEN open_count > 0 THEN 'testing'
+                    WHEN review_count > 0 THEN 'review'
+                    WHEN test_count = 0 OR cancelled_without_reason > 0 THEN 'testing'
+                    ELSE 'ready' END AS board_column
+        FROM facts
+      )`;
+    const ORDER: Record<WorklistSort | 'd52', string> = {
+      d52: `(lp.priority = 'urgent') DESC, lp.submitted_at, lp.id`,
+      priority: `(lp.priority = 'urgent') DESC, lp.oldest_open_seconds DESC NULLS LAST, lp.submitted_at, lp.id`,
+      oldest: `lp.oldest_open_seconds DESC NULLS LAST, (lp.priority = 'urgent') DESC, lp.submitted_at, lp.id`,
+      newest: `lp.submitted_at DESC, lp.id`,
+    };
+    // $1: the open statuses, used by the per-program facts.
     const { params, where } = filters(true, [OPEN_STATUSES]);
+    const columnWhere = column ? `lp.board_column = $${params.push(column)}` : 'TRUE';
     // Bounded here too, so the OFFSET below is always a finite, supported number.
     const page = Math.min(Math.max(1, Math.trunc(query.page ?? 1) || 1), WORKLIST_MAX_PAGE);
     const { rows } = await this.database.pool.query<{
@@ -154,38 +241,52 @@ export class LabWorkService {
       account_name: string;
       person_initials: string | null;
       person_name: string;
+      requested_by_user_id: string;
       counts: Record<string, number> | null;
       open_count: number;
+      reviewable_count: number;
+      units_to_pull: number;
+      board_column: WorkboardColumn;
       oldest_open_seconds: number | null;
       total: number;
+      urgent_total: number;
     }>(
-      `SELECT count(*) OVER ()::int AS total, lp.id, lp.program_number, lp.priority, lp.project_id, p.project_number,
+      `${placed(where)}
+       SELECT count(*) OVER ()::int AS total,
+              (count(*) FILTER (WHERE lp.priority = 'urgent') OVER ())::int AS urgent_total,
+              lp.id, lp.program_number, lp.priority, lp.project_id, p.project_number,
               p.name AS project_name, lp.submitted_at, lp.submitted_by_account_type AS account_type,
               lp.submitted_by_name_snapshot AS account_name,
               lp.submitted_for_initials_snapshot AS person_initials,
               lp.submitted_for_name_snapshot AS person_name,
+              lp.requested_by_user_id,
               (SELECT json_object_agg(status, n) FROM (
                  SELECT status, count(*)::int AS n FROM test_request r
                  WHERE r.program_id = lp.id GROUP BY status) s) AS counts,
-              (SELECT count(*)::int FROM test_request r
-               WHERE r.program_id = lp.id AND r.status = ANY ($1::text[])) AS open_count,
-              (SELECT extract(epoch FROM now() - min(r.created_at))::float FROM test_request r
-               WHERE r.program_id = lp.id AND r.status = ANY ($1::text[])) AS oldest_open_seconds
-       FROM lab_program lp JOIN project p ON p.id = lp.project_id
-       WHERE ${where}
-       ORDER BY (lp.priority = 'urgent') DESC, lp.submitted_at, lp.id
+              lp.open_count, lp.reviewable_count, lp.units_to_pull, lp.board_column,
+              lp.oldest_open_seconds
+       FROM placed lp JOIN project p ON p.id = lp.project_id
+       WHERE ${columnWhere}
+       ORDER BY ${ORDER[sort ?? 'd52']}
        LIMIT ${WORKLIST_PAGE_SIZE} OFFSET ${(page - 1) * WORKLIST_PAGE_SIZE}`,
       params,
     );
     let total = rows[0]?.total ?? 0;
+    let urgentTotal = rows[0]?.urgent_total ?? 0;
     if (rows.length === 0 && page > 1) {
-      // Past the last page there is no row to carry the window count.
-      const counting = filters(true);
-      const { rows: counted } = await this.database.pool.query<{ total: number }>(
-        `SELECT count(*)::int AS total FROM lab_program lp WHERE ${counting.where}`,
-        counting.params,
+      // Past the last page there is no row to carry the window counts.
+      const { rows: counted } = await this.database.pool.query<{
+        total: number;
+        urgent_total: number;
+      }>(
+        `${placed(where)}
+         SELECT count(*)::int AS total,
+                (count(*) FILTER (WHERE lp.priority = 'urgent'))::int AS urgent_total
+         FROM placed lp WHERE ${columnWhere}`,
+        params,
       );
       total = counted[0]?.total ?? 0;
+      urgentTotal = counted[0]?.urgent_total ?? 0;
     }
     const others = filters(false);
     const { rows: projects } = await this.database.pool.query<{
@@ -199,8 +300,11 @@ export class LabWorkService {
        ORDER BY p.project_number, p.id`,
       others.params,
     );
+    // Review is offered to personal accounts with `test.review`, never on one's own request.
+    const reviewer = !!user && user.accountType !== 'shared_lab' && can(user, 'test.review');
     return {
       total,
+      urgentTotal,
       page,
       pageSize: WORKLIST_PAGE_SIZE,
       projects: projects.map((p) => ({ id: p.id, projectNumber: p.project_number, name: p.name })),
@@ -220,6 +324,10 @@ export class LabWorkService {
         openCount: row.open_count,
         oldestOpenSeconds:
           row.oldest_open_seconds === null ? null : Math.round(row.oldest_open_seconds),
+        column: row.board_column,
+        unitsToPull: row.units_to_pull,
+        canReview:
+          reviewer && row.reviewable_count > 0 && row.requested_by_user_id !== user?.userId,
       })),
     };
   }
@@ -302,6 +410,7 @@ export class LabWorkService {
           acceptanceDelegateUserIds: delegates,
         }),
         leadProjectEngineerUserId: program.lead_project_engineer_user_id,
+        requesterUserId: program.requester_user_id,
       },
     });
   }
@@ -940,9 +1049,12 @@ export class LabWorkService {
       program_number: string | null;
       project_id: string;
       lead_project_engineer_user_id: string | null;
+      requester_user_id: string | null;
     }>(
       `SELECT lp.id, lp.status, lp.priority, lp.version, lp.program_number, lp.project_id,
-              p.lead_project_engineer_user_id
+              p.lead_project_engineer_user_id,
+              CASE WHEN lp.submitted_by_account_type <> 'shared_lab'
+                   THEN lp.submitted_by_account_user_id END AS requester_user_id
        FROM lab_program lp JOIN project p ON p.id = lp.project_id
        WHERE lp.id = $1 ${lock ? 'FOR UPDATE OF lp' : ''}`,
       [id],
@@ -1039,6 +1151,8 @@ export async function loadWork(
       programOpen: boolean;
       canAccept: boolean;
       leadProjectEngineerUserId: string | null;
+      /** STRATA-87: the program's requester never reviews its tests. */
+      requesterUserId?: string | null;
     };
   },
 ): Promise<ProgramWork> {
@@ -1194,7 +1308,13 @@ export async function loadWork(
           }
         : null,
       acceptedViaDelegation: row.accepted_via_delegation_id !== null,
-      reviewActions: reviewActions(row.review_state, { personal, programOpen, canAccept, user }),
+      reviewActions: reviewActions(row.review_state, {
+        personal,
+        programOpen,
+        canAccept,
+        user,
+        requester: isRequester(user, options.review.requesterUserId ?? null),
+      }),
       lifecycle: requestLifecycle(row, repeats.get(row.id) ?? [], {
         user,
         programOpen,
@@ -1281,7 +1401,13 @@ export async function loadWork(
  */
 function reviewActions(
   state: ReviewState | null,
-  context: { personal: boolean; programOpen: boolean; canAccept: boolean; user: AuthUser },
+  context: {
+    personal: boolean;
+    programOpen: boolean;
+    canAccept: boolean;
+    user: AuthUser;
+    requester?: boolean;
+  },
 ): ReviewActions {
   const none: ReviewActions = {
     canReview: false,
@@ -1294,6 +1420,7 @@ function reviewActions(
   if (!context.programOpen) return { ...none, acceptBlockedReason: 'program_not_open' };
   const canReview =
     can(context.user, 'test.review') &&
+    !context.requester &&
     (nextReviewState(state, 'complete') !== null || nextReviewState(state, 'return') !== null);
   const canCorrectionDone =
     can(context.user, 'test.correction_done') && nextReviewState(state, 'correction_done') !== null;

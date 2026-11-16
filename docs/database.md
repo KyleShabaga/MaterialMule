@@ -25,7 +25,7 @@ numbers, invented people and clients) and none of it can be loaded in production
 | Set            | Source                           | Loaded by                                | Where                    | What it is for                                                                                                                                                                                                            |
 | -------------- | -------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Reference data | `apps/api/seed/reference.sql`    | `db:migrate`, `db:seed`                  | every environment        | What production needs to start: the Receiving lab, the shared LAB account, the Soils / Advanced Soils groups, the starter template and the Alberta general holidays (MM-V2-C37; add the next year each year). Idempotent. |
-| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2, 3 DEMO test types. Fixed UUIDs; re-runnable.                                                       |
+| Dev fixtures   | `apps/api/seed/dev.sql`          | `db:seed:dev`, `db:reset:dev`, E2E setup | development, test, bench | The minimum tests rely on: 7 test sign-in identities, 2 pending applicants, DEMO-2601/2602, a few 2024 units at WH-C2 (8 places), WH-A › WH-A-B1 › WH-A-B1-S1 storage terms, 3 DEMO test types. Fixed UUIDs; re-runnable. |
 | Demo data      | `apps/api/src/demo/seed-cli.ts`  | `db:seed:demo` (against a running API)   | development              | Hands-on testing: DEMO-2610–2615 with receipts, moves, lab programs in every stage, retention and disposal; DEMO-2616 with concrete pours in every stage. Created through the real API, so it is fully audited.           |
 | Benchmark data | `apps/api/src/bench/generate.ts` | `bench:seed`                             | a bench or test database | Ten-year and 5x stress volumes for MM-T19 ([performance/README.md](performance/README.md)). Deterministic; never loaded into dev.                                                                                         |
 
@@ -463,6 +463,42 @@ again changes nothing.
   claim/settlement recovery and physical confirmation are shared by both targets; location jobs
   render template `location-v1` from the snapshots. No storage unit or receipt stands in for a
   location.
+
+## Storage term, location hierarchy and shelf capacity (STRATA-106, migration 0043)
+
+Kyle (2026-11-12): the storage term is set on a warehouse, inherited by its bays and shelves, and
+can be overridden on a bay or a shelf.
+
+- **Columns.** `location.parent_location_id` (nullable, references `location`): the location this
+  one sits in; null at the top. `location.storage_term` (`short_term` | `long_term` | null): the
+  location's own term; null means inherit, or "not set" at the top. `location.capacity` (1–200 or
+  null): a shelf's countable places for the shelf page (STRATA-74); null means unknown, never a
+  guessed number. Existing locations were not backfilled (nothing is guessed from a name): they
+  start unset, an explicit configuration state that reads Short-term on units.
+- **Rules.** CHECKs: no self-parent (`location_parent_not_self_check`); the system Receiving lab
+  and `lab` locations have no parent and no term (`location_lab_outside_hierarchy_check`).
+  Trigger `location_hierarchy_check` (insert, and updates of `parent_location_id`, `kind`,
+  `active`): no cycle (`location_parent_cycle_check`); at most three levels, counting the levels a
+  reparented location already holds (`location_parent_depth_check`); Receiving lab and lab
+  locations hold no locations, and a location holding others can't become a lab
+  (`location_parent_kind_check`); a retired location keeps its children but gains no new ones
+  (`location_parent_retired_check`). A retired ancestor still passes its term down. All proved in
+  `schema-location-storage-term.test.ts`; the API answers each with a 422.
+- **Lock order.** Every hierarchy change takes `location_hierarchy_lock()` (advisory key 27, 0)
+  before any location row lock: the API's create, edit and retire take it first, then
+  `location … FOR UPDATE`; the trigger takes it again (re-entrant) for direct writes. Under READ
+  COMMITTED the trigger's checks then see every hierarchy change committed before it, so two
+  concurrent reparents can't build a cycle or a fourth level.
+- **One resolver.** View `location_effective_storage_term` (`location_id`, `term`, `source` =
+  `own` | `inherited` | `unset`, `from_location_id`, `from_code`, `from_name`): the location's own
+  term, else the nearest ancestor's. Nothing stores a copy, so reparenting, clearing an override
+  or changing a warehouse's term shows on every descendant at the next read. Inventory rows, the
+  storage unit page, sidebar records, location reads and search all join it
+  (`apps/api/src/locations/storage-term.ts`) and derive record status, stage and lifecycle step
+  with `unitStage` (`apps/api/src/inventory/unit-stage.ts`).
+- **Audit.** Configuration changes are `location.created` / `location.updated` audit events with
+  the changed fields' before and after (`parentId`, `storageTerm`, `capacity`). Reparenting never
+  writes a `movement_event`: units stay where they are saved.
 
 ## Shelby tubes, sampling sources and bulk groups (MM-T36)
 
@@ -917,6 +953,69 @@ owns which fields: [concrete.md](concrete.md).
   clock stepped back between retries can't make a save fail). Existing jobs are backfilled from what the old summary counted as an attempt. Proven in
   `apps/api/src/db/schema-print-contact.test.ts`.
 
+## Personal settings, pins and recents (Strata 1C, `0038_person_settings.sql`)
+
+- **`person_setting`**: one JSON object per person per area (`sidebar_layout`, `preferences`,
+  `table_columns`), keyed by `(user_id, area)`, with its own `version` (from 1; the API reports 0
+  for "never saved"). The API normalizes every value on read with the shared contracts, so a
+  document from another release never breaks a screen; a save writes the normalized document.
+- **`person_pin`** / **`person_recent`**: records a person pinned or opened, unique per person
+  and `(record_kind, record_id)`; `record_kind` is one of `SIDEBAR_RECORD_KINDS`. No foreign key
+  to the record (polymorphic), so reads handle missing records. The pin limit (20) and the
+  recents trim (8, in the same transaction) are enforced by the API under a per-person advisory
+  lock.
+- **Owner guard** (`person_settings_owner_personal`): no row ever belongs to the shared LAB
+  account, on insert or by moving a row. Proven in `apps/api/src/db/schema-person-settings.test.ts`.
+
+## Inbox read state for requests (STRATA-25, `0039_inbox_request_read.sql`)
+
+The single Inbox shows action requests and notifications together. Notifications keep their own
+`read_at` / `dismissed_at`; requests are shared work, so each person's read state is its own row.
+
+- `inbox_request_read`: (`user_id`, `action_item_id`) primary key, `read_at` (null = marked
+  unread), `updated_at`. Written only by `POST /api/inbox/requests/:id/read|unread` and
+  `POST /api/inbox/read-all`. No row means the default: unread for someone the request is routed
+  to (so a request reassigned or rerouted to someone new arrives unread for them), read for the
+  person who raised it.
+- `inbox_request_read_reader_check` (insert trigger): active personal or test accounts only,
+  never LAB or a disabled account (the notification recipient rule).
+- `inbox_request_read_guard`: no DELETE or TRUNCATE, and a row never moves to another person or
+  request; only `read_at` changes. Reading never changes `action_item` (no trigger, no link back).
+- Reading a request also marks that person's `action_request.opened` notification for it read:
+  the Inbox folds that notice into the request row.
+- Proven in `apps/api/src/db/schema-inbox-read.test.ts`.
+
+## Directory photos (STRATA-52, `0040_person_photo.sql`)
+
+- **`person_photo`**: at most one cached Microsoft photo per person (`user_id` primary key),
+  read by the server at sign-in and profile refresh with the existing delegated `User.Read` token
+  (`/me/photos/96x96/$value`). `content_type` is `image/jpeg` or `image/png` and must match the
+  bytes' magic numbers (`person_photo_magic_check`); `bytes` is 1 byte to 100 KB
+  (`PERSON_PHOTO_MAX_BYTES`); `sha256` is the hex digest of the bytes (the photo route's ETag).
+- Graph answering 404 clears the row; any other failure, or a photo that fails the checks, keeps
+  the last cached one. Sign-in never waits on a photo save.
+- A disabled person keeps no photo: disabling deletes it in the same transaction
+  (`person_photo_delete_on_disable`) and none can be saved while disabled
+  (`person_photo_owner_not_disabled`). Served only for active people by
+  `GET /api/people/:userId/photo`. Proven in `apps/api/src/db/schema-person-photo.test.ts`.
+
+## Undo of a move (STRATA-123, `0041_movement_reversal.sql`)
+
+- An undo never edits or deletes history: it is a new `move` movement event (saved through
+  `MovesService.moveInTransaction`, so the same locks, rules and `storage_unit.moved` audit, with
+  `after.undoOfMovementEventId`; history labels it "Move undone") that takes the unit straight
+  back, linked to the original in **`movement_reversal`** (`original_event_id` primary key,
+  `reversal_event_id` unique, `idempotency_key` unique and equal to the reversal's
+  `client_move_id`, `account_user_id`). Append-only (`movement_history_is_append_only`).
+- `movement_reversal_check` (BEFORE INSERT): both events are saved moves (`_kind_check`); the
+  original changed the location and the reversal goes from its destination back to its origin,
+  for the same unit, from the version it left (`_shape_check`); the same account and LAB person
+  saved both (`_actor_check`); the key is the reversal's client move ID (`_key_check`); undo of an
+  undo is not allowed, and no original is ever a reversal (`_chain_check`).
+- The service locks the unit first (FOR UPDATE), then the previous location (FOR KEY SHARE), and
+  rechecks every guard there; two undos of one move serialise on the unit lock. Proven in
+  `apps/api/src/db/schema-undo.test.ts` and `apps/api/src/undo/undo.integration.test.ts`.
+
 ## Concrete reference data (MM-V2-C37, `0028_concrete_reference_data.sql`)
 
 Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-reference-data.test.ts`
@@ -1005,6 +1104,23 @@ Owner decisions of 2026-11-08 (Kyle). Proofs: `apps/api/src/db/schema-concrete-r
   (`storage_unit_source_final`, migration 0008). A link insert already locks its unit
   (`test_request_unit_link_guard`), so a link and a source change serialize. The API refuses first with 422 (`storage_unit_disposed`,
   `storage_unit_tested`). A bulk group's own identity (`bulk_group`) is not covered.
+
+## Retention pipeline (STRATA-90/91, `0046_retention_pipeline.sql`)
+
+- `retention_hold.hold_until` and `retention_request.hold_until` (date, nullable): the date a hold
+  is meant to last until. Shown only; a hold never releases itself (a release still needs a reason).
+- `disposal_list_entry`: the step between Eligible and Approved. At most one live entry per unit;
+  only an in-stock unit can be added; an entry ends once, as removed (reason, who, when), approved
+  (the `disposal_approval` it became, same unit) or closed (the unit left stock another way).
+  Entries are never deleted or changed after they end. Proof: `schema-retention-pipeline.test.ts`.
+
+## Disposal scan intents (STRATA-92, `0047_disposal_scan_intents.sql`)
+
+- `disposal_scan_intent`: one row per scan intent ID, written in the same transaction as what
+  recording did, so a retry returns the first outcome. `user_id` is a personal account, never
+  LAB; `request_hash` is what was scanned, so an ID can't be reused for another unit; `not_found`
+  has no unit and every other result has one; a `disposed` row matches its `disposal_removal`.
+  Append-only. Proof: `schema-disposal-scan-intents.test.ts`.
 
 ## Project assignments and scoped grants (MM-AO02)
 
@@ -1110,3 +1226,53 @@ the `mine=true` filter, the `involvement` labels on every projects-list row and
 reviewer assignment whose reviewer still holds eligibility for its scope, an active acceptance
 delegation, or an Authorized report issuer grant that is neither revoked nor expired. Each source
 is indexed by person. Relevance only: All projects is unchanged and nothing is hidden.
+
+## Receipt draft registry (STRATA-108, `0044_receipt_draft_registry.sql`)
+
+- **What it holds.** One row per receiving draft (the browser's draft UUID): the account that
+  started it (`account_user_id`, LAB at a station), the person (`starter_user_id`: the personal
+  account, or the person picked at the LAB station, attribution only), `created_at`, and once
+  deleted `deleted_at`, `deleted_by_account_user_id` and `deleted_by_user_id`. Never the draft's
+  contents: drafts stay in the browser that saved them (MM-T11).
+- **Rules** (proved in `schema-receipt-draft-registry.test.ts`): account, starter and creation
+  time never change; a deletion is recorded once and never changed or undone; rows are never
+  deleted. A draft saved before the registry existed has no owner: its deletion (Lab Manager only)
+  is a `legacy` row with no account and no starter, so ownership is never invented.
+- **Who may delete:** see [permissions.md](permissions.md#receiving-drafts-and-receipts-strata-78-strata-108).
+
+## Concrete Hold until (STRATA-121, `0045_concrete_hold_until.sql`)
+
+- **What it adds.** `concrete_specimen.hold_until` (the date chosen with Hold until from Breaks)
+  and the append-only `concrete_specimen_hold_assignment` history (previous age and target date,
+  hold-until date, reason, who, the `concrete_hold_command` row, whose `kind` now also allows
+  `hold_until`). See [concrete.md](concrete.md#hold-management-bulk-actions-and-disposal-c26).
+- **Rules** (proved in `schema-concrete-hold-until.test.ts`): a hold-until date is written only
+  with a history row for exactly that date in the same transaction, and only on a HOLD specimen
+  (the dates trigger drops it on any age in days, so Schedule test clears it; a check backs that
+  up); a numbered set's scheduled specimen goes to HOLD only with a matching history row (the age
+  guard's one new path); while set, the HOLD expiry is that date, and a casting change never moves
+  it. History rows are never changed or deleted.
+
+## Station configuration (Strata lane A, `0048_station_config.sql`)
+
+- **What it holds.** One row per LAB station that someone customized: `station_id` (the random
+  ID the station computer made once, `^[A-Za-z0-9_-]{8,64}$` as the shared `stationIdSchema`),
+  `rows` (the "At this station" rows in order with `visible`, a JSON list the API wrote with
+  `normalizeStationRows` and normalizes again on read), `version`, `updated_by_user_id` and
+  `updated_at`. No row means the defaults (version 0 in the API).
+- **Rules** (proved in `schema-station-config.test.ts`): the station ID format; a stored row
+  starts at version 1 and each save adds exactly one; the station ID never changes; the person who
+  saved is an active personal or test account holding the Lab Manager role at that moment, never
+  the shared LAB account. Saves are audited as `station_config.saved`.
+- **Who may save:** see [permissions.md](permissions.md#lab-station-today-configuration-and-inbox-strata-lane-a).
+
+## Receipt draft close (Strata lane A, `0049_receipt_draft_close.sql`)
+
+- **What it adds.** `closed_at` and `closed_reason` (`confirmed`: its receipt was confirmed, in
+  the receipt's transaction; `expired`: the browser's automatic clean-up deleted it) on
+  `receipt_draft_registry`, so the LAB station's "Draft receipts to finish" counts open drafts
+  only. A close is not a deletion: `deleted_*` keep 0044's meaning.
+- **Rules** (proved in `schema-receipt-draft-close.test.ts`): both columns come together, never
+  before `created_at`; a draft is registered open; a close is recorded once and never changed or
+  cleared; a deleted row is never closed afterwards; 0044's rules on every other column still
+  hold (its immutability trigger is extended, not replaced).

@@ -1,9 +1,11 @@
 import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import {
+  receiptHistoryQuerySchema,
   receiptIdParamSchema,
   receiptLogQuerySchema,
   receiptReceiverQuerySchema,
   type ReceiptDetail,
+  type ReceiptHistoryPage,
   type ReceiptLogPage,
   type ReceiverOption,
 } from '@materialmule/shared';
@@ -20,7 +22,7 @@ export class ReceivingLogController {
   constructor(private readonly receivingLog: ReceivingLogService) {}
 
   /**
-   * `GET /api/receipts?search=&projectId=&receiverUserId=&receivedFrom=&receivedTo=&page=&pageSize=`
+   * `GET /api/receipts?search=&projectId=&receiverUserId=&receivedFrom=&receivedTo=&status=&sort=&dir=&page=&pageSize=`
    * → `{items, total, page, pageSize}`, one row per receipt.
    */
   @Get()
@@ -43,5 +45,16 @@ export class ReceivingLogController {
     const receipt = await this.receivingLog.detail(receiptId);
     if (!receipt) throw new NotFoundException({ code: 'receipt_not_found' });
     return receipt;
+  }
+
+  /** `GET /api/receipts/:receiptId/history?page=`: the receipt's and its units' events. */
+  @Get(':receiptId/history')
+  @RequirePermission('inventory.read')
+  async history(@Param() params: unknown, @Query() query: unknown): Promise<ReceiptHistoryPage> {
+    const { receiptId } = parseBody(receiptIdParamSchema, params);
+    const { page } = parseBody(receiptHistoryQuerySchema, query ?? {});
+    const history = await this.receivingLog.history(receiptId, page);
+    if (!history) throw new NotFoundException({ code: 'receipt_not_found' });
+    return history;
   }
 }

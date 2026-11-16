@@ -1,0 +1,1994 @@
+---
+name: Strata
+status: draft 2026-11-11, for Kyle's review. Nothing in apps/web uses it yet.
+replaces: Field Ledger (docs/redesign/design.md), which stays the spec for the shipped app until Strata ships
+components: shadcn/ui (Radix primitives, Tailwind CSS v4, lucide-react icons)
+palette:
+  Radix custom, accent #21206D in light and dark, with Radix's matched gray
+  # https://www.radix-ui.com/colors/custom?accent-light=21206D&accent-dark=21206D (Kyle, 2026-11-11)
+colors: # shadcn theme variables, light; dark values under "Dark theme"
+  background: '#FFFFFF' # page (Radix background)
+  foreground: '#1E1F24' # text (gray 12)
+  card: '#FFFFFF'
+  card-foreground: '#1E1F24'
+  popover: '#FFFFFF'
+  popover-foreground: '#1E1F24'
+  primary: '#21206D' # indigo (accent 9): the primary action, the Today greeting, the logo tile
+  primary-foreground: '#FFFFFF'
+  secondary: '#EFF0F3' # gray 3
+  secondary-foreground: '#1E1F24'
+  muted: '#EFF0F3' # gray 3: table heads, tracks, wells
+  muted-foreground: '#62636C' # gray 11: secondary text, labels
+  accent: '#EEF1FF' # accent 3: hover, current nav item, selected row, toggled-on chip
+  accent-foreground: '#242471' # accent 12
+  destructive: '#CE2C31' # Radix red 11 (white text 5.2:1)
+  border: '#D8D9E0' # gray 6: card edges, dividers
+  input: '#8B8D98' # gray 9: input, select and checkbox borders (3.3:1, meets 1.4.11)
+  ring: '#21206D' # focus ring
+  link: '#5159BD' # accent 11 (Strata addition)
+  sidebar: '#F9F9FB' # gray 2
+  sidebar-foreground: '#1E1F24'
+  sidebar-primary: '#21206D'
+  sidebar-primary-foreground: '#FFFFFF'
+  sidebar-accent: '#EEF1FF'
+  sidebar-accent-foreground: '#242471'
+  sidebar-border: '#D8D9E0'
+  sidebar-ring: '#21206D'
+  stage: # Strata additions; { bg: step 3, fg: tag text (step 11 dark / 12 light), mark: stripes, dots, solid fills (step 9), contrast: text on a mark fill }
+    draft: { bg: '#FFF7C2', fg: '#4F3422', mark: '#AB6400' } # Radix amber: received, not confirmed
+    storage: { bg: '#E9F6E9', fg: '#2A7E3B', mark: '#2A7E3B' } # Radix grass: on a shelf
+    lab: { bg: '#DEF7F9', fg: '#0D3C48', mark: '#107D98' } # Radix cyan: checked out, in a program
+    due: { bg: '#FFEFD6', fg: '#582D1D', mark: '#CC4E00' } # Radix orange: due, waiting on someone
+    danger: { bg: '#FEEBEC', fg: '#CE2C31', mark: '#CE2C31' } # Radix red: overdue, HOLD
+    closed: { bg: '#EFF0F3', fg: '#62636C', mark: '#62636C' } # gray: disposed, closed, cancelled
+type:
+  sans: "'Atkinson Hyperlegible Next', system-ui, sans-serif" # @fontsource, bundled
+  mono: "'Atkinson Hyperlegible Mono', ui-monospace, monospace" # @fontsource, bundled
+  display: { family: sans, weight: 700, size: 40, line: 44, tracking: -0.015em } # Today greeting only
+  page-title: { family: sans, weight: 700, size: 30, line: 36, tracking: -0.01em }
+  phone-title: { family: sans, weight: 700, size: 26, line: 32 }
+  section: { family: sans, weight: 700, size: 19, line: 26 }
+  body: { family: sans, weight: 400, size: 15, line: 22 }
+  body-strong: { family: sans, weight: 600, size: 15, line: 22 }
+  small: { family: sans, weight: 400, size: 13, line: 18 }
+  label: { family: sans, weight: 600, size: 13, line: 18 } # sentence case, never caps
+  unit-id: { family: mono, weight: 700, size: 28, line: 34 }
+  row-id: { family: mono, weight: 600, size: 15, line: 22 }
+  data: { family: mono, weight: 400, size: 14, line: 20 }
+  count: { family: sans, weight: 700, size: 32, line: 36 }
+radius: # --radius 0.375rem (tightened from shadcn's 0.625rem, Kyle 2026-11-12); derived steps as shadcn defines them
+  sm: 6 # checkboxes, kbd, small chips
+  md: 8 # buttons, inputs, selects, nav items, menu items
+  lg: 10 # popovers, dropdowns, alerts
+  xl: 14 # cards, tables, side panels
+  sheet: 20 # dialogs, the detail sheet, the Today greeting
+  full: 999 # tags (Badge), avatars, the search field, count badges, the phone Scan button
+elevation: # only for things that float over the page
+  raised: '0 1px 2px rgba(30,31,36,.06), 0 4px 12px rgba(30,31,36,.08)' # menus, sticky action bar
+  overlay: '0 8px 32px rgba(30,31,36,.18)' # dialogs, detail sheet
+space: [4, 8, 12, 16, 20, 24, 32, 48, 64]
+touch-target: 44 # minimum; primary phone actions 56
+---
+
+# Strata
+
+A complete new design for Material Mule. It replaces Field Ledger's look and several of its
+patterns. Kyle asked for it on 2026-11-11, lifted the "no pill shapes" rule, chose shadcn/ui as
+the component library and gave the palette: Radix custom colours from accent `#21206D`.
+
+This file is the foundation: the idea, tokens, components, shell and the UX changes. Screens are
+on the [Strata canvas](https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi) and listed under
+[Screens](#screens) as they are drawn. Every choice made without Kyle is listed under
+[Choices made in this draft](#choices-made-in-this-draft) so it can be overruled in one place.
+
+## The idea
+
+A geotechnical log reads top to bottom as layers, each with its own colour and a written
+description. Material Mule's records are layered the same way: a storage unit is received, stored,
+tested, kept and disposed of, and a concrete set is cast, received, broken and reported. Strata
+makes that life the backbone of the interface.
+
+Three rules carry the look:
+
+1. **Every record wears its stage.** Each stage has one hue (orange, green, cyan, yellow, red,
+   gray). The same hue is the tag, the left stripe on a row or card, and the filled segment of the
+   lifecycle track. The stage is always written too; colour never stands alone.
+2. **Indigo is for acting.** The primary action, focus, the current navigation item and selection
+   use the indigo accent scale. Indigo is never a status, and stage colours are never buttons.
+3. **Familiar outside, exact inside.** The parts are standard shadcn/ui components on a calm
+   cool-gray ground, so they behave the way people expect; the content is precise: IDs, depths,
+   dates and readings are mono, aligned and never abbreviated.
+
+What changes from Field Ledger, in short: white and cool gray instead of paper and black rules;
+shadcn's rounded shapes instead of 2 px ink frames; indigo plus stage hues instead of one orange;
+sentence case labels instead of mono caps; shadows for floating layers only. What stays: the
+domain rules, the monospace record text, the donkey, and the decisions under
+[Carried over from Field Ledger](#carried-over-from-field-ledger).
+
+## Built on shadcn/ui
+
+shadcn/ui is copied into the repo as source (no runtime CDN, which suits the office-only host), on
+Radix primitives and Tailwind CSS v4. Strata themes it through shadcn's CSS variables (front
+matter above) and adds two things shadcn does not have: the stage colours and `link`.
+
+| Strata part               | shadcn/ui component                                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rail and its drop-downs   | `Sidebar` (`collapsible="icon"`), `Collapsible`                                                                                                                     |
+| Search and scan, `Ctrl+K` | `Command` in a `Dialog`, opened from the top-bar field                                                                                                              |
+| Buttons, icon buttons     | `Button` (`default`, `secondary`, `outline`, `ghost`, `destructive`, `link`; size `icon`)                                                                           |
+| Stage tags                | `Badge` with a Strata `stage` variant per stage                                                                                                                     |
+| Filter chips, view switch | `ToggleGroup`; `Tabs` for page sections                                                                                                                             |
+| Fields                    | `Form` (react-hook-form + the zod schemas in `packages/shared`), `Input`, `Label`, `Select`, `Checkbox`, `RadioGroup`, `Textarea`, `Calendar` + `Popover` for dates |
+| Cards, counters           | `Card`                                                                                                                                                              |
+| Tables                    | `Table` with TanStack Table (shadcn's data table pattern)                                                                                                           |
+| Detail sheet, phone More  | `Sheet` (right on desktop, bottom on phone)                                                                                                                         |
+| Dialogs                   | `Dialog`; `AlertDialog` for irreversible actions                                                                                                                    |
+| Banners                   | `Alert` with a stage stripe                                                                                                                                         |
+| Toasts with Undo          | `Sonner`                                                                                                                                                            |
+| Menus, tooltips           | `DropdownMenu`, `Tooltip`, `Popover`                                                                                                                                |
+| Progress "n of m"         | `Progress`                                                                                                                                                          |
+| Loading                   | `Skeleton`                                                                                                                                                          |
+| Account row               | `Avatar`: Microsoft directory photo when there is one, initials otherwise (Kyle, 2026-11-12)                                                                        |
+
+Rules for using it:
+
+- Use the shadcn component when one exists; restyle through variables and variants, not by forking
+  its markup. Strata-only parts (unit label block, lifecycle track, stage stripe, counted shelf
+  cells) are small components built from the same tokens.
+- Default sizes are raised for touch: `Button` and `Input` are 44 px (`h-11`), 48 px on phones;
+  shadcn's 36 px default is used only in compact tables on desktop.
+- Every component keeps its Radix accessibility (roles, focus management, keyboard); do not swap a
+  Radix primitive for a plain `div`.
+
+## Lifecycle
+
+The stage list is the vocabulary for colour across the app. A screen never invents a new status
+colour; it maps its status onto one of these.
+
+| Stage     | Storage units                       | Concrete                                     | Other records                  |
+| --------- | ----------------------------------- | -------------------------------------------- | ------------------------------ |
+| `draft`   | Receipt draft (no ID yet)           | Field report draft, set not yet received     | Lab program draft              |
+| `storage` | On a shelf (short- or long-term)    | Received, curing, waiting for its break date | Active project                 |
+| `lab`     | Checked out, in a lab program       | Break today, in testing                      | Program in progress            |
+| `due`     | Retention due, extension requested  | Submitted, waiting for review; break due     | Action request waiting         |
+| `danger`  | Retention overdue                   | HOLD, overdue break, returned for correction | Failed print, blocked step     |
+| `closed`  | Disposed (keeps its ID and history) | Issued, disposed without testing             | Closed project, closed program |
+
+**Red means act now** (Kyle, 2026-11-12): `danger` is only for states someone must act on
+(retention overdue, hold period ended, overdue break, returned for correction, failed print,
+calibration overdue). Waiting states are neutral: a HOLD still inside its period is a `secondary`
+tag with an `hourglass` and a neutral stripe. Priority is not a status: "Urgent · Priority" is an
+outline tag with a `flag` icon. Progress bars are neutral (`foreground` at 70 % on `muted`);
+indigo stays for actions. Warning alerts are a card surface with a `due` stripe, border and icon
+and normal text, never a lemon fill.
+
+The **lifecycle track** shows where a storage unit is: five squared segments (2 px corners), in
+the order Kyle set on 2026-11-12: **Received, In lab, Short-term storage, Long-term storage,
+Disposed**. Lab testing comes first; once it's done a unit goes to short-term storage, then to
+long-term storage, then it is disposed. Retention is not a step: "Due · Retention" stays a stage
+tag with the Decide action, shown while the unit is in long-term storage. A unit never sent to
+the lab passes In lab as done. Past segments use their stage `bg` with `fg` text and a check,
+the current one is a solid stage `mark` fill with `card` text (4.5:1 or more for every stage),
+future ones are `muted` with `muted-foreground` text. The two storage segments show
+"Short-term" and "Long-term"; the full names are in the title and for screen readers. It is one
+`ol` with `aria-current="step"` on the current item. The compact form (unit drawer, rows) is
+five small squares joined by a line, with the current step written beside them. Concrete sets
+use the same track with their own steps (Cast, Received, Testing, Reported). Built as
+`Strata.LifecycleTrack` (`steps` "Name=Short:stage|…", `current` index, `compact`).
+
+**Record tags vs work-item tags** (Kyle, 2026-11-12): a record's own tag uses record status words: storage units read In lab, Short-term, Long-term, Retention due, Retention overdue, Disposed or Location conflict (shelf cells: Short-term, Retention due, Overdue, Conflict). The "<Stage> · <domain>" form stays for work items (Today, Inbox, program and receipt tags such as Due · Review or Draft · Receipt). Colours still come from the stage list.
+
+Short-term vs long-term storage is new to the app: today "long-term" exists only in a warehouse
+name. Chosen (recommended): each location in Settings › Locations gets a **Storage term**
+(Short-term or Long-term), and a stored unit's step follows the location it is on. The API must
+return the step with each unit. People's avatars never use stage colours (`muted` fallback).
+
+## Logo
+
+The walking donkey from `apps/web/src/layout/DonkeyMark.tsx`, paths unchanged.
+
+- **Colour:** `primary-foreground` donkey on a 8 px-radius `primary` indigo tile (40 px in the
+  rail, 32 px in phone headers, 56 px on sign-in). On an indigo ground (sign-in panel) the tile is
+  `primary-foreground` and the donkey `primary`.
+- **Wordmark:** "Material Mule" in sans 700, sentence case, beside the tile.
+- Never recolour the donkey in a stage colour, outline it, or place it on a photo.
+
+## Shape and depth
+
+- **Radius** is tight (Kyle, 2026-11-12: "Make all radius tighter"): `--radius: 0.375rem`, so
+  `rounded-sm` 2 px, `rounded-md` 4 px (buttons, inputs, selects, nav items, checkboxes 3 px),
+  `rounded-lg` 6 px (popovers, alerts, dialogs, the detail sheet), `rounded-xl` 10 px (cards,
+  tables, the Today greeting). Tags, avatars and search stay fully round. Boards use only these
+  token classes, never arbitrary radii.
+- **Fully round:** tags (`Badge`), avatars, count badges, the top-bar search field, the lifecycle
+  track and the phone Scan button (a 64 px circle). Buttons are not pills.
+- **Borders:** cards and tables have a 1 px `border` edge and no shadow. Inputs have a 1.5 px
+  `input` border. Nothing on the page has a heavy frame.
+- **Shadows** (`elevation`) only on layers that float: menus and pickers, the sticky selection
+  bar, dialogs, the detail sheet, the phone bottom bar. A card never has one.
+- **Stripes:** a 4 px stage `mark` stripe on the left inside edge of a row or card marks its
+  stage. **On rows the stripe is an inset, fully round bar** (10 px from the row's top and bottom,
+  4 px from the edge; 4 px top and bottom in the 28 px compact table), so rows of the same stage
+  stacked together read as separate bars, not one long line (Kyle, 2026-11-12). Cards and banners
+  keep a full-height edge. Rows without a stage have none. Drawn on: Needs you rows (every Today), Inbox rows (One
+  stream, Grouped, and the compact table's first cell, with the stage word for screen readers),
+  the station's "At this station" rows while their count is above zero, the unit card, and
+  banners (info `primary`, warning `due`, error `danger`).
+
+## Type
+
+Atkinson Hyperlegible Next and Mono, bundled with `@fontsource` (OFL; no network fonts on the
+office PC), set as Tailwind's `--font-sans` and `--font-mono`. Chosen for the lab floor: they
+separate `0`/`O`, `1`/`l`/`I` and `5`/`S`, which matters in IDs like `CRE-2026-000110`, and they
+stay readable on a phone in a dim storage room.
+
+- Mono is for records: storage unit IDs, project numbers, test holes, depths, dates and times in
+  tables, readings, set IDs, report numbers. Everything else is sans.
+- **Sentence case everywhere**, labels included. No caps labels, no letter-spaced text. Table
+  heads are `label` style (13/600) in `muted-foreground` on `muted`.
+- Numbers in tables use `tabular-nums` and right-align when they are amounts.
+- Minimum size 13 px in the interface. Phones never go below 15 px for body text.
+
+## Components
+
+- **Table tools** (`Strata.TableToolbar`; Kyle, 2026-11-11, Notion as the reference): every
+  table and list page carries a toolbar at its top right, in a `toolbar` role: first the page's
+  own action as an icon with a shadcn `Tooltip` (on Inbox, Mark all read, `check-check`), a
+  divider, then Filter (`list-filter`), Sort (`arrow-up-down`), View (`sliders-horizontal`) and
+  **Search (`search`) at the far right**. All are 36 px ghost icon buttons with tooltips (an
+  exception to the 44 px rule, like the sidebar rows). Clicking Search opens a 224 px search box
+  (`Input` styling, search icon, Clear) in its place; it grows to the left and pushes the other
+  icons left. No width animation (audit 2026-11-12): the layout changes at once, the pushed icons
+  slide from where they were with a transform (FLIP) and the box opens with `clip-path`, 200 ms
+  `cubic-bezier(0.2, 0, 0, 1)`; none with reduced motion. Escape closes
+  it and returns focus to the icon; leaving it while empty also closes it. Filter is a menu of
+  checkboxes with Clear filters; while any is on, the icon turns `primary` with a 6 px dot and its
+  name says how many ("Filter, 1 on"). **Active sort and filters show as chips** before the
+  icons (critique 2026-11-12): a heading sort shows "Title A–Z" (or "Received oldest first"), a
+  non-default Sort menu choice shows its name, each filter its own chip; each chip's × clears it. A
+  heading sort and the Sort menu are one setting, and the Sort button's name always says the
+  current sort ("Sort, Title A–Z"). Sort and View are radio menus; View lists that page's
+  views. Search and filters apply as you type (server side for long lists).
+- **People in tables** (Kyle, 2026-11-11): wherever a table shows a person, a shadcn `Avatar`
+  comes before the name: 20 px in compact tables (24 px in normal ones), initials in the
+  fallback (photos when the directory has them), name truncating beside it. Material Mule itself
+  (system messages) uses a `primary` avatar with "MM". The Components board's table gains a
+  "Received by" column to show it.
+- **Buttons** (`Button`). 44 px high (48 px on phone, 56 px for the pinned phone primary), 4 px
+  radius, 20 px side padding, sans 600. `default`: indigo fill, white text, one per screen.
+  `outline`: `card` fill with a 1.5 px `input` border, for the other actions. `ghost` and `link`
+  for less important actions in rows. `destructive`: red fill, white text, and it always opens an
+  `AlertDialog`. Icon buttons are 44 px circles with an `aria-label`.
+- **Tags** (`Badge`, stage variants). Fully round, 24 px high, sans 600 13 px on the stage `bg`,
+  text in the stage `fg`, a 6 px dot before the word. Always a word, never a dot alone. On a
+  record the word is its status ("In storage", "Retention due", "Disposed"). On a **work item**
+  (Today, Inbox) the tag reads "<Stage> · <domain>" with one of six stage words: **Draft**,
+  **Stored**, **In lab**, **Due**, **Urgent**, **Closed** (draft, storage, lab, due, danger, closed),
+  e.g. "Due · Retention", "Urgent · Hold", "In lab · Breaks" (critique 2026-11-12: domain words
+  like Pull or Labels on stage colours taught neither). A request keeps its "Request" pill before
+  the tag.
+- **Filter chips** (`ToggleGroup`). 36 px (44 px on phone), 4 px radius, `card` with a `border`
+  edge; on: `accent` fill, `accent-foreground` text, a check icon, `aria-pressed="true"`. A count
+  can follow the label.
+- **Segmented control** (`ToggleGroup` or `Tabs`). A `muted` track; the chosen option is a `card`
+  segment with the `raised` shadow. For two to four views of the same thing (Comfortable /
+  Compact, Mine / All).
+- **Fields** (`Form`, `Input`, `Select`). Label above in `label` style; 44 px input (48 on phone),
+  4 px radius, `card` fill, 1.5 px `input` border; focus: a 3 px `ring` outside the border. Record
+  values (holes, depths, IDs) are typed in mono. Hint text below in `small`; errors below in
+  `destructive` with an icon, the border turns destructive, `aria-invalid` and `aria-describedby`
+  (shadcn's `FormMessage` wires these).
+- **Search and scan field.** Fully round, 44 px, magnifier at the left, `Ctrl K` hint, a scan icon
+  button at the right (opens the camera on a phone, focuses for the wedge scanner on desktop).
+  Placeholder "Search or scan a label". `Ctrl+K` or `/` opens the `Command` palette from anywhere.
+- **Cards** (`Card`). `card`, 10 px radius, 1 px `border`, 16–20 px padding. Head: title in
+  `section`, meta in `small` `muted-foreground`, actions at the right. Optional stage stripe.
+- **Tables** (`Table` + TanStack). A card holding the table: `muted` head row, 1 px `border` row
+  dividers, 52 px comfortable rows or 36 px compact rows, stage stripe on the first cell when rows
+  have a stage, `accent` for selected rows, a checkbox column when rows can be selected. Wide
+  tables scroll inside the card. On a phone, tables become stacked row cards.
+- **Unit label block.** The on-screen version of the printed label: a `card` with the holder type
+  and project at the top, the ID in `unit-id`, then test hole, samples summary and depth range in
+  mono. Depth is text (`0.8–5.4 m`), never a bar. The printed label itself stays black on white
+  and is not restyled.
+- **Lifecycle track.** See [Lifecycle](#lifecycle). Compact form in rows: five 8 px dots joined by
+  a line, with the current stage written beside them.
+- **Counters** (`Card`). A count in `count` style over a sentence-case label. The whole card is a
+  link to the list that clears it. Concrete and lab progress is written as "2 of 4" with a thin
+  `Progress` bar, not cells.
+- **Detail sheet** (`Sheet`, right). On desktop, choosing a row in a list opens the record in a
+  520 px sheet (`overlay` shadow, 20 px left corners) with its key facts, its track and its main
+  actions, plus "Open full page". `Esc` closes it and focus returns to the row. The URL changes
+  (`?open=<id>`), so the sheet can be linked and the back button closes it. Phones always open the
+  full page.
+- **Selection bar.** When rows are selected, a bar floats centred at the bottom of the screen with
+  the count and the bulk actions (`raised` shadow, 6 px radius).
+- **Banners** (`Alert`). A stage stripe, an icon, one bold sentence and one line. Info uses
+  `accent`; warnings `due`; errors `danger`; partial success `due` and says what worked.
+- **Dialogs** (`Dialog`, `AlertDialog`). 480 px, 6 px radius, `overlay` shadow, 50 % black
+  scrim. An irreversible action on several records lists them (IDs in mono, scrolling past about
+  six) and its button repeats the count ("Record disposal of 3 units"). Title says the action and the record; one sentence on what will change; only the needed
+  fields; Cancel (`outline`) and one primary at the bottom right. Irreversible actions use
+  `AlertDialog` and name what cannot be undone.
+- **Empty states.** A small line drawing of the donkey or a storage unit in `muted-foreground`, one
+  bold sentence, one line, at most one action. Kinds: nothing to do, no matches (Clear filters),
+  first use (create the first record).
+- **Toasts** (`Sonner`). Bottom right on desktop, above the bottom bar on phone, 5 s, with Undo where
+  the action allows it. Never the only place a failure is reported.
+
+## Shell
+
+### Desktop (1024 px and wider)
+
+- **Rail** (`Sidebar`), 248 px, `sidebar` gray: logo, then the destinations as 44 px rows (4 px
+  radius) with a 16 px Lucide icon and a label. The current one is `sidebar-accent` with
+  `sidebar-accent-foreground` text and a filled icon. Destinations with sub-pages expand under the
+  parent (Concrete, Retention), indented, with a chevron button. The rail collapses to icons
+  (`collapsible="icon"`, labels as tooltips); the choice is remembered per browser. At 1024 px it
+  starts collapsed so work tables get the width (Ctrl B opens it; tables fix, 2026-11-12).
+- **Rail footer:** Settings, Help & Feedback, then the account row (initials avatar, name, role,
+  sign-out icon button). Shared LAB stations show "Switch user" (no session end time: session
+  length is decision D38, deferred).
+- **Top bar**, 56 px, `background`, bottom border: the sidebar toggle and the page title at the
+  left; at the right, on every page, the quick actions button and, always last, the notification bell, 8 px apart. Search lives in
+  the sidebar.
+  - **Quick actions** (`zap`, a `DropdownMenu`: Scan (`scan-line`, Ctrl K), Receive
+    (`arrow-down-to-line`), New project (`folder-plus`)). At rest a 44 px outline icon button.
+    On hover, keyboard focus or while its menu is open it widens to the left into a filled
+    `primary` button: bolt, "Quick actions", a divider and a `chevron-down` that turns up while
+    open. The whole button opens the menu.
+    Motion, plain CSS (no motion library: a hover expand needs no springs or layout animation):
+    - Hover waits 100 ms before opening, so passing the cursor over it does nothing. Keyboard
+      focus and an open menu skip the wait.
+    - **No layout animation** (audit 2026-11-12): the trigger keeps a fixed 44 px box. The filled
+      "Quick actions" pill (194 px) is a layer over it, revealed leftward with `clip-path` while the
+      bolt slides with a transform, so nothing else in the top bar re-lays out (it used to animate a
+      grid track, `0fr` to `1fr`). 250 ms, `cubic-bezier(0.77, 0, 0.175, 1)` (ease-in-out). The fill cross-fades over 200 ms with the same 100 ms wait. Fully open at 350 ms
+      (was 450 ms; Kyle asked for a little faster, 2026-11-11).
+    - The label and chevron fade in (200 ms ease-out) once the width is under way, at 200 ms.
+    - Leaving closes at once and faster (200 ms; text out in 100 ms).
+    - No transitions under `prefers-reduced-motion`.
+  - **Notifications** (`bell`, a shadcn `HoverCard`, Kyle 2026-11-11): hovering the bell, or
+    focusing it from the keyboard, previews the latest notifications after 150 ms (closes 200 ms
+    after leaving), with Mark all read and Open Inbox. The bell itself is a link: clicking it opens
+    Inbox. It's a 44 px outline icon button (border, `background` fill, `shadow-xs`). When any
+    are unread, a 20 px `primary` count badge sits on its top-right corner, e.g. "2", "9+" past
+    nine.
+- **Page head:** a context row (back link, record tags, step control) above the page title, with
+  the page's actions at the right of the title. One primary action at most.
+- **Content** is capped at 1280 px with 32 px padding. Two-column pages split 2:1 and wrap to one
+  column below 1180 px.
+
+### Canvas fixtures (one sheet for every board)
+
+The boards share one fictional data set, so the canvas never contradicts itself (critique
+2026-11-12):
+
+- **People:** Alex Tester, Project lead (Lead Project Engineer on DEMO-2601), also an
+  administrator in Staff; Sam Sample, Lab Manager; Pat Example, Technician (the person picked on
+  LAB station boards); Jordan Lab, Technician. Boards without a role use Alex as Project lead.
+- **Receipts** are named by date and receiver: "Receipt 2026-11-11 · Pat Example".
+  BKT-2026-000019 came in on "Receipt 2026-10-14 · Pat Example"; its label says RECEIVED
+  2026-10-14.
+- **Printers** (Zebra ZD621): Receiving bench (default at receiving), Soils lab, Concrete room.
+- **Lab programs:** LP-2026-0012 has 5 tests.
+- **Shelves:** WH-A-B2-S3 is short-term; retention tags appear only on long-term shelves.
+- **Concrete:** mix 0425-32 (revision 2 in effect); air meter AM-03's calibration was due
+  2026-11-01 and is overdue (the open exception on the 2026-11-09 field report).
+
+### Tables: column priority (tables fix after the 2026-11-12 critique)
+
+One rule for every list table, so a drawer or a 1024 px screen never makes columns print over each
+other:
+
+- **Rank the columns.** Identity first (the record's ID or name, and its project), then state (the
+  stage or status word), then attributes (people, dates, counts, priority). As the table narrows,
+  attributes hide first; identity and state never hide.
+- **Hide by the table's room, not the window.** Each hide is a container query on the page or list
+  (`@max-[NNrem]:hidden`), set from measured widths: at 1280 px the page container is 64rem, at
+  1024 px with the collapsed rail about 60rem, and a list beside an open drawer 25–35rem.
+- **Keep the free column readable.** The column without a fixed width (project name, title,
+  structure) keeps at least about 7rem. IDs and dates are never cut; a full ISO date needs about
+  11ch of mono.
+- **Fold, don't drop.** An attribute that still matters when its column hides moves into the
+  identity cell as an icon with a tooltip and screen-reader text: the Inbox task kind; Lab
+  programs' Urgent priority (a `flag` in `stage-danger-fg`).
+- **Stack two-part values** instead of running them on: Progress "6 of 6" over "1 cancelled";
+  Where "Soils lab" over "since today 9:12 AM"; units on a second header line ("Height", "mm").
+  Status cells may wrap to two lines; a status is never cut off.
+- **Safety net:** in fixed-layout tables, text cells clip at their padding edge, so nothing paints
+  over its neighbour; cells holding controls are left out so focus rings show
+  (`design/strata-ui/src/index.css`).
+- **The one sideways scroll** is the program editor's samples-by-tests grid, with the sample
+  column fixed.
+
+### Tablet (641–1023 px)
+
+The rail starts collapsed to icons. Detail sheets open as full pages. Everything else as desktop.
+
+### Phone (640 px and narrower)
+
+- **Header**, 56 px: logo tile, page title, the bell.
+- **Bottom bar**, five slots with icon and label: Today, Find, **Scan** (a raised 64 px indigo
+  circle in the centre), Receive, More. The current slot has an `accent` pill behind its icon.
+- **More** is a bottom `Sheet` listing the other destinations, Settings, Help and the account row.
+- The page's primary action is pinned above the bottom bar as a full-width 56 px button.
+- Content is one column with 16 px padding; tables become row cards; filters collapse into a
+  "Filters" chip that opens a bottom sheet.
+
+### Destinations
+
+Today, Projects, Receive, Inventory, Lab programs, Retention (Due and overdue, Disposal scan),
+Concrete (Breaks, Receiving, Specimens, Holds, Review). The same seven as Field Ledger and in the
+same order; the icons are new.
+
+## UX changes
+
+These are the behaviour changes Strata proposes on top of the new look. Each is open to Kyle's
+review (see the choices table).
+
+1. **Scan from anywhere.** On desktop, a wedge scanner read (fast keystrokes ending in Enter) that
+   arrives while no field has focus is treated as a search: one matching unit or shelf opens
+   directly, anything else opens search results. A toast says what was scanned. Fields that take
+   scans (Move, Disposal scan, Receive) keep their own handling.
+2. **Lists keep their place.** Rows open in the detail sheet, so checking five units in Inventory
+   no longer means five round trips. The full page is one click away.
+3. **The stage is visible everywhere.** Lists, cards, search results and the unit page all carry
+   the stage tag and stripe; the unit page leads with its lifecycle track.
+4. **Today is a work queue.** The greeting block stays (Kyle kept it), now on `primary` indigo with
+   white text, with one button for the most urgent item. Under it: counters (each a link), "Needs
+   you" as stage-striped cards grouped by job, and the last 24 hours as a short timeline.
+5. **Filters are chips with counts.** Every list leads with its common filters as chips that show
+   how many records match, plus a "More filters" sheet. Filters stay in the URL as today.
+6. **Undo before confirm.** Reversible actions (move, add to disposal list, mark test done) show a
+   toast with Undo instead of asking first. Irreversible ones (confirm receipt and issue IDs,
+   record disposal, issue a report) keep an `AlertDialog` that names what cannot be undone.
+7. **Keyboard first on desktop.** `Ctrl+K` / `/` command palette, `N` new record on list pages,
+   `J`/`K` to move through rows, `Enter` to open, `Esc` to close the sheet. Shortcuts are listed in
+   Help and shown in tooltips; none fire while typing in a field.
+
+## Carried over from Field Ledger
+
+Kyle's decisions on the Field Ledger canvas that Strata keeps:
+
+- Depth is always text, never a bar.
+- Projects is second, after Today. No counts in the rail.
+- The top bar holds only the page title, quick actions and the bell; page tags, steps and actions sit in the page head.
+- Rail drop-downs only for Concrete and Retention.
+- The donkey logo with unchanged paths; only its colour and tile change.
+- Tables offer Comfortable and Compact, remembered per table; phones are always comfortable.
+- The greeting block on Today.
+- Receiving is a draft you finish (Delivery, Units, Confirm and label); drafts show no ID.
+- Every finished step names the next physical task.
+
+Field Ledger patterns Strata drops: 2 px ink frames, mono caps labels, counted cells for progress
+(replaced by "n of m" with a progress bar for lab and concrete progress; shelf capacity keeps
+cells, see choices), the ink selection bar, the dashed-frame drafts (drafts now carry the `draft`
+stage).
+
+## Hover, focus and motion
+
+- **Hover** (desktop only, `@media (hover: hover)`): the indigo button lightens to accent 10
+  (`#323684`); outline and ghost buttons, rows and nav items take `accent`; chips darken their
+  border to `input`. These are shadcn's default hover rules with Strata's variables.
+- **Focus:** every focusable element shows a 3 px `ring` 2 px outside its edge (`:focus-visible`).
+- **Motion:** 150 ms ease-out for hover and chip state, 200 ms for sheets sliding in (shadcn's
+  defaults). Nothing bounces. `prefers-reduced-motion` turns all of it into instant changes.
+
+## Accessibility
+
+- Text pairs meet 4.5:1. Lowest in light: grass and red tag text on their step 3 (4.5:1), then
+  `muted-foreground` on `muted` (5.2:1). Lowest in dark: `muted-foreground` on `muted` (7.6:1).
+- In light mode, Radix step 11 text on step 3 fails 4.5:1 for amber (4.3), cyan (4.3) and orange
+  (4.0), so those tags use step 12 text (10.3:1 or more). Step 11 stays the stripe, dot and fill
+  colour (`mark`).
+- Control borders (`input`) meet 3:1 on `card` (3.3 light, 4.2 dark). Primary fills meet 3:1 as
+  non-text (14.1 light, 3.3 dark).
+- Status is always a word; stripes and dots are decoration (`aria-hidden`).
+- The lifecycle track is an ordered list with `aria-current="step"`; the detail sheet is a Radix
+  `Dialog` with a title naming the record and returns focus on close.
+- Targets 44 px minimum; phone primaries 56 px; the bottom bar 64 px tall plus the safe area.
+- `forced-colors`: tags and stripes fall back to `CanvasText` borders; the focus ring uses
+  `Highlight`.
+- Audit fixes (2026-11-12, after the all-boards audit):
+  - **Red text** uses `text-destructive-text` (`#CE2C31` light, Radix red dark step 11 `#FF9592`
+    dark). `destructive` stays the fill colour only; in dark, `#CE2C31` text was 3.4:1.
+  - **Link-style text** (the `link` button and badge variants, active filter and sort icons, hovered
+    links) uses `link`, never `primary`. `primary` is a fill; as dark text it was 3.3:1.
+  - **One h1 per page.** When the title shows only in the top bar (list pages, Workboard, the Review
+    queue, loading and error states), the shell adds it as a `sr-only` h1. Loading and error states
+    keep the page's h1.
+  - **Settings modal titles are h2**; the page behind keeps its h1. The full Lab admin pages keep
+    their h1.
+  - **No skipped levels:** the report paper's sections are h2 under the page's h1.
+  - **Every control has a name:** `CommandInput` takes its placeholder as `aria-label` unless one is
+    given; locked switches carry their own `aria-label`.
+  - **No reduced-opacity small text.** Counts and quiet rows use `muted-foreground` at full opacity;
+    a repeat scan row is `bg-muted/50`, not faded.
+  - **Bars that float over a scroll area are opaque**, and the area has bottom padding at least the
+    bar's height, so the last row can scroll clear of it.
+  - **No card inside a card.** Inner groups are rows divided by borders, a `border-t` section, or a
+    `bg-muted/50` panel for an inline form or confirm.
+  - **Empty result cells stay blank**; the Status column says why (no runs of em-dashes).
+
+## Dark theme
+
+The same Radix custom palette's dark scales. Radix lifts accent step 9 to `#555BDC` in dark, since
+`#21206D` would vanish on a near-black ground. Contrast checked 2026-11-11.
+
+| Variable                 | Light                             | Dark                              |
+| ------------------------ | --------------------------------- | --------------------------------- |
+| background               | `#FFFFFF`                         | `#111113`                         |
+| foreground               | `#1E1F24`                         | `#EEEEF0`                         |
+| card, popover            | `#FFFFFF`                         | `#19191B`                         |
+| primary                  | `#21206D`                         | `#555BDC`                         |
+| primary-foreground       | `#FFFFFF`                         | `#FFFFFF`                         |
+| secondary, muted         | `#EFF0F3`                         | `#222325`                         |
+| muted-foreground         | `#62636C`                         | `#B2B3BD`                         |
+| accent                   | `#EEF1FF`                         | `#1D2050`                         |
+| accent-foreground        | `#242471`                         | `#D8E0FF`                         |
+| destructive (fills)      | `#CE2C31`                         | `#CE2C31`                         |
+| destructive-text         | `#CE2C31`                         | `#FF9592`                         |
+| border                   | `#D8D9E0`                         | `#393A40`                         |
+| input                    | `#8B8D98`                         | `#797B86`                         |
+| ring                     | `#21206D`                         | `#9EADFF`                         |
+| link                     | `#5159BD`                         | `#9EADFF`                         |
+| sidebar                  | `#F9F9FB`                         | `#19191B`                         |
+| stage draft bg/fg/mark   | `#FFF7C2` / `#4F3422` / `#AB6400` | `#302008` / `#FFCA16` / `#FFCA16` |
+| stage storage bg/fg/mark | `#E9F6E9` / `#2A7E3B` / `#2A7E3B` | `#1B2A1E` / `#71D083` / `#71D083` |
+| stage lab bg/fg/mark     | `#DEF7F9` / `#0D3C48` / `#107D98` | `#082C36` / `#4CCCE6` / `#4CCCE6` |
+| stage due bg/fg/mark     | `#FFEFD6` / `#582D1D` / `#CC4E00` | `#331E0B` / `#FFA057` / `#FFA057` |
+| stage danger bg/fg/mark  | `#FEEBEC` / `#CE2C31` / `#CE2C31` | `#3B1219` / `#FF9592` / `#FF9592` |
+| stage closed bg/fg/mark  | `#EFF0F3` / `#62636C` / `#62636C` | `#222325` / `#B2B3BD` / `#B2B3BD` |
+
+Contrast (WCAG ratio), light / dark: foreground on background 16.5 / 16.3; muted-foreground on
+card 6.0 / 8.4; link on card 6.0 / 8.3; white on primary 14.1 / 5.4; accent-foreground on accent
+11.9 / 11.7; white on destructive 5.2; tags 4.5–10.9 / 7.6–10.3. In dark, shadows are replaced by
+a 1 px `border` edge plus the lighter `card` for floating layers.
+
+## Wording
+
+Unchanged from the app's current voice: sentence case, buttons say what happens ("Confirm
+receipt", "Print labels"), errors say what went wrong and what to do in the person's terms, never
+codes or server values, and status never claims more than the app knows ("Sent to printer").
+Navigation labels are the seven destinations above.
+
+## Domain rules the design must keep
+
+- Receiving is per storage unit, with one samples/depth summary per test hole. No sample
+  inventory at receiving; individual samples appear only in lab programs.
+- IDs (`BKT-`, `ST-`, `CRE-`, `CT-` + year + six digits) appear only after confirmation, never on
+  a draft, and never change or get reused. Disposed units keep their ID, label block (in `closed`)
+  and history.
+- Lab programs show progress only.
+- Printed labels and sample tags are physical output: black on white, matched to the Zebra
+  printers, never themed.
+- Concrete uses its own records (set IDs with specimen letters, field and strength reports) and
+  never storage-unit IDs or label blocks. Gated items (G2, G8, templates, limits, offline field
+  entry, set numbering) are not decided by this design; placeholders are marked.
+- Permissions are enforced on the server; hiding an action is a courtesy, not the rule.
+
+## Implementation notes
+
+- **Setup (wave 0):** add Tailwind CSS v4 (`@tailwindcss/vite`), `components.json` for the shadcn
+  CLI, the `@/` alias in `apps/web`, `lucide-react`, `class-variance-authority`, `clsx`,
+  `tailwind-merge` and the Radix packages each component pulls in. Components land in
+  `apps/web/src/components/ui/` as source.
+- **Name clash:** `apps/web/src/components/ui.tsx` (today's shared parts) collides with the shadcn
+  folder `components/ui/`. Wave 0 renames it to `components/app-ui.tsx` and updates imports.
+- **Tokens:** the shadcn variables above go in `apps/web/src/styles.css` under `:root` and `.dark`
+  (plus the OS-dark media query the app uses today), mapped with Tailwind's `@theme inline`. The
+  Field Ledger variable names stay, re-pointed at Strata values, until every page is rebuilt.
+- **Preflight:** Tailwind's base reset changes margins and form styles app-wide. Wave 0 turns it on
+  with the shell and checks every page once, so no page breaks half-restyled.
+- **Forms:** shadcn's `Form` uses react-hook-form with `zodResolver`, so screens reuse the zod
+  schemas in `packages/shared` instead of new validation.
+- **Fonts:** add `@fontsource/atkinson-hyperlegible-next` and `@fontsource/atkinson-hyperlegible-mono`
+  (both 5.3.0, OFL-1.1); remove Archivo and IBM Plex Mono when no page uses them.
+- **Icons:** Lucide only (https://lucide.dev/icons/, Kyle 2026-11-11): `lucide-react` in the app, the
+  exact Lucide SVGs on the canvas (currently lucide-static 1.72.0), never hand-drawn look-alikes.
+  Lucide's default 2 px stroke; 16 px in the sidebar and menus, 20 px elsewhere. Names in use:
+  `house` Today, `inbox` Inbox, `folder` Projects,
+  `arrow-down-to-line` Receive, `package` Inventory, `flask-conical` Lab programs, `hourglass`
+  Retention, `cylinder` Concrete, `search`, `scan-line`, `zap` Quick actions, `bell`, `settings`,
+  `circle-question-mark` Help, `bug` Feedback & bugs, `log-out` Sign out, `chevrons-up-down`,
+  `chevron-down`, `chevron-right`, `arrow-right`, `check`, `lock`, `clock`, `circle-alert`, `pause`.
+- **Checks:** `npm run check:bundle` and `npm run verify` stay the gate; no new runtime network
+  requests (the office host has no internet assumption).
+
+## Choices made in this draft
+
+Kyle's standing rule: choose the recommendation and note it. Each row can be overruled on its own.
+
+| What came up                                              | Choice                                                                                                                                                                                                                                                                                                                                 | Why                                                                                                                                                           | Alternative                                                       |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Where the new spec lives                                  | Repo-root `DESIGN.md` (moved from `docs/strata/` 2026-11-11 so Impeccable reads it); Field Ledger's `docs/redesign/` is untouched                                                                                                                                                                                                      | The shipped app and its code comments still point at Field Ledger                                                                                             | Replace `docs/redesign/design.md` in place                        |
+| Name                                                      | Strata                                                                                                                                                                                                                                                                                                                                 | Geotechnical layers; records shown by their stage                                                                                                             | Any other name                                                    |
+| Theme variable names                                      | shadcn's names, plus `link` and `stage-*`                                                                                                                                                                                                                                                                                              | Kyle chose shadcn; its components read these names directly                                                                                                   | Strata's own names with a mapping layer                           |
+| Radix steps used                                          | 9 primary, 3 accent, 12 accent text, 11 links; gray 2/3/6/9/11/12                                                                                                                                                                                                                                                                      | The roles Radix documents for each step                                                                                                                       | Other steps                                                       |
+| Stage colour scales                                       | Kyle's custom Radix scales (2026-11-12): light and dark (radix-stage-light.css, radix-stage-dark.css); draft orange #ffa500, storage green #008000, due yellow #ff0, danger red #f00; lab Radix cyan, closed the custom gray. Marks use step 9                                                                                         | Kyle: the step-11 amber and orange marks read as brown                                                                                                        | Radix amber, grass, orange and red with step-11 marks             |
+| Light tag text                                            | Step 12 for amber, cyan and orange; step 11 for grass, red and gray                                                                                                                                                                                                                                                                    | Step 11 on step 3 fails 4.5:1 for the first three                                                                                                             | Darker tag fills                                                  |
+| Input border                                              | Gray 9, not shadcn's lighter default                                                                                                                                                                                                                                                                                                   | Inputs need 3:1 against the card (WCAG 1.4.11)                                                                                                                | Gray 7 (fails 3:1)                                                |
+| Destructive                                               | Radix red 11 in both themes                                                                                                                                                                                                                                                                                                            | White text on red 9 is only 3.9:1                                                                                                                             | Red 9                                                             |
+| Buttons                                                   | 4 px radius (`--radius` 0.375rem, tightened by Kyle 2026-11-12); tags, avatars and search stay fully round                                                                                                                                                                                                                             | Matches shadcn; replaces the earlier all-pill buttons                                                                                                         | Pill buttons via a variant                                        |
+| Inputs                                                    | 4 px radius (`rounded-md`)                                                                                                                                                                                                                                                                                                             | Matches shadcn                                                                                                                                                | 10 px                                                             |
+| Sizes                                                     | 44 px buttons and inputs (48 on phone), not shadcn's 36 px. **The 44 px rule is for touch (phones and tablets) only** (Kyle, 2026-11-12): desktop and LAB station screens are used with a mouse and keyboard, so smaller desktop controls (36 px icons, 28 px rows, 18 px switches) are fine there                                     | The app's 44 px touch-target rule                                                                                                                             | shadcn defaults                                                   |
+| Fonts                                                     | Atkinson Hyperlegible Next + Mono, not shadcn's Geist                                                                                                                                                                                                                                                                                  | Distinct 0/O and 1/l/I in IDs; legible on phones; OFL and bundled                                                                                             | Geist + Geist Mono                                                |
+| Caps labels                                               | Dropped; sentence case labels                                                                                                                                                                                                                                                                                                          | Easier to read, and a clear break from Field Ledger                                                                                                           | Keep mono caps labels                                             |
+| Rail icons                                                | Icons beside labels, collapsible `Sidebar`                                                                                                                                                                                                                                                                                             | Lets the rail collapse on tablets; matches the phone bar                                                                                                      | Text-only rail (Field Ledger decision)                            |
+| Shadows                                                   | Floating layers only                                                                                                                                                                                                                                                                                                                   | Depth tells you what sits above the page; cards stay flat                                                                                                     | No shadows                                                        |
+| Progress display                                          | "n of m" with a `Progress` bar; shelf capacity keeps cells                                                                                                                                                                                                                                                                             | Cells grew long on big programs; a shelf's places are real, countable things                                                                                  | Keep counted cells everywhere                                     |
+| Detail sheet                                              | Rows open a `Sheet` on desktop with `?open=` in the URL                                                                                                                                                                                                                                                                                | Keeps the list and filters while checking records                                                                                                             | Always navigate to the full page                                  |
+| Scan from anywhere                                        | Unfocused wedge scans open the record                                                                                                                                                                                                                                                                                                  | The scanner is the fastest input in the storage room                                                                                                          | Scans only in scan fields                                         |
+| Undo vs confirm                                           | Undo toasts for reversible actions; `AlertDialog` for irreversible ones                                                                                                                                                                                                                                                                | Fewer interruptions without hiding anything permanent                                                                                                         | Confirm everything                                                |
+| Logo                                                      | White donkey on an indigo tile                                                                                                                                                                                                                                                                                                         | Indigo is the brand action colour; paths unchanged as Kyle decided                                                                                            | Ink donkey on orange (Field Ledger)                               |
+| Icon set                                                  | `lucide-react`                                                                                                                                                                                                                                                                                                                         | shadcn's default; outline style; ISC; per-icon imports                                                                                                        | Phosphor                                                          |
+| `ui.tsx` clash                                            | Rename to `components/app-ui.tsx` in wave 0                                                                                                                                                                                                                                                                                            | shadcn's CLI writes to `components/ui/`                                                                                                                       | Point the shadcn alias at another folder                          |
+| Today storage room                                        | One fill bar per place with the count written; cells stay for a shelf                                                                                                                                                                                                                                                                  | Today summarises places, not shelf slots; the shelf page keeps countable cells                                                                                | Cells on Today too                                                |
+| Needs you actions                                         | The first card's action is the primary, the others outline                                                                                                                                                                                                                                                                             | One primary per screen, and it matches the greeting's choice                                                                                                  | All outline                                                       |
+| Canvas tooling                                            | Today boards here, Sign in boards by a parallel agent, one canvas                                                                                                                                                                                                                                                                      | Kyle allowed multiple agents; separate files never overlap                                                                                                    | One session draws everything                                      |
+| Customize sidebar                                         | A mode in the sidebar itself with Done, not a dialog (Kyle)                                                                                                                                                                                                                                                                            | You arrange the real sidebar while you see it, as in Notion                                                                                                   | A modal dialog (the first version)                                |
+| Table tools                                               | Page action icon, Filter, Sort, View, then Search at the far right; search grows left and pushes the others left (Kyle)                                                                                                                                                                                                                | Notion's pattern; icons keep the header quiet                                                                                                                 | Always-visible search field and selects                           |
+| Compact table look                                        | Notion borders and hover checkboxes on the compact Table view only                                                                                                                                                                                                                                                                     | Kyle: borders only on the compact view; other tables stay plain                                                                                               | Stripes (tried, replaced)                                         |
+| Polish pass (critique step 6)                             | Avatar initials 11 px; inactive tabs at 75 % foreground (4.5:1+); dark selected rows use muted so they stand apart from the indigo Request pill; the dense Inbox Table view (28 px) is "Table", while Settings › Table rows Compact (36 px) applies to other tables                                                                    | Detector and review findings                                                                                                                                  | Leave as shadcn defaults                                          |
+| What customizing covers                                   | Reorder and hide the five sections; Today, Projects and Inbox stay fixed at the top                                                                                                                                                                                                                                                    | The three are how every person starts work; Inbox is the one place for requests                                                                               | Reorder every row, or custom sections like Notion                 |
+| Where the layout is saved                                 | Per person on the server (folds, order, hidden), not per browser                                                                                                                                                                                                                                                                       | Kyle asked for it to be as they left it when they return; people share LAB computers                                                                          | localStorage per browser                                          |
+| Drag and drop library                                     | dnd kit (sortable, keyboard sensor, announcements)                                                                                                                                                                                                                                                                                     | Emil Kowalski's list; accessible keyboard reordering                                                                                                          | Hand-rolled HTML drag and drop                                    |
+| Recent                                                    | The last 8 records opened, newest first; starts folded                                                                                                                                                                                                                                                                                 | Kyle: Recent closed by default                                                                                                                                | Pages as well as records                                          |
+| Record pattern (round 1)                                  | Header: label block left; stage tag, lifecycle track and one primary action right; More menu for the rest; facts 2:1 beside a sticky History. Sets, lab programs and projects reuse it                                                                                                                                                 |
+| Disabled menu items                                       | The reason sits on its own line under the item (aria-describedby), because a disabled item's text drops below 4.5:1                                                                                                                                                                                                                    |
+| Label preview                                             | The sticker exactly as printed today (template-v1), black on white at true size, no SAMPLE#/DEPTH (Kyle, 2026-11-12); Strata never restyles it                                                                                                                                                                                         |
+| Old styles while pages are rebuilt (wave 0, 2026-11-12)   | Field Ledger stylesheets sit in a `legacy` cascade layer (theme, base, legacy, components, utilities); their variable names point at Strata tokens                                                                                                                                                                                     | shadcn components and Tailwind utilities always win over old page CSS, and every page wears Strata colours at once                                            | Leave Field Ledger CSS unlayered (it would override shadcn)       |
+| Clashing variable names (wave 0)                          | Field Ledger `--muted` (a text colour) and `--accent` (a link colour) became `--fl-muted` and `--fl-accent`; shadcn keeps `--muted` and `--accent` as surfaces                                                                                                                                                                         | Same names, different meanings; renaming the old two is mechanical and goes away with the old CSS                                                             | Prefix every Strata variable instead                              |
+| Picker keyboard highlight (wave 0)                        | `ring` fill with `background` text, not `primary`                                                                                                                                                                                                                                                                                      | Dark `primary` on the list fill is 2.9:1; MM-T78 needs 3:1                                                                                                    | Lighten dark `primary`                                            |
+| Theme source in the app (wave 0)                          | `apps/web/src/strata-theme.css` is generated from `design/strata-ui/src` by `design/strata-ui/gen-app-theme.cjs`; dark uses `data-theme` plus the OS setting, as before                                                                                                                                                                | One source for the canvas and the app; keeps the existing light/dark switch                                                                                   | A `.dark` class like the canvas                                   |
+| Date and time rule (STRATA-70)                            | One shared formatter (`packages/shared/src/date-format.ts`): record dates ISO or medium, activity clock with AM/PM and Yesterday, Inbox Just now / min / h / weekday                                                                                                                                                                   | One rule everywhere, in the lab time zone. Tests avoid assuming a winter offset: the time-zone data on the dev PC keeps Edmonton at UTC-6 after November 2026 | Each page formats its own                                         |
+| Shared request wording (STRATA-57)                        | Moved from wave 0 to lane 1C with the single Inbox feed (STRATA-25)                                                                                                                                                                                                                                                                    | The wording is built from the feed record; doing it first would mean writing it twice                                                                         | Wave 0                                                            |
+| Badge rule store (STRATA-55, lane 1C)                     | Updates on or off for the badge is a field of the new per-person Preferences store; `/api/me/notification-preferences` keeps only its email switch                                                                                                                                                                                     | One store and one version for everything on Settings › Preferences and Notifications; email stays gated (D39)                                                 | Add the field to notification-preferences                         |
+| LAB and per-person data (lane 1C)                         | LAB reads the picked person's sidebar layout read-only (`?personId=`); it never reads pins, recents, preferences or Inbox and never saves anyone's                                                                                                                                                                                     | Layout is not private and the spec says the station follows it; the rest is personal (station Inbox consent is STRATA-27)                                     | LAB saves the picked person's layout                              |
+| Request notices in the Inbox feed (STRATA-25)             | An `action_request.opened` notice folds into its request row; reading the request marks that notice read                                                                                                                                                                                                                               | The same work never shows twice, and the old notification count stays in step                                                                                 | Show both rows                                                    |
+| Inbox paging (STRATA-25, 47)                              | Page number and page size with a fixed order (sort, then received time, then key), like Inventory and Projects                                                                                                                                                                                                                         | Column sorts on several fields make cursors fragile; the existing tables page this way                                                                        | Opaque cursor                                                     |
+| Undo window and scope (STRATA-123)                        | Moves can be undone for 15 minutes by the account (and LAB person) that made them, if nothing changed since; disposal-list and test-completion Undo wait for their own cards                                                                                                                                                           | A toast is not authorization; an hour-old undo would surprise people; those two models don't exist yet                                                        | No window, or build the other two now                             |
+| Directory photos (STRATA-52)                              | Cached as checked bytes (JPEG or PNG, 100 KB at most) in the host database, served same-origin with initials as the fallback                                                                                                                                                                                                           | The host is the only server; no files to clean up beside the database; offline after the first fetch                                                          | Files in a folder on the host                                     |
+| Storage term before locations have one (STRATA-58)        | A stored unit reads Short-term until locations carry a storage term                                                                                                                                                                                                                                                                    | The term is new (DESIGN.md › Lifecycle) and belongs to the Locations card                                                                                     | Guess from the location name                                      |
+| Data table library (lane 1B)                              | TanStack Table 8.21 (`@tanstack/react-table` ^8.21.3) with manual sorting and filtering, as in shadcn's data-table pattern                                                                                                                                                                                                             | shadcn's pattern targets v8; v9 (2026-08) is a rewrite. The server orders rows, so the table never sorts on the client                                        | TanStack 9, or a hand-rolled table                                |
+| Table state in the URL (lane 1B)                          | One query per table: `search`, `filter` (repeated), `sort` + `dir`, `view`, with an optional prefix for a second table; filter, sort and search changes drop `page`. Search typing replaces the history entry; sort, filter and view push one                                                                                          | The same names the Inventory API already uses (`search`, `sort`, `dir`), and Back returns to the previous complete query                                      | One opaque `q` parameter                                          |
+| Shared components' home (lane 1B)                         | `apps/web/src/components/strata/`, beside shadcn's `components/ui/`; a dev-only gallery at `/dev/strata` (not in the production build)                                                                                                                                                                                                 | Keeps shadcn's folder as the CLI writes it; the gallery shows each part in light and dark without a session                                                   | Put them in `components/ui/`                                      |
+| Column hide breakpoints (lane 1B)                         | Pages give attribute columns a `hideOrder`; the table works out each breakpoint from the fixed widths so the free column (title, name) keeps at least 16rem, rounded up to a 2 rem step. An explicit `hideBelow` still wins                                                                                                            | Hand-picked breakpoints let Task and From survive at 1024 px while Title shrank to about 120 px (master review of /dev/strata)                                | Hand-pick every breakpoint per table                              |
+| Inbox row target (lane 1A)                                | Inbox links to `/notifications`; Action requests is a sub-row under it (and in the collapsed flyout) for people with both permissions                                                                                                                                                                                                  | The unread count is the notifications count today; both pages stay reachable until the single Inbox feed (STRATA-25) and the Inbox page land                  | Link Inbox to `/action-requests`                                  |
+| Feedback & bugs before its dialog (lane 1A)               | The account menu item opens `/help` (with the page it came from) until STRATA-104 builds the dialog                                                                                                                                                                                                                                    | No dead menu item                                                                                                                                             | Leave the item out                                                |
+| Sidebar collapsed state (STRATA-42)                       | Remembered per browser in localStorage (`materialmule:sidebar-collapsed`), not shadcn's `sidebar_state` cookie; never chosen → collapsed below 1280 px                                                                                                                                                                                 | DESIGN says per browser; 1C's saved layout covers order, hidden and folds only; 1280 keeps desktop E2E at full width                                          | Collapsed below 1024 px; save it per person                       |
+| Customize sidebar reorder without dnd kit (STRATA-39)     | Keyboard reorder (Space, arrows, Space, Escape, announced) plus Move up and Move down buttons; pointer drag waits for `@dnd-kit` in the lockfile                                                                                                                                                                                       | Adding a dependency mid-lane needs its own lockfile change                                                                                                    | Add dnd kit now                                                   |
+| Top-bar title (STRATA-12)                                 | The page name as text, not an h1; pages keep their own h1                                                                                                                                                                                                                                                                              | One h1 per page; most pages already have one                                                                                                                  | Top-bar h1 with page h1s removed                                  |
+| Retention in the sidebar                                  | A fold button with Due and overdue and Disposal scan under it                                                                                                                                                                                                                                                                          | Matches the canvas; Due and overdue opens the same page                                                                                                       | Link plus chevron                                                 |
+| Concrete testing table in the sidebar                     | `/concrete/testing` marks Breaks as current                                                                                                                                                                                                                                                                                            | It is opened from Breaks                                                                                                                                      | Overview                                                          |
+| Bell accessible name (STRATA-13)                          | Kept "Notifications, N unread"; preview heading "Inbox · N unread", "Inbox" at zero; the newest three items, read or unread; nothing unread shows only the message and Open Inbox                                                                                                                                                      | Keeps tests and stays distinct from the sidebar's Inbox link; no "0 unread" anywhere                                                                          | "Inbox, N unread"                                                 |
+| Request vs update before STRATA-25                        | `action_request.opened` is a request; every other notification kind is an update                                                                                                                                                                                                                                                       | Matches Inbox's split until the single feed lands                                                                                                             | Use the linked request's state                                    |
+| Workboard rename (STRATA-10)                              | Tab, section heading, caption and states say "Workboard"; the area h1 stays "Lab programs"; page title "Workboard · Lab programs"                                                                                                                                                                                                      | The round 5 Workboard card restructures the page later                                                                                                        | Change the h1 per tab                                             |
+| Command menu build (STRATA-14)                            | Built from shadcn's Dialog and Command parts with cmdk filtering off (server results), not `CommandDialog`                                                                                                                                                                                                                             | `CommandDialog` can't pass `shouldFilter`, and cmdk's own keys swallowed Ctrl K                                                                               | Add a passthrough to `ui/command.tsx`                             |
+| Shortcuts in the command menu                             | Ctrl K / ⌘K toggles even from a field (modifier shortcut); `/` opens and `?` opens Keyboard shortcuts, never while typing or in another dialog                                                                                                                                                                                         | Single keys must not steal typing                                                                                                                             | Block Ctrl K in fields                                            |
+| Scan from anywhere (UX change 1)                          | A wedge read is keys under 50 ms apart, 4+ characters, ending in Enter, with nothing editable focused and no dialog or menu open; the same label within 2 s is ignored; an exact unit or shelf opens, anything else opens `/search?q=`                                                                                                 | Scanners type in under 20 ms; people are much slower; matches the existing `useScanner`                                                                       | Open the command menu with the text                               |
+| Retire the desktop Scan page (STRATA-81)                  | `/sample-storage/scan` on a wide screen with a fine pointer redirects to Inventory with Ctrl K open (keeping `?q=` and `?code=`) and a note; phones and tablets keep the camera Scan page                                                                                                                                              | Tablets and phones have no wedge scanner; the URL keeps working                                                                                               | Redirect by width only                                            |
+| Stage on search rows before STRATA-58                     | Derived in one function (`search/rows.ts`): Disposed, Location conflict, Retention due, otherwise In storage                                                                                                                                                                                                                           | Short/long-term and in-lab need STRATA-58 and 106 from the API                                                                                                | Wait for the API                                                  |
+| Search results page (STRATA-82)                           | Heading "Results for “q”", a count per group and honest caps ("First 5 shown"); Print labels in the menu goes to Inventory                                                                                                                                                                                                             | A summed total from capped groups would mislead; labels print from a selection                                                                                | "N results"; hide Print labels                                    |
+| Quick actions items                                       | Receive needs `receipt.draft`; New project needs `receipt.draft` and `project.create` and opens a new receiving draft, where projects are created                                                                                                                                                                                      | No second project model                                                                                                                                       | A separate New project page                                       |
+| Who the station picker lists (STRATA-36 open)             | Active staff with initials whose position is technician, technologist or lab manager (`/api/staff/active`); Someone else… searches all staff (`/api/staff/receivers`)                                                                                                                                                                  | No endpoint exposes roles to LAB; position is the closest to "receiving-lab staff"                                                                            | Every active staff member                                         |
+| Where the station's picked person is kept                 | sessionStorage, tied to the LAB session (account and its fixed expiry); a disabled or stale person is dropped with a notice; signing off clears `materialmule.person.*` view state                                                                                                                                                     | A reload keeps it; a new LAB sign-in never inherits an old pick                                                                                               | localStorage                                                      |
+| Person fields on a station (STRATA-125)                   | Moved by starts as the picked person and stays editable; Who is doing this?, Removed by and Printed by follow the chip, read-only (focusable, not `disabled`). A receipt's Received by is not touched: on LAB it starts blank and someone must choose                                                                                  | T8/AC5 and STRATA-107: Received by is staff attribution chosen per receipt, separate from the recording person; read-only stays reachable by screen readers   | Prefill Received by too; lock every person field                  |
+| How a computer becomes the LAB station (STRATA-18)        | A per-browser marker (`materialmule.stationKind`) set by an admin switch that the settings lane adds; until then a computer opens on the LAB form when its last LAB session expired                                                                                                                                                    | DESIGN's proposal; it holds no identity or secret and authorizes nothing                                                                                      | Mark it automatically after a LAB sign-in                         |
+| LAB form heading                                          | The page h1 is always "Sign in"; the LAB form is an h2 "Shared receiving station"                                                                                                                                                                                                                                                      | One h1 in every state                                                                                                                                         | h1 "Shared receiving station"                                     |
+| Microsoft sign-in return cards (STRATA-105)               | One card per API error code; `expired_attempt` covers "link expired" and "took too long or another browser" in one card                                                                                                                                                                                                                | The API can't tell them apart                                                                                                                                 | A new API code                                                    |
+| Unavailable page (STRATA-105)                             | Unreachable, server error and an unreadable answer all show "Material Mule is unavailable", worded by kind, retrying after 5, 10, 20 s then every 30 s; says work on this computer is kept, without counts                                                                                                                             | One recoverable state; the account isn't known while the server is down                                                                                       | Separate pages; read IndexedDB for counts                         |
+| Crash page before Feedback (STRATA-105)                   | "If it happens again, tell your Lab Manager." instead of a Feedback & bugs link                                                                                                                                                                                                                                                        | The Feedback dialog (STRATA-104) isn't built                                                                                                                  | A dead link                                                       |
+| Scan from anywhere on scanning pages                      | Off while a page with its own scan field is open (Scan, Move, Verify labels), even when that field isn't focused                                                                                                                                                                                                                       | Keeps the Scan page's resume prompt (MM-T16 AC7) and never navigates away from a move in progress                                                             | Take wedge reads whenever the field is unfocused                  |
+| Bell preview after a click                                | Clicking the bell closes the preview until the pointer leaves                                                                                                                                                                                                                                                                          | Otherwise the preview covers the Inbox it just opened                                                                                                         | Close it only on route change                                     |
+| Workboard table region name                               | "Workboard table", like "Receipt table" and "Staff table"                                                                                                                                                                                                                                                                              | Two regions were both named "Workboard"                                                                                                                       | Rename the section heading                                        |
+| Recent while scanning                                     | Opening a record records it in the person's Recent (`POST /api/me/recents`), also when a scan opened it; "scanning changes nothing" checks treat that as view history, not a record change                                                                                                                                             | Recent is the person's own history; records themselves stay unchanged                                                                                         | Don't record Recent for pages a scan opened                       |
+| Settings modal over the page (STRATA-28, lane F)          | The shell's outlet keeps rendering the page you were on (its element and its own location) while a `/settings/*` address is open, so the page behind keeps its state; a fresh load shows Today behind it                                                                                                                               | Each section keeps its own address and the page behind isn't re-fetched or reset                                                                              | A `?settings=` parameter, or re-render the page behind            |
+| Settings history (STRATA-100, lane F)                     | Opening Settings pushes one entry; switching sections replaces it; Close and Esc go Back when Settings was pushed from a page, otherwise replace with the page (or Today)                                                                                                                                                              | Back always leaves Settings in one step                                                                                                                       | One entry per section                                             |
+| Last Settings section (lane F)                            | Remembered per browser (`materialmule:settings-last-section`); Staff, Locations and Lab tests aren't remembered because they are pages                                                                                                                                                                                                 | It is a convenience, not personal data                                                                                                                        | Save it per person on the server                                  |
+| Reference sections by address (STRATA-100, lane F)        | The nav follows the change permissions (a technician sees Account only); Locations, Equipment, Suppliers, Holidays and Report header still open by address, read-only, for everyone, joining the nav while open; Staff, Printers, Templates, Receiving, Lab tests and System status open My access with "… isn't available to you."    | Keeps MISC-04 (print-only Locations) and C27/C37/C32 (everyone reads reference data) while drawing round 9's nav                                              | Refuse every hidden section                                       |
+| Concrete sections in the nav (lane F)                     | Equipment shows to holders of the testing-machine or air-meter permission (so Lab Technicians see it, MM-V2-C36); Suppliers, Holidays and Report header to holders of their change permission                                                                                                                                          | Permission-driven, so the nav never offers what the server refuses                                                                                            | Lab Managers and admins only                                      |
+| Lab admin pages (STRATA-128, lane F)                      | `/admin/staff` needs `staff.manage`, `/admin/lab-tests` `test_catalog.manage`; `/admin/locations` is open to everyone; the tabs show only the pages a person may open; the old `/settings/staff`, `/settings/locations` and `/settings/tests` redirect                                                                                 | Same authority as the modal sections                                                                                                                          | Keep them as modal panels                                         |
+| LAB station switch (STRATA-18, lane F)                    | In Settings › System status, under "This computer" (administrators only); says so when the browser refuses to save                                                                                                                                                                                                                     | It is a per-computer setting that only administrators make; System status is the administrators' section                                                      | In Preferences                                                    |
+| Account sections on a LAB station (STRATA-119, lane F)    | Preferences shows the defaults read-only and never calls the API; Notifications is a note (LAB has no Inbox); My access describes the shared account from `/api/me` (each ability "From: Shared LAB account"); Profile reads `/api/me/profile` for the sign-in name only                                                               | Nothing on the station can read or change the picked person's settings or consent                                                                             | Hide Settings on the station                                      |
+| My access sources (STRATA-101, lane F)                    | Each ability says where it comes from: a role from the session, "Everyone" without one, an administrator's grant, or a project team                                                                                                                                                                                                    | The server reports abilities, not which role gives each one                                                                                                   | Show abilities without sources                                    |
+| Preference saves (STRATA-29, lane F)                      | One save at a time with the latest version; a failed save puts the saved value back with a plain error; a 409 shows the latest and says it changed on another computer; a 403 turns the panel read-only                                                                                                                                | Saves as you change without losing or overwriting another computer's change                                                                                   | A Save button                                                     |
+| Theme preference (STRATA-29, lane F)                      | Applied at once on this computer and saved for the person; applying the saved theme when the app starts is left to the shell                                                                                                                                                                                                           | The shell owns start-up; the panel changes only what the person touched                                                                                       | Apply the server theme when Settings opens                        |
+| Reset sidebar layout (lane F)                             | Saves the default layout through the existing sidebar-layout route (no new route) and tells the open sidebar, which shows it at once                                                                                                                                                                                                   | No API change for a button                                                                                                                                    | A dedicated reset route                                           |
+| Weeks start on Monday (lane F)                            | Under Dates and time: "Calendars and date pickers start the week on Monday instead of Sunday." (placeholder wording; not on the canvas)                                                                                                                                                                                                | The field exists in the preferences store                                                                                                                     | Leave it out                                                      |
+| Lab Managers and admins (STRATA-118)                      | Lab Managers get `staff.manage` (approve, add, non-admin roles including Lab Manager, disable and re-enable, names, initials, job titles) and `printer.manage`; never through LAB, a position or a picked person                                                                                                                       | Kyle 2026-11-12: Staff and Printers are managed by Lab Managers and administrators                                                                            | Admins only (as before)                                           |
+| Making or removing admins (STRATA-118)                    | New admin-only `admin_role.manage`: granting or removing admin, and changing an account that holds admin (roles, disable, re-enable, profile, job title), is 403 `admin_only` without it; last-admin, reason and audit rules unchanged                                                                                                 | Kyle: making or removing admins stays administrator-only; an admin's account is out of a Lab Manager's reach                                                  | Guard only the admin role itself                                  |
+| Positions under STRATA-118                                | Setting or clearing a position stays admin-only (needs `reviewer_eligibility.manage`); sending the unchanged position is allowed                                                                                                                                                                                                       | MISC-06: a position moves review eligibility, which stays with admins                                                                                         | Let Lab Managers set positions                                    |
+| LAB account password (STRATA-118)                         | Own admin-only permission `lab_account.manage` for `GET /api/admin/lab` and the password reset, instead of `staff.manage`                                                                                                                                                                                                              | One shared credential for every station; not part of managing people                                                                                          | Leave it on `staff.manage`                                        |
+| Eligibility, capabilities, sessions (STRATA-118)          | `reviewer_eligibility.manage`, `staff_capability.manage` and `session.revoke` stay admin-only; a Lab Manager reads a person's access and grants read-only                                                                                                                                                                              | The Staff page works without them (the drawer hides what it can't do)                                                                                         | Give them to Lab Managers too                                     |
+| Administrator Feedback (STRATA-118)                       | New admin-only `feedback.read` on `GET /api/feedback`; Lab Managers never read it                                                                                                                                                                                                                                                      | Kyle: Administrator Feedback stays private                                                                                                                    | Keep it on `staff.manage`                                         |
+| Feedback in the Inbox (STRATA-104)                        | Each accepted submission notifies every active admin except the sender (`feedback.submitted`, in-app only): "Feedback · Problem" with the page as its record, linking to /help; never the text; a client `submissionId` makes retries notify once                                                                                      | Kyle: arrives in the administrators' Inbox as a Feedback item with the page they came from                                                                    | Notify the sender too; copy the text                              |
+| Feedback kind words (STRATA-104)                          | Problem, Question, Idea (round 10); stored values `not_working`, `confusing`, `idea` unchanged                                                                                                                                                                                                                                         | Old rows stay readable with the new words                                                                                                                     | Rename the stored values                                          |
+| Help drawer layout (STRATA-103)                           | The shell's inset becomes two columns while Help is open (page, then the drawer at 46 %, 30–65 %, sticky under the top bar); PeekToolbar's Close and Open as full page, but not PeekSplit's panel group                                                                                                                                | PeekSplit's group sets overflow hidden and touch-action on its panels: wrapping every page in it would break window scroll, sticky headers and phone panning  | Wrap the page in PeekSplit only while open (remounts it)          |
+| Help under 1024 px                                        | `?` and account menu › Help open `/help` at the anchor for this page (no drawer), as every peek does                                                                                                                                                                                                                                   | Matches usePeekAvailable; a drawer would leave too little page                                                                                                | A Sheet from the right                                            |
+| `?` with Help built                                       | `?` opens or closes the Help drawer (never while typing or in another dialog); the command menu's Help items open the drawer, Keyboard shortcuts as its sub-view                                                                                                                                                                       | Round 10: one place for help and shortcuts                                                                                                                    | Keep `?` on the command menu's shortcuts view                     |
+| Help for this page                                        | A route-prefix table in `help/guides.ts` picks the guides; the first is open; pages without one show Getting around                                                                                                                                                                                                                    | One module owns the copy and the mapping                                                                                                                      | Each page declares its own help                                   |
+| Help copy owner (STRATA-68 open)                          | Field Ledger's guides kept word for word; new guides written from the shaped screens, each `placeholder: true` in `help/guides.ts`; gated work shows as Open item                                                                                                                                                                      | Copy can be replaced in one place once an owner is chosen                                                                                                     | Wait for the owner before building Help                           |
+| Public /help (STRATA-103, 105)                            | A gate around the signed-in guard shows the public guides on `/help` when signed out (Back to sign in), waiting for approval (Back) or on a LAB station before a pick (Back to Who is working here?)                                                                                                                                   | The station picker links to /help; the guard would bounce it back. Only static guides and `/api/health` are read                                              | A second /help route tree                                         |
+| Feedback kinds (STRATA-104)                               | Problem → `not_working`, Idea → `idea`, Question → `confusing`; Problem chosen first; the dialog uses its own words, not FEEDBACK_KIND_LABELS                                                                                                                                                                                          | The API enum stays; labels change server-side separately                                                                                                      | Change the API enum                                               |
+| Feedback page path                                        | Pathname only: query string and hash dropped, token-like segments (24+ letters and digits, not a UUID) shown as `…`                                                                                                                                                                                                                    | Searches, sign-in codes and reset secrets never leave the page                                                                                                | Send the full URL                                                 |
+| Feedback received (admins)                                | Stays on `/help` under the guides for `staff.manage`, restyled; the Help page's form is gone (the dialog replaces it)                                                                                                                                                                                                                  | Kept working as today until feedback arrives in the administrators' Inbox                                                                                     | Move it to Settings                                               |
+| Crash page with Feedback (STRATA-105)                     | Inside the shell: "If it happens again, tell the administrator in Feedback & bugs. The page you were on is included." (opens the dialog); outside the shell the Lab Manager line stays                                                                                                                                                 | The dialog only exists inside the shell                                                                                                                       | Always the Lab Manager line                                       |
+| Program phases (STRATA-87)                                | One shared rule, `labProgramPhase`: pull or testing while any test is waiting, in testing or done; review when only In review tests remain; ready when all are accepted or cancelled with a reason (never when empty)                                                                                                                  | The boards' accept-before-testing flow isn't the data model; the list, Workboard and program page must agree                                                  | A phase field stored on the program                               |
+| Test state words (STRATA-87)                              | Waiting, In testing, Done, In review, Accepted, Cancelled (struck through, reason shown)                                                                                                                                                                                                                                               | Record words on stage colours, as round 5 says                                                                                                                | Keep Requested / In progress / Completed                          |
+| Who may close a Ready program (STRATA-87)                 | The requester (the personal account that submitted it), the project lead, or a Lab Manager (from More); checked in the close handler, policy unchanged                                                                                                                                                                                 | Kyle 2026-11-12; a person a LAB station named is attribution only                                                                                             | Widen `program.close` in the policy                               |
+| Review by the requester (STRATA-87, 88)                   | The server now refuses Mark review complete and Return for correction by the program's requester; acceptance stays with the lead or a delegate (D04)                                                                                                                                                                                   | Review is never by the requester; it was only hidden in the UI                                                                                                | Hide the buttons only                                             |
+| Program history and Undo (STRATA-87)                      | History is built from the work view, newest first, 8 at a time; no Undo for lab actions                                                                                                                                                                                                                                                | There is no program audit endpoint, and server Undo covers moves and dismissed notices only                                                                   | A new audit endpoint                                              |
+| Editor saving (STRATA-86)                                 | The draft is created once a project (and on LAB the person) is chosen, then saves 0.7 s after each edit; Submit to the lab saves, re-checks and sends the server's coverage                                                                                                                                                            | Saves as you go with one primary; separate Review and Save draft buttons are gone                                                                             | Keep a Save draft button                                          |
+| Editor details (STRATA-86)                                | Priority reads Normal on a draft (D50); Choose a template adds to every line, a line's + Add test also lists templates; a Grid column waits for a ticked cell                                                                                                                                                                          | Only the lead or Lab Manager sets priority, on an open program                                                                                                | Editable priority on drafts                                       |
+| Lines without a depth (STRATA-86)                         | ALL, Grabs and SPT lines carry no interval; Include later receipts only in amendments; line comments wait for a migration card                                                                                                                                                                                                         | The data model; coverage freezes at submit; program Notes cover comments                                                                                      | Interval on every line                                            |
+| Recording person in the editor (STRATA-125)               | On LAB, Requested by starts as the chip's person and stays changeable                                                                                                                                                                                                                                                                  | Follows the station chip like Moved by                                                                                                                        | Lock it to the chip                                               |
+| Workboard columns and order (STRATA-88)                   | Columns from `labProgramPhase`; each column loads on its own (up to 100 cards, then a note to List); Urgent first, then oldest open                                                                                                                                                                                                    | Board, list and program page agree; no drag                                                                                                                   | One request for all columns                                       |
+| Workboard view memory (STRATA-88)                         | `view=` in the URL, remembered per person in `materialmule.person.workboard-view.*`; List filters Urgent only, With open tests, project                                                                                                                                                                                                | No server field for it yet; the old Test filter became search                                                                                                 | Save it in person settings                                        |
+| Sample ID tags screen (STRATA-89)                         | One true-size card plus a sheet map; full sheets render off screen for printing only; Across/Down nudge; "Print n tags"                                                                                                                                                                                                                | The round 1 print pattern; printed output unchanged                                                                                                           | Show every sheet on screen                                        |
+| Templates panel (STRATA-102, lane F)                      | Settings › Templates holds the lab-program test templates (list and a right Sheet); the label-layout preview on R9TemplatesPanel isn't built (no label-template API; printed labels are unchanged)                                                                                                                                     | The section's data is the test templates the program editor uses                                                                                              | Build a label-template editor                                     |
+| Lab tests page (STRATA-102/128, lane F)                   | One table per test group (unpaged), an always-visible search and Include retired; the drawer is the PeekSplit with `?open=` from 1024 px and a Sheet below; Retire and Restore are one click (no reason: the API takes none, and Restore undoes it)                                                                                    | The catalogue is small and filtered in the browser; nothing destructive needs a reason                                                                        | TableToolbar's folded search; a reason dialog                     |
+| Locations page (STRATA-102/128, lane F)                   | The tree is area › location (the API has no parent field yet), paged by top-level place, 10 per page, with `?page=`; editing happens in the drawer; Add location stays a Dialog; the storage term waits for STRATA-106 (lane B)                                                                                                        | Builds only what the API knows; a warehouse › bay › shelf hierarchy and storage terms come with their API                                                     | Invent a hierarchy or storage terms                               |
+| Admin list drawers in the modal (STRATA-102, lane F)      | Printers, Equipment, Suppliers and Holidays open a record beside the list from 1024 px (below it on narrower screens), kept in component state, not `?open=`                                                                                                                                                                           | A pushed history entry per record would make the modal's Close step back through records                                                                      | `?open=` in the modal too                                         |
+| Printers status (STRATA-102, lane F)                      | The panel shows In use / Not in use and Default, from what the API knows; printer status, Test print and a per-computer default printer are not built                                                                                                                                                                                  | They need an API (and lane B's label-print form); a test print through a unit would add to that unit's history                                                | Invent them                                                       |
+| System status groups (STRATA-102, lane F)                 | Service, Backups, Print queue (with the default printer's last result) and Disk space, plus This computer; "Check now"; database down and backups not set up as alerts                                                                                                                                                                 | Keeps the region names people and tests rely on                                                                                                               | The canvas's three cards                                          |
+| Report header preview (lane F)                            | Black on white in both themes, like printed labels                                                                                                                                                                                                                                                                                     | It shows paper                                                                                                                                                | Follow the theme                                                  |
+| Staff page (STRATA-102/128, lane F)                       | One `/api/staff` read (it has no server paging) with a debounced search; tabs People (active), Pending and Disabled, filter chips (AND), sorts and a 20-per-page pager run in the browser; the drawer is the PeekSplit with `?open=` from 1024 px and a Sheet below                                                                    | The API returns up to 500 people, well above the 150 the brief expects                                                                                        | Add server paging first                                           |
+| Staff drawer (STRATA-102, lane F)                         | Roles (Lab Technician, Lab Manager) save with an inline reason; Admin is its own section (Make admin… / Remove admin…, or the lock note for Lab Managers); Approve, Reject and Disable are inline confirms with a required reason; Re-enable takes none; the LAB account and position rules are administrator sections below the table | Follows the canvas; Re-enable without a reason is the API owner's rule; the canvas's "changed meanwhile" state isn't built because roles carry no version     | A confirm dialog per change                                       |
+| Projects list tabs (STRATA-83)                            | My projects is the default tab; the old Only mine memory is dropped; old `?mine=`, `?waitingForLead=` and `?search=` links open the matching tab                                                                                                                                                                                       | Round 4; direct links keep working                                                                                                                            | Remember the last tab                                             |
+| Project page tabs (STRATA-84)                             | Line Tabs with Link triggers in nav "Project sections"; Concrete shows when the project has concrete work or the viewer can start it (the lead)                                                                                                                                                                                        | Each tab keeps its own URL; lane E owns the Concrete routes                                                                                                   | Concrete only with existing work                                  |
+| Overview contents (STRATA-84)                             | Retention coming up includes overdue units, leaves out held ones, Decide opens the unit's retention; client and server folder sit in Project details                                                                                                                                                                                   | What a lead acts on first                                                                                                                                     | Due units only                                                    |
+| Units tab stages (STRATA-84)                              | Stage tabs follow the inventory filters (Current stock, Retention due, On hold, Conflicts, Disposed, All), without counts                                                                                                                                                                                                              | No per-stage count endpoint yet                                                                                                                               | Add counts to the API                                             |
+| Team reasons (STRATA-85)                                  | Confirming a nomination and accepting a join need no reason; rejecting, withdrawing, declining, keeping or ending a grant do                                                                                                                                                                                                           | The server's MISC-03 and MISC-07 rules win over the boards' wording                                                                                           | Require a reason everywhere                                       |
+| Team layout (STRATA-85)                                   | Decisions are inline reason forms with toasts; People has no toolbar (1 to 40 people); Needs review only for those who can decide                                                                                                                                                                                                      | Fewer dialogs; small tables                                                                                                                                   | Confirmation dialogs                                              |
+| Team history (STRATA-85)                                  | New `GET /api/projects/:id/access-history`, 20 a page; a person's history includes events they recorded                                                                                                                                                                                                                                | Round 4 asks for paged history                                                                                                                                | Client-side history                                               |
+| Location hierarchy (STRATA-106, lane B)                   | Locations gain a parent (warehouse › bay › shelf, at most three levels), their own storage term and a capacity (1–200). One SQL view resolves the effective term; nothing stores a copy                                                                                                                                                | Kyle: term set on the warehouse, inherited, overridable on a bay or shelf. Three levels needs no recursive query                                              | A recursive CTE; per-location terms only                          |
+| Locations without a term (STRATA-106)                     | Existing locations start unset ("Storage term not set"); units there read Short-term. No backfill from names                                                                                                                                                                                                                           | Never guess a business default from a name                                                                                                                    | Backfill from "long-term" in names                                |
+| Hierarchy edge cases (STRATA-106)                         | Lab and Receiving lab locations have no parent, term or children; a retired location keeps its children and passes its term down but gains no new ones; capacity is allowed on any kind                                                                                                                                                | Labs aren't storage; retiring a warehouse must not orphan its shelves                                                                                         | Refuse retiring a location with children                          |
+| Never tested (STRATA-106)                                 | `neverTested` is true when no submitted or closed program covered the unit; the track shows In lab as passed without a check                                                                                                                                                                                                           | A draft program is not testing; the track must not imply lab work                                                                                             | Count draft programs                                              |
+| Unit page Correct when disposed (STRATA-72)               | Stays enabled for personal accounts with "Only the received date and note can change."; Print label disabled with its reason; LAB: Correct disabled, "Corrections need a personal account."                                                                                                                                            | BUG-014 owner decision allows those two corrections on disposed units                                                                                         | Disable Correct as the board draws                                |
+| Conflict tags (STRATA-72)                                 | First tag shows the physical step (Short-term, Long-term, In lab, Received); "Urgent · Location" is the second tag; Move stays primary                                                                                                                                                                                                 | Avoids saying Location conflict twice; the track stays on the storage step                                                                                    | Record tag "Location conflict" plus the work tag                  |
+| Test hole summaries table (STRATA-72)                     | Test hole, Samples, Depth, plus Note when any hole has one; no Count column                                                                                                                                                                                                                                                            | Receiving records no count; deriving one would imply a sample inventory                                                                                       | A derived Count column                                            |
+| Shelf cells (STRATA-74)                                   | Counted, not numbered: filled cells show the ID and stage word, empty cells "Empty place"; unknown capacity shows occupants and "Capacity not set"; over capacity shows every unit and an alert                                                                                                                                        | The app records no positions; never invent sixteen places                                                                                                     | Numbered slots                                                    |
+| Shelf Units here table (STRATA-74)                        | Search, filter and sort on the page over the loaded rows (≤100); URL keys prefixed `u`                                                                                                                                                                                                                                                 | A shelf holds at most 200 places; one fetch is enough                                                                                                         | Server paging                                                     |
+| Copies (STRATA-75)                                        | One print job per copy, each in print history, until the print API takes a copies count                                                                                                                                                                                                                                                | The API has no copies field yet                                                                                                                               | Hide Copies                                                       |
+| Printer choice (STRATA-75)                                | Admins choose an enabled printer; others get "Default label printer" (the server default)                                                                                                                                                                                                                                              | The printer list endpoint needs printer.manage                                                                                                                | A new non-admin printer list route                                |
+| Printed by on a station (STRATA-75)                       | Follows the recording-person chip, read-only, sent as `receiverUserId`; the server re-checks it                                                                                                                                                                                                                                        | STRATA-125: person fields on a station follow the chip                                                                                                        | Credit the receipt's receiver                                     |
+| Label print page in the shell (STRATA-75)                 | Stays outside the app shell, with a breadcrumb back                                                                                                                                                                                                                                                                                    | Printing then outputs only the labels                                                                                                                         | Inside the shell with print CSS hiding it                         |
+| Draft ownership (STRATA-108)                              | A server registry of who started each draft (account and person), never its contents; registered after the first save and retried; every delete a person makes asks the server; legacy drafts are Lab Manager only, recorded as a legacy row                                                                                           | Kyle: only the starter or a Lab Manager, enforced on the server; ownership is never invented                                                                  | Sync drafts to the server                                         |
+| Delete draft offline (STRATA-108)                         | Enabled when ownership can't be checked; the server decides on click                                                                                                                                                                                                                                                                   | A disabled button with no reason would strand the person                                                                                                      | Disable until online                                              |
+| Hold until (STRATA-121, lane E)                           | The date must be after the lab's today, no upper limit; any saved test entry or an unnumbered set refuses it; reaching the date only flags review                                                                                                                                                                                      | Matches Schedule test (C38); HOLD is never released or disposed of on its own                                                                                 | Allow tested specimens; a maximum date                            |
+| Uncast sets in Receiving (STRATA-120)                     | Listed last (after sets with a casting time) and receivable; test dates stay empty until the casting time is recorded                                                                                                                                                                                                                  | Kyle 2026-11-11; no invented casting time                                                                                                                     | A separate list                                                   |
+| Breaks selection (STRATA-95, variant A)                   | Rows grouped by set, test age and due date; Reschedule calls the existing per-specimen command once each, naming every specimen left out                                                                                                                                                                                               | There is no bulk reschedule command (a follow-up card)                                                                                                        | A new bulk command                                                |
+| Breaks tabs keyboard (STRATA-95)                          | Manual activation: arrow keys move between views, Enter opens one                                                                                                                                                                                                                                                                      | A run of arrows doesn't load every list on the way                                                                                                            | Automatic activation                                              |
+| Concrete › Overview (STRATA-93)                           | Lab staff only, in the sidebar too; a count that failed or isn't available says so, never 0                                                                                                                                                                                                                                            | Kyle kept Overview; honest counts                                                                                                                             | Show it to everyone                                               |
+| Testing table at 1024 px (STRATA-95)                      | Flags fold into Status below 70rem; Project hides below 66rem; Status stays in view                                                                                                                                                                                                                                                    | The table fits whole with the rail collapsed                                                                                                                  | Sideways scroll                                                   |
+| Receiving on phones (STRATA-95)                           | The report and casting time fold as icons into the sets cell; the Receive column hides below 30rem and the set page's main action receives                                                                                                                                                                                             | The project number is never cut on a 375 px phone                                                                                                             | Card list on phones                                               |
+| Holds filters (STRATA-95)                                 | Opens on open holds; one project and one status at a time (the API reads one of each); search filters the loaded page                                                                                                                                                                                                                  | The holds API has no search parameter                                                                                                                         | Server search (needs API)                                         |
+| Review queue tabs (STRATA-97)                             | Waiting for review, Returned, Reviewed (not issued), Exceptions, plus Issued (the dashboard link uses `?status=`); search replaces the old project, technician and date filters                                                                                                                                                        | Server filters on real report states                                                                                                                          | Drop Issued                                                       |
+| Report page (STRATA-96)                                   | Comments shows the stored return, recall and revise comments; paper markers link to exceptions; the panel is a Sheet from 768 to 1279 px                                                                                                                                                                                               | Section comments need a server feature (follow-up)                                                                                                            | Free comments on sections                                         |
+| Strength report (STRATA-99, G2)                           | Restyled into paper and panel and marked provisional; output, calculations and actions unchanged                                                                                                                                                                                                                                       | Gate G2 stays a gate                                                                                                                                          | Draw the provisional design as real                               |
+| Project Concrete sub-tabs (STRATA-98)                     | Line Tabs with the sub-tab in the URL; `/concrete/specimens` opens Sets; the Strength reports list moves to Sets                                                                                                                                                                                                                       | Kyle's five sub-tabs                                                                                                                                          | Ghost buttons as on the canvas                                    |
+| Sets working labels (STRATA-98)                           | "Set N" in creation order (derived, never stored) with specimen ranges "NA–ND"; n of m leaves HOLD out                                                                                                                                                                                                                                 | Set numbering is an open item (package 3)                                                                                                                     | Show the temporary IDs only                                       |
+| Propagation groups (STRATA-98)                            | Can be updated starts chosen; Your call (hand-changed values kept) starts unchosen; Won't change shows why; nothing applies until Apply                                                                                                                                                                                                | Kyle: nothing changes without an explicit choice                                                                                                              | Everything chosen                                                 |
+| Receipt status (STRATA-78)                                | Corrected once any unit in it has a correction; the receipt header never changes                                                                                                                                                                                                                                                       | Corrections are per unit; the original record stays as confirmed                                                                                              | A receipt-level correction flag                                   |
+| Receiving log filters (STRATA-78)                         | Project, Received by (incl. Received by me) and Confirmed/Corrected; one project and one person at a time; old `?projectId=`/`?receiverUserId=` links still work                                                                                                                                                                       | Keeps existing links and matches the table-tools pattern                                                                                                      | Multi-select filters                                              |
+| Receipt naming (STRATA-78)                                | "Receipt {date} · {receiver}"; corrected project or date highlighted as "(corrected to …)"                                                                                                                                                                                                                                             | Receipts have no number                                                                                                                                       | A new receipt number                                              |
+| Other container at receiving (STRATA-76)                  | Not offered: the holder choices stay Bucket, Bulk bucket, Shelby tube, Core box                                                                                                                                                                                                                                                        | Receiving never accepted a generic container (`RECEIPT_UNIT_TYPES`); adding CT- needs its own API card                                                        | Add Other container now                                           |
+| Summary entry (STRATA-76)                                 | The structured summary type (All, Sample range, Depth range, Custom) stays, on wrapping lines, instead of the board's free text                                                                                                                                                                                                        | The shared validators stay exact; no individual samples either way                                                                                            | Free-text SAMPLE#/DEPTH                                           |
+| Print on confirm (STRATA-76)                              | The "Print labels on confirm" checkbox is gone: Confirm and print labels always sends them                                                                                                                                                                                                                                             | The board's one primary says it; Print again recovers a failed send                                                                                           | Keep the checkbox                                                 |
+| Where it will go (STRATA-76)                              | Dropped from the rows; Put away (Move) records the shelf                                                                                                                                                                                                                                                                               | Put away replaces it; the field was never sent                                                                                                                | Keep it on rows                                                   |
+| Native selects kept (lane B)                              | Summary type, bulk sample, nominee, correction Type and bulk Move to stay native `select` with `data-slot`                                                                                                                                                                                                                             | Specs and corrections rely on native select behaviour; wave 3 can swap them                                                                                   | shadcn Select now                                                 |
+| Put away link (STRATA-77)                                 | Router state `{ units }` to `/sample-storage/move`, which MovePage already reads; lane C may add `?units=`                                                                                                                                                                                                                             | Works today with the existing Move screen                                                                                                                     | Wait for lane C                                                   |
+| Go straight to Put away (STRATA-77)                       | Only once the label job is sent; failed or uncertain stops on the done page; a preference that can't load means the done page                                                                                                                                                                                                          | A failed print must be seen                                                                                                                                   | Always follow the preference                                      |
+| Receive for a project (lane D link)                       | `/receiving-log/new?new=1&projectId=` pre-fills that project on a new draft; not found or no permission leaves it blank with a note; a continued draft keeps its project                                                                                                                                                               | Lane D's project page button                                                                                                                                  | A new param name                                                  |
+| Station setup and picker (STRATA-36, **Kyle 2026-11-13**) | An admin marks the station; the picker lists receiving-lab staff; Someone else searches all active staff; a Lab Manager signed in with their own account on that computer customizes it                                                                                                                                                | Kyle's decision                                                                                                                                               | LAB session saving                                                |
+| Inbox bulk actions (STRATA-48, **Kyle 2026-11-13**)       | Mark read, Mark unread, Dismiss; requests never decided in bulk; select all = loaded rows; partial failure says "n of m updated"                                                                                                                                                                                                       | Kyle's decision                                                                                                                                               | More actions                                                      |
+| Station density (STRATA-62, **Kyle 2026-11-13**)          | Standard rows on stations; 44 px is touch-only. Nothing in the app forced 44 px rows, so nothing changed                                                                                                                                                                                                                               | Kyle's standing rule                                                                                                                                          | 44 px station rows                                                |
+| Bulk Mark unread on updates (lane A)                      | Enabled only when every checked row is a request ("Updates stay read once opened."); Dismiss only for updates                                                                                                                                                                                                                          | Migration 0014 keeps a notice read once                                                                                                                       | Relax the 0014 guard                                              |
+| Today role rule (lane A)                                  | Lab Manager role gets the manager set; else leading any project gets the lead set; else the technician set; never merged. Activity scope follows: lab, projects, mine                                                                                                                                                                  | Authority from roles and membership, never the job title                                                                                                      | Merge sets                                                        |
+| Needs you sources (lane A)                                | Requests waiting on me plus holds, concrete reviews, breaks due, retention due (leads), disposal approved, failed labels, location conflicts, programs ready. Tests assigned, lab unassigned and old drafts left out (no assignee in the data model; registry had no confirm mark)                                                     | Only sources with a real query and authority check                                                                                                            | Invent assignees                                                  |
+| LAB asking for mine/projects activity (lane A)            | 400 `scope_not_available`                                                                                                                                                                                                                                                                                                              | The station never gets a silent "nothing"                                                                                                                     | Empty list                                                        |
+| Station Today counts (lane A)                             | LAB, Lab Manager and Lab Technician read them. Labels to print = units received in 30 days whose newest print job is missing or failed. Drafts = LAB registry rows plus this browser's unregistered drafts                                                                                                                             | Lab-wide counts, never personal data                                                                                                                          | Personal accounts too                                             |
+| Customize this station (lane A)                           | Each switch or move saves at once (PUT with version; 409 reloads and says it changed); order by Move up/down and Alt+Arrow, no dnd-kit. Config that can't load shows the default rows                                                                                                                                                  | Canvas has no Save button                                                                                                                                     | Save button                                                       |
+| Station Inbox (lane A)                                    | Read-only All tab, newest first; no read, dismiss or decide from the station; the bell's heading names the person                                                                                                                                                                                                                      | Consent covers seeing, not acting                                                                                                                             | Allow marking read                                                |
+| Inbox columns menu (lane A)                               | A Columns button before the toolbar in Table view until lane C's View › Columns lands                                                                                                                                                                                                                                                  | Lane C owns TableToolbar                                                                                                                                      | Edit the toolbar                                                  |
+| Inbox drawer columns (lane A)                             | With the drawer open Task, Record, From and Received are dropped (Task as the kind icon's tooltip); Job number hides under 30rem                                                                                                                                                                                                       | Spec hides them whenever the drawer is open                                                                                                                   | DataTable `fold` breakpoints                                      |
+| Inbox main action (lane A)                                | Shown only when the request waits on you, worded by kind (Make the correction, Review the closure…); otherwise an Open link. History left out (API gives none)                                                                                                                                                                         | One action, never a dead button                                                                                                                               | Always show                                                       |
+| Old Inbox pages (lane A)                                  | `/notifications` and `/action-requests` redirect to `/inbox`; `?id=` becomes `?open=`. Admin Everyone's requests, Unresolved and Reassign have no screen now                                                                                                                                                                           | One Inbox                                                                                                                                                     | Keep the old pages                                                |
+| Inventory All tab (STRATA-79)                             | All includes disposed units; a confirmed unit not yet put away is under All only                                                                                                                                                                                                                                                       | Matches the canvas counts and the lifecycle tabs                                                                                                              | All = current stock                                               |
+| Inventory old links (STRATA-79)                           | With `stage` or `counts`, the older `status` param is ignored; `conflict=open` opens Conflicts and `status=disposed` opens Disposed                                                                                                                                                                                                    | Old links keep landing on the right tab                                                                                                                       | Drop the old params                                               |
+| Inventory selection (STRATA-79)                           | Kept across pages and sort within one query; cleared when the tab, search or a filter changes                                                                                                                                                                                                                                          | A selection never silently includes rows the person can no longer see                                                                                         | Clear on every page change                                        |
+| Inventory selection bar (STRATA-79)                       | Move, Print labels (up to 50), Clear; disposed units are left out of both; Add to lab request dropped                                                                                                                                                                                                                                  | The card names these three                                                                                                                                    | Keep Add to lab request                                           |
+| Look up ID on Inventory (STRATA-79)                       | Removed; search and Ctrl K cover it                                                                                                                                                                                                                                                                                                    | One way to find a unit                                                                                                                                        | Keep the Look up field                                            |
+| Where on narrow lists (STRATA-79)                         | Not folded into the ID cell; on narrow lists the location shows in the drawer and unit page                                                                                                                                                                                                                                            | IDs are never cut (lane B rule)                                                                                                                               | Fold the location code under the ID                               |
+| Inventory camera button (STRATA-79)                       | CameraScanButton stays beside the toolbar unchanged, with the phone-only Scan labels link                                                                                                                                                                                                                                              | The phone Scan page shares it; no new phone designs                                                                                                           | Restyle it now                                                    |
+| Move saves (STRATA-80)                                    | `POST /api/moves` stays one request per row                                                                                                                                                                                                                                                                                            | Each row has its own destination; per-move retries, order and partial refusals                                                                                | A new batch endpoint                                              |
+| Repeated label on Move (STRATA-80)                        | Keeps its first shelf; remove the row and scan again to change it                                                                                                                                                                                                                                                                      | Never silently redirect an earlier destination                                                                                                                | Follow the latest shelf                                           |
+| Shelf after Save (STRATA-80)                              | The shelf stays chosen after Save                                                                                                                                                                                                                                                                                                      | The next units often go to the same shelf; the two-stations E2E needs each station to keep its shelf                                                          | Reset to No shelf yet (as drawn)                                  |
+| Unseen units after reconnecting (STRATA-80)               | Looked up automatically once online, moved only when the person saves again                                                                                                                                                                                                                                                            | A person confirms the move after the lookup (MM-T28 T5)                                                                                                       | Move automatically after lookup                                   |
+| Undo after Save (STRATA-80)                               | One Undo for the whole save, one compensating `/api/undo` per move, offered while the page is open                                                                                                                                                                                                                                     | Uses the audited reversal; never touches disposal, IDs or reports                                                                                             | Undo per row                                                      |
+| Units chosen before Move (STRATA-80)                      | Inventory selection and a unit's Move list units waiting for a shelf; only Put away (`?receipt=`) shows Waiting for its label                                                                                                                                                                                                          | Put away is the only flow where the label is not yet in hand                                                                                                  | Waiting for its label everywhere                                  |
+| Inventory column widths (STRATA-79)                       | Stage is the free column (at least 9.5rem); the table hides Received, Retain until, Type, Test hole, then Where as space runs out; below 28rem the project number sits under the ID                                                                                                                                                    | Status tags never cut; with the sidebar open at 1440 px the card is 66rem, so Received and Retain until show on wider screens or with the sidebar collapsed   | Fixed Stage width (overflows at 820 px; at 375 px Stage got 0 px) |
+| Overdue units in Eligible (STRATA-110, Kyle 2026-11-13)   | Kyle's decision: show in both. Eligible is the server's single eligibility definition; a qualifying Overdue unit is tagged Eligible in its band and counted in Eligible                                                                                                                                                                | One definition, so counts never contradict                                                                                                                    | Eligible holds only units already decided                         |
+| Who records a disposal scan (STRATA-111, Kyle 2026-11-13) | Kyle's decision: keep today's rule. Any personal account with `storage_unit.dispose_scan`; the LAB station is refused whoever is selected                                                                                                                                                                                              | Today's rule already keeps the scan personal and audited                                                                                                      | Lab Manager and Lab Technician only                               |
+| Offline disposal scans (STRATA-112, Kyle 2026-11-13)      | Kyle's decision: confirm again. Queued scans are intents; on reconnect the server re-checks each (approval, hold, programs, actor) and the person confirms the exact ID list before anything is disposed. Nothing shows Disposed before the server commits                                                                             | Disposal can't be undone                                                                                                                                      | Record queued scans automatically on reconnect                    |
+| Minimum retain-until (STRATA-113, Kyle 2026-11-13)        | Kyle's decision: the received date plus one year (`retention_minimum`, an America/Edmonton date). Holds and extensions only push the effective date later                                                                                                                                                                              | Already the server's rule; no second minimum                                                                                                                  | A per-project retention policy                                    |
+| Hold until a date (STRATA-91)                             | Stored and shown ("On hold until 2027-03-31"); never releases the hold by itself                                                                                                                                                                                                                                                       | A release keeps its reason and authority (MM-T29); eligibility is unchanged                                                                                   | Auto-release on the date                                          |
+| Disposal list (STRATA-90)                                 | A server list between Eligible and Approved; adding and removing need `disposal.approve` (lead or Lab Manager); approving ends the entry, revoking puts the unit back                                                                                                                                                                  | The list was browser-only before; one shared list everyone sees                                                                                               | Keep it per browser                                               |
+| Listed units in the bands (STRATA-90)                     | A unit on the list or approved leaves Coming up and Eligible                                                                                                                                                                                                                                                                           | Each unit sits in one step of the pipeline (Overdue ∩ Eligible is Kyle's exception)                                                                           | Show listed units in the bands too                                |
+| Band filters (STRATA-90)                                  | Narrow only Coming up and Eligible                                                                                                                                                                                                                                                                                                     | Bands are a due-date view; later tabs are workflow steps                                                                                                      | Apply to every tab                                                |
+| Extend by months (STRATA-91)                              | Months count from the minimum retain-until, as the existing API does                                                                                                                                                                                                                                                                   | One rule for direct extensions and approved requests                                                                                                          | Count from today                                                  |
+| Concrete toggle on Retention (STRATA-90)                  | The Storage units / Concrete specimens toggle stays on the page                                                                                                                                                                                                                                                                        | Concrete holds keep their place until the concrete lane moves them                                                                                            | Move it to Concrete now                                           |
+| Ready for disposal card (STRATA-90)                       | Replaced by the Eligible and Approved tabs; `GET /api/disposal/ready` stays for the scan page                                                                                                                                                                                                                                          | No second list of the same units                                                                                                                              | Keep the card                                                     |
+| Disposal scan check (STRATA-92)                           | `scan/check` is read-only and audits nothing; a refusal is audited once, when recording                                                                                                                                                                                                                                                | No audit noise from re-checks                                                                                                                                 | Audit every check                                                 |
+| Flagged disposal rows (STRATA-92)                         | Not rechecked on their own: remove the row and scan again                                                                                                                                                                                                                                                                              | A scan is a deliberate act at the shelf                                                                                                                       | Auto-recheck flagged rows                                         |
+| Single-unit disposal route (STRATA-92)                    | `POST /api/disposal/remove` stays and runs the same code as the scan routes                                                                                                                                                                                                                                                            | Seed CLI and tests use it                                                                                                                                     | Remove it                                                         |
+| Field Ledger leftovers (wave 3)                           | Delete only what nothing renders: unused legacy rules, variables, two unimported stylesheets, ProfilePage, SettingsLayout, SidePanel and SelectionBar. The rest of the legacy layer stays until its pages are rebuilt. docs/redesign/ is marked superseded                                                                             | Proved by a script (selectors whose classes appear in no source, e2e or dynamic prefix), then lint, build and E2E                                             | Restyle every remaining Field Ledger page now                     |
+| Reduced motion (wave 3, STRATA-32)                        | One global rule makes every animation and transition 0.01 ms under prefers-reduced-motion (not 0, so Radix still unmounts closed sheets)                                                                                                                                                                                               | Only the old spinner honoured it; sheets, menus and hovers still moved                                                                                        | Per-component motion-reduce classes                               |
+| Forced colours outline (wave 3, STRATA-32)                | Tailwind's outline-hidden outline shows only on :focus-visible in a contrast theme                                                                                                                                                                                                                                                     | Its transparent outline was painted solid around every sidebar row                                                                                            | Leave the boxes                                                   |
+| Decision drawer with many units (STRATA-71)               | Past 6 units the list folds behind Show the n units, so the choice and its button stay in view together; Extend says when units keep their date already or would still be due                                                                                                                                                          | Critique: the choice sat below 28 rows while Extend 28 units showed                                                                                           | Put the decision above the list                                   |
+| Strength report values (STRATA-71)                        | Dates, loads, areas and strengths never break mid-value; the results table scrolls inside its region instead                                                                                                                                                                                                                           | Critique: 2026-/11-12 split at 1440                                                                                                                           | Narrow the side panel                                             |
+| Staff table at 1024 (STRATA-71)                           | Account hides first (60rem), then Roles (54rem), then Last sign-in (46rem), shown as an ISO date with the time in a tooltip                                                                                                                                                                                                            | Person was clipped to about 60 px                                                                                                                             | Wrap the names                                                    |
+| Receiving log order wording (STRATA-71)                   | Latest recorded first: the default order is when each receipt was confirmed                                                                                                                                                                                                                                                            | It said newest first beside received dates out of order                                                                                                       | Sort by received date                                             |
+| Decide on retention due from Today (wave 3)               | Opens the decision drawer on Today with the row's units (up to 100, sent as unitIds; past that Decide opens Retention). Inbox retention requests keep their project link                                                                                                                                                               | Requests are approved or declined, not decided in the drawer                                                                                                  | Open Retention from both                                          |
+| Toasts over phone Sheets (STRATA-130)                     | While a Sheet is open on a phone, toasts show at the top; otherwise bottom right                                                                                                                                                                                                                                                       | A phone Sheet keeps its actions at the bottom                                                                                                                 | Offset above each Sheet's footer                                  |
+| Retention notices (wave 3)                                | A declined request already reaches the requester (the decided notice, Declined). Hold released needs a new routine notice kind, which the 2026-10-31 decision rules out for V1: left as a card                                                                                                                                         | No routine-event kinds in V1                                                                                                                                  | Add a notice kind                                                 |
+| Scan with camera button (wave 3)                          | shadcn Button with the Lucide Camera icon: outline sm beside the Inventory toolbar, primary lg in the phone Scan viewfinder                                                                                                                                                                                                            | Last Field Ledger button on those pages                                                                                                                       | Keep the old style                                                |
+
+## Screens
+
+Canvas: https://claude.ai/artifact/8yageikqVDfVbrptmtWqGi ("Material Mule — Strata", private). Rounds 7–9 (concrete lab, concrete review, settings) are on a second canvas, https://claude.ai/artifact/CHET4GJw9t8NzxtrMc4CFP ("Material Mule — Strata (concrete and settings)"), split on 2026-11-12 because one canvas holds at most 512 files. Every
+board has a Dark tweak. Drafts for review, not approved.
+
+### Components (board: Components) — real shadcn/ui
+
+Every shadcn/ui component the web app will use, mounted for real from the Strata UI bundle
+(`design/strata-ui`) so they can be adjusted in one place. Grouped as:
+
+- **Actions:** Button (all variants and sizes, icon, disabled, loading), Button group, Dropdown menu,
+  Toggle and Toggle group.
+- **Display:** Badge (the six stage tags plus shadcn's variants), Avatar, Hover card, Tooltip, Card,
+  Item, Table with Checkbox and Pagination, Progress, Spinner, Skeleton, Kbd, Separator, Empty,
+  Accordion, Collapsible, Scroll area.
+- **Forms:** Field (label, hint, error), Input, Textarea, Input group, Select, Combobox (Popover +
+  Command), Checkbox, Radio group, Switch, Calendar, Date picker (Popover + Calendar).
+- **Navigation:** Breadcrumb, Tabs, Command (the Ctrl K palette); Sidebar on its own board.
+- **Overlays and feedback:** Dialog, Alert dialog, Sheet, Popover, Alert (info, partial success,
+  error), Sonner toasts with Undo.
+
+Resizable is used for the Inbox drawer (`Strata.PeekSplit`), not on this board. Not used, so not
+on the board: AI elements, Carousel, Chart, Drawer, Input OTP, Menubar,
+Navigation menu, Slider, Aspect ratio, Context menu, Native select, Typography.
+
+Strata changes to shadcn's source: 44 px default height for Button, Input, Select, Input group
+and Toggle (36 px small); Badge variants `draft`, `storage`, `lab`, `due`, `danger`, `closed`.
+
+Today and Sign in were taken off the canvas for now (Kyle, 2026-11-11); their descriptions are in
+this file's history (commit b43c23a) and will be redrawn from these components.
+
+### Sidebar (boards: real shadcn/ui, mock variants, mock component)
+
+shadcn `Sidebar`, desk-style (Linear and Notion), reworked after the shell critique of
+2026-11-11 (`.impeccable/critique/`, 19/36). Kyle chose: navigation first, keep the desk-style
+shell, fix all five issues, leave the top bar as it is.
+
+- **Header:** a static logo (the donkey mark from `apps/web/src/layout/DonkeyMark.tsx` in a tile),
+  "Material Mule" and the lab; no switcher or buttons. Under it one 36 px "Search or scan" field
+  (`scan-search`, rounded-full, `Ctrl K` hint), the same height as the rows (Kyle, 2026-11-11).
+- **Search is a command menu** (shadcn `CommandDialog`, `Strata.NavSearch` in the bundle).
+  Clicking the field and pressing Ctrl K (or ⌘K) open the same menu, with the cursor in "Search
+  or scan a label…"; Ctrl K again or Escape closes it. A USB scanner types into that input like
+  a keyboard, so scanning a label while it's open finds the record. Groups:
+  - **Storage units:** ID in mono, then project, hole and place.
+  - **Projects:** number in mono and name.
+  - **Actions:** Receive storage units, Move storage units, Print labels, New project.
+  - **Go to:** pages.
+  - **Help** (critique 2026-11-12): Keyboard shortcuts (`?`) and Help and how-tos.
+  - **No match:** "Nothing matches. Check the ID, or scan the label again."
+
+  Quick actions' "Scan" (top bar) should open the same menu; the mock doesn't wire them
+  together yet.
+
+- **Order, top to bottom** (Kyle, 2026-11-11: "move pinned and recent to the top"): Today,
+  Projects, Inbox; then **Pinned** and **Recent**; then the work sections **Storage units:**
+  Receive (`arrow-down-to-line`), Inventory (`package`), Retention (`hourglass`); **Soils:** Lab
+  programs (`flask-conical`), Workboard (`square-kanban`; today's Lab Testing Worklist, renamed);
+  **Concrete:** Breaks (`hammer`), Receiving (`truck`), Specimens (`cylinder`), Holds
+  (`octagon-pause`), Review (`clipboard-check`). Kyle split the earlier "Testing" group into Soils
+  and Concrete (2026-11-11). Retention (Due and overdue, Disposal scan) unfolds its sub-pages in
+  place, closed by default. **Customize sidebar** (`sliders-horizontal`, muted) is the last row of
+  the scrolling list, above the footer.
+- **Sections fold, like Notion's** (`Strata.NavSection`): clicking a section heading (13 px) folds
+  or unfolds it; a 14 px chevron shows on hover or focus and always while folded. **Recent starts
+  folded**; everything else starts open. Each fold is **saved for the person** (with the layout
+  below), so the sidebar comes back exactly as they left it on any computer they sign in to.
+  Today, Projects and Inbox have no heading and never fold.
+- **Recent:** the last records the person opened, newest first (storage units, sets, projects),
+  in the Pinned row style. The app keeps the last 8.
+- **Customize sidebar is a mode of the sidebar itself, like Notion's** (Kyle, 2026-11-11: not a
+  modal; `Strata.SidebarCustomize`; board "Shell — customize mode in the sidebar"). The row swaps
+  the page list for an editor in the same column (a collapsed sidebar opens first): a
+  "Customize sidebar" heading and one-line hint; **Always at the top** (Today, Projects, Inbox,
+  each with a `lock`, not movable or hideable); a separator; **Sections** in their current order,
+  each a 36 px row with a grip (`grip-vertical`), its icon and name, and an eye toggle ("Show
+  Pinned in the sidebar", `aria-pressed`; a hidden one is muted and struck through); "Reset to
+  default"; and a full-width primary **Done** at the bottom, above the account row. Drag a grip
+  to reorder (dnd kit, vertical only), or press Space on it, use the arrow keys and Space to drop
+  (Escape cancels the move; every step is announced). Changes apply at once. Escape (when nothing
+  is picked up) or Done leaves the mode and puts focus back on "Customize sidebar"; entering it
+  focuses the first grip. A hidden section's pages stay reachable from search (Ctrl K). On a LAB
+  station the sidebar follows the picked person's layout, because it is saved per person.
+- **Inbox** (`inbox`; was My requests, renamed by Kyle 2026-11-11) is the one place for every
+  notification and every action request. Its row shows the unread count in a small `primary`
+  badge. The bell's hover card is a preview of the same items (rows link to their records, unread
+  rows say "Unread" to screen readers), and its "Open Inbox" and the bell itself go here.
+  **One count, one wording** (critique 2026-11-12, Kyle chose this first): the sidebar badge, the
+  bell badge and the bell's heading ("Inbox · 3 unread") all show the number of unread Inbox items,
+  from one value, so it always equals the bold rows in Inbox. The bell previews Inbox's newest
+  three items word for word, request vs update marked as in Inbox; with nothing unread there is no
+  badge and the preview says "Nothing unread in your Inbox." On a LAB station counts stay hidden
+  unless the picked person shares their Inbox there. The Inbox
+  page is shaped next.
+- **Pinned** records: stage-tinted square, mono ID (never wraps), short name. Pinning is done from
+  a record's page.
+- **Footer:** the account row; its menu holds Settings, Help, Feedback & bugs and Sign out.
+- **Shared LAB station** (board "Shell — shared LAB station", or the Station tweak): the top bar's
+  "Recording as Pat Example" chip (no end time: D38 is deferred) opens a person picker (Who is
+  working here?, the station's people, Someone else…) with **Sign off Pat Example**
+  ("Back to Who is working here?"). The sidebar footer no longer repeats it (see One recording
+  identity below). Signing off ends that person's turn, not the station: LAB
+  stays signed in and the station returns to the sign-in step 2 page (Kyle, 2026-11-11). The
+  account row reads "LAB station · Shared · Receiving lab"; its menu holds Settings, Help,
+  Feedback & bugs and End station session (Switch user was dropped as a duplicate of the person
+  menu).
+- **LAB station safety** (critique 2026-11-12; Kyle chose to keep the station inside the personal
+  app and make it safer):
+  - **Recording as, always in view:** on a station the top bar carries a chip left of quick
+    actions: avatar, "Recording as **Pat Example**", chevron (`accent` fill, `primary` border,
+    44 px, fully round). Station Today also opens with "Work started here is recorded as Pat
+    Example. Not you? Switch person…".
+  - **One recording identity** (critique 2026-11-12, P1): the chip is the only picker and the one
+    state every screen reads. The sidebar footer shows only the LAB account; pages carry no second
+    "Recording as" banner or meta line; the Testing table's Tested by is the picked person
+    (disabled, follows the chip); the station profile's Name on records is "The person picked".
+    Results, receipts, moves and labels are always credited to the person in the chip.
+  - **Person menu:** "Recording as Pat Example" label, then **Sign off Pat Example** first ("Back
+    to Who is working here?"), a separator, then "Switch person" with avatar, name and role for
+    each person (44 px rows), then Someone else…. Sign off is no longer next to Someone else….
+  - **Signing off** shows a toast with **Undo** for 8 seconds: "Signed off Pat Example", "Back to
+    Who is working here? Nothing was recorded by signing off."
+  - **Station hides what LAB can't do** (critique 2026-11-12): decisions the shared account can't
+    make (Decide on retention, Add test hole, Team & permissions) are not shown on a station,
+    rather than shown and refused.
+  - **Not on stations:** Pinned and Recent (a shared computer shows no one's). Counts stay hidden
+    unless the person shares their Inbox there (see Inbox).
+  - **Comfortable density on stations:** sidebar rows and sub-rows are 44 px, and the compact
+    Inbox table's rows are 44 px, for gloved hands. Personal computers keep 36 px and 28 px.
+  - **Station Today** gains a third tile, **Record breaks**, beside Receive samples and Receive
+    concrete; the tiles stack icon, title and line so three fit.
+  - **Customize this station is for Lab Managers** (Kyle decided 2026-11-12; closes the "who may
+    customise a station" decision): others see "Set up by Sam Sample, Lab
+    Manager" with a lock instead of the button; the popover says "Applies to everyone at this
+    computer. Only Lab Managers can change it."
+- **Spacing** (Kyle, 2026-11-11: tighter, then "Try 36 px rows"): rows are 36 px and touch,
+  with no gap between them (was 44 px rows with 4 px gaps), and groups sit closer (4 px vertical
+  group padding, no gap between groups). This is a deliberate exception to the 44 px control
+  rule for the expanded sidebar's rows and sub-rows (36 px still clears the 24 px minimum). The
+  search field is 36 px like the rows; the account row stays 48 px and the collapsed sidebar's
+  icons 44 px.
+- **Sizes and access:** rows are links
+  (`href`) with `aria-current="page"` on the current one, inside `<nav aria-label="Main">`; one
+  2 px `sidebar-ring` focus ring on every sidebar control; text is 13 px or larger; a "Skip to
+  content" link comes first.
+- **Collapsed** (Ctrl B): 60 px wide, every item a 44 px icon with a tooltip. Retention,
+  Pinned and Recent open their pages in a menu to the right (`Strata.NavCollapsible`, `Strata.NavFlyout`
+  in the bundle), so nothing is unreachable.
+- **Browser surfaces:** `color-scheme` follows the theme and scrollbars use `input`, thin in the
+  sidebar.
+
+Left as they are because the top bar is out of scope: the 28 px sidebar toggle and its
+"Toggle Sidebar" label, and Ctrl K shown on both the search field and quick actions' Scan (both
+open the same palette).
+
+### Sign in (canvas page "Sign in": the page, LAB, picker, dark, and every state)
+
+Shaped with Impeccable on 2026-11-11. Kyle chose: the computer remembers its kind, LAB goes
+straight on to a person picker, and the first pass covers the page plus every state.
+
+- **One centred 440 px column**: the donkey tile and "Material Mule · Sample storage and lab
+  testing", then the form on a card (`card`, border, 10 px radius, `shadow-sm`, 32 px padding),
+  then "Works on the office network only". No brand panel (the teal split screen of the first
+  draft belonged to the old palette).
+- **Background: gradient** (Kyle chose it over the angled planes, 2026-11-11). Two soft
+  radial glows of `primary` (22 % at the top left, 16 % at the bottom right) over a 135° wash
+  from `accent` through `background` to `accent`. Built from the theme variables with
+  `color-mix`, so light (pale indigo on white) and dark (navy glow on near-black) follow on their
+  own. Decoration only (`aria-hidden`, no pointer events), behind the card. The angled
+  "strata" planes tried before it (from Kyle's reference) are in this file's history (commit
+  a5188cf).
+- **A normal computer:** "Sign in", the hint "Use your own work account. What you do is recorded
+  under your name.", a full-width "Sign in with Microsoft" button (Microsoft's four-square mark,
+  the one non-Lucide mark, as today), then "Shared receiving station? Sign in as LAB".
+- **The LAB station computer** opens straight to "Shared receiving station": Username (LAB
+  filled in), Password, "Sign in as LAB", "Forgot password? Ask an administrator.", then "Not the
+  station? Sign in with your Microsoft account instead".
+- **Step 2 on LAB: "Who is working here?"** "Signed in as LAB. Receipts, moves and labels are
+  recorded under the name you pick." One 48 px row per person (initials avatar, name, role),
+  then "Someone else…", then "Wrong station? Sign out of LAB". This changes today's model, where
+  LAB picks the person on each receipt. Empty: a dashed panel ("No one is listed for this station
+  yet.") with Someone else….
+- **States, in the app's current wording:**
+  - Session ended (info).
+  - LAB session expired (amber `due`).
+  - Wrong password (red field error under Password, `aria-invalid`).
+  - Paused after failed attempts (amber alert with the pause help; Sign in as LAB disabled).
+  - Every state keeps the "Sign in" h1 above its alert (audit 2026-11-12), so the page always has
+    a heading.
+  - Sign-in options couldn't load (red alert and Try again; no methods shown). Next step
+    (critique 2026-11-12, new wording for apps/web): "Check that this computer is on the office
+    network, then try again. If it keeps failing, tell your Lab Manager."
+  - No sign-in method set up. Next step: "An administrator turns on Microsoft sign-in or the LAB
+    account on the host PC. Ask your Lab Manager to arrange it."
+  - The person picker adds "…until you sign off" and a "How LAB stations work" help link;
+    Customize sidebar has "How the sidebar works".
+  - Development builds add "Test sign-in (development only)" above the footer.
+- **Open, proposed on the boards:**
+  - How a computer becomes the LAB station: an admin setting, saved in that browser.
+  - Who the picker lists: receiving-lab staff.
+  - What Someone else… searches: all staff.
+  - Session length stays D38 (deferred), so nothing shows an end time.
+
+### Today on a LAB station (canvas page "Today")
+
+Shaped with Impeccable on 2026-11-11. LAB computers first; the own-account Today comes later.
+Kyle chose: the big buttons are Receive samples and Receive concrete, then the station's work,
+customisable per computer, and no greeting (the sidebar shows who is recording).
+
+- **Two equal receiving buttons,** side by side, at the top: Receive samples
+  (`arrow-down-to-line`, "Buckets, Shelby tubes and core boxes arriving at the lab.") and
+  Receive concrete (`cylinder`, "Specimen sets arriving from site."). Each is a large card link
+  (`card`, border, 10 px radius, min 144 px tall) with a 48 px `primary` icon tile, an 18 px title,
+  a one-line description and an arrow that nudges right on hover. They're equal, so neither is
+  the page's single `primary` button.
+- **At this station:** one card list, a row per kind of waiting work, each a link: a big count
+  in mono figures, a title and a plain line. Rows:
+  - Draft receipts to finish ("Started here, not confirmed yet. IDs are issued on confirm.").
+  - Breaks due today.
+  - Labels to print.
+
+  A zero shows a muted 0 and "Nothing waiting." (the row stays). Counts over 99 show "99+".
+
+- **Customize this station** (outline button at the list's top right) opens a popover: "Shown on
+  this station", one switch per row with a drag handle for order, "Saved on this computer only."
+  Hidden rows leave a small note ("2 rows are hidden on this station.").
+- **States:** quiet day (all zero); the list couldn't load (red alert, "The receiving buttons above
+  still work.", Try again); every row switched off ("Nothing is set to show at this station." and
+  Customize this station).
+- **Built as** `TodayStationContent.dc.html` (a `variant` tweak), shown inside the shell
+  (`SidebarLive`'s `today` tweak, station mode). Boards:
+  - the default station;
+  - a concrete-room station with two rows hidden;
+  - Customize open;
+  - quiet day;
+  - failed;
+  - nothing shown;
+  - dark.
+- **Open:**
+  - who may customise a station: decided, Lab Managers only (Kyle, 2026-11-12);
+  - whether the two buttons become customisable too (fixed for now);
+  - which further rows exist.
+
+### Today with an own account (canvas page "Today", second row: project lead)
+
+Shaped with Impeccable on 2026-11-11. Kyle chose: a greeting with a one-line summary;
+shortcuts; Needs you; Last 24 hours (no Storage room); drawn for a project lead first.
+
+- **Welcome:** the date (muted), "Good morning, Alex" (30 px, changes through the day), and one
+  summary line ("4 things need you today." / "Nothing needs you right now.").
+- **Shortcuts** (outline buttons, a project lead's set): Request lab testing, Review concrete
+  reports, My projects, New project.
+- **Two columns, 2 : 1:**
+  - **Needs you = Inbox requests waiting on you + system work** (critique 2026-11-12): requests
+    appear with the same "Request" pill, kind and sentence as in Inbox ("Decide on 4 units at end of
+    retention", "Correct a hole summary", "Close lab program"); work that never goes to Inbox
+    (reports to review, HOLDs) keeps its own tag. The summary says how many came from Inbox ("5
+    things need you. 3 are requests in your Inbox.") and the heading links to Open Inbox. When
+    nothing needs you, nothing is unread either, so no badge shows.
+  - **Needs you** (left): one card list, most urgent first. Each row has a stage Badge (Retention
+    `due`, Concrete `lab`, Hold `danger`, Lab `lab`, Request `draft`), a sentence, a detail line
+    with IDs in mono, and one action. Only the first row's action is `primary`; the rest are
+    outline. Example rows:
+    - retention ending in 7 days (Decide);
+    - 3 concrete field reports to review (never the lead's own);
+    - Set 4 on HOLD;
+    - a lab program finished (progress only);
+    - a lab request waiting on an answer.
+
+    More than six shows the first six and "Show all 11".
+
+  - **Last 24 hours** (right): this person's projects only. Each line has a time in mono with AM
+    or PM, a stage dot and a sentence; yesterday's lines sit under a small "Yesterday" label (and
+    say "Yesterday" to screen readers), so nothing older than 24 hours appears; then "All activity".
+  - **Dates and times** (critique 2026-11-12): record dates (received, retain until, placed) use the
+    person's Date format setting, 2026-11-11 by default; activity under 24 hours uses a clock time
+    with AM or PM; Inbox uses short relative times (12 min, 1 h) then weekdays.
+- **States:** a clear day (a calm panel: "Nothing needs you right now." with what will appear
+  there); a long list; Needs you couldn't load (red alert, "Shortcuts and the last 24 hours still
+  work.", Try again); dark.
+- **Built as** `TodayLeadContent.dc.html` (`variant` tweak), shown inside the shell
+  (`SidebarLive`'s `today` tweak, `lead-*` values). The account row then reads "Project lead".
+- **Open:** what the other roles see in Needs you and their shortcuts; whether shortcuts can be
+  changed (fixed for now).
+
+### Today for the Lab Manager (canvas page "Today", third row)
+
+The same layout as the project lead's. Kyle asked for the Lab Manager next (2026-11-11). Claude
+chose the content from PRODUCT.md's description of the role, and Kyle approved it ("Looks right",
+2026-11-11). Drawn as Sam Sample.
+
+- **Shortcuts:** Workboard, Breaks due today, Retention due, Disposal scan.
+- **Needs you:**
+  - concrete sets on HOLD (Review holds, the one `primary`);
+  - lab requests not assigned yet (Assign);
+  - breaks due today with how many aren't started (Open breaks);
+  - storage units approved for disposal (Start disposal).
+
+  A longer list adds draft receipts older than 7 days and location checks that disagree.
+
+- **Last 24 hours** covers the whole lab, not one person's projects.
+- **Boards:** busy, long list ("Show all 9"), clear day, dark. `TodayManagerContent.dc.html`
+  (`variant` tweak); in the shell, `SidebarLive`'s `today` tweak takes `manager-*` values and the
+  account row reads "Sam Sample · Lab Manager".
+
+### Inbox (canvas page "Inbox")
+
+Shaped with Impeccable on 2026-11-11. Inbox is the one place for every action request and
+notification. Kyle chose:
+
+- list and detail;
+- one stream that tells requests and updates apart at a glance;
+- tabs at the top;
+- a view the person can change, on the page and in Settings;
+- the picked person's Inbox on the LAB station.
+
+- **Layout, like a Notion side peek** (Kyle, 2026-11-11): the list fills the page. Opening an
+  item slides a **drawer** in from the right with its details.
+  - **Resizable:** drag the divider or use the arrow keys. It starts at 44 % of the width and can
+    be 30 to 65 %. Built with shadcn `Resizable` (react-resizable-panels), wrapped as
+    `Strata.PeekSplit` because the library needs its panels as direct children.
+  - **Drawer toolbar:** Close (`chevrons-right`, Esc), Open as full page (`maximize-2`), Previous
+    and Next (`chevron-up` and `chevron-down`, K and J), and "1 of 6".
+  - With nothing open, the list uses the full width.
+- **Header:** tabs All, Requests, Updates and Done, each with a count. At the right, the table
+  tools: Mark all read (icon), then Filter (Unread only, Waiting on me, About my requests), Sort
+  (Newest first, Oldest first, Requests first), View (One stream, Grouped, Table; replaces the View
+  `Select`) and Search Inbox… at the far right. Board "Inbox — table, search open".
+- **Table** (compact; shadcn `Table`; Kyle 2026-11-11: "even more compact", then "borders like
+  Notion"): 28 px rows (32 px header) at 13 px with no vertical padding, a 20 px kind icon and a
+  16 px-high pill. **Notion borders, on this view only:** a line under every row, a vertical line
+  between columns (none after Received), lines above and below the table, no row stripes; the
+  header is plain (`background`) with a 14 px Lucide icon before each muted label (Task `tag`,
+  Title `type`, Job number `folder`, Record `hash`, From `user`, Received `clock`). The leading
+  checkbox and kind-icon cells have no lines at all, like Notion's gutter: no line beside them and
+  none under them in the header. The other Inbox views and other
+  tables keep shadcn's plain rows. **Row checkboxes** sit in a 40 px column at the left: hidden
+  until the pointer is over the row (or over the header, for Select all), then they fade in and
+  out in 100 ms (none with reduced motion); a focused or ticked checkbox stays visible, and once
+  any row is ticked every checkbox shows. Each is labelled "Select <title>". **Headings sort** (Kyle, 2026-11-11; `Strata.SortHeader`): the whole
+  heading is a button; clicking it sorts by that column ascending, again descending, a third time
+  back to the default (newest first). One column at a time; an `arrow-up` or `arrow-down` in
+  `primary` shows it, a faint `arrow-up-down` appears on hover, and the `th` carries `aria-sort`.
+  Received ascending means oldest first. Sorting by a heading and the toolbar's Sort menu are one
+  setting. Columns (Kyle, 2026-11-11): checkbox 40 px, kind icon 36 px, **Task** 176 px (was Kind), Title,
+  **Job number** 128 px (the project number, mono), Record 160 px, From 144 px, Received 128 px.
+  **Columns are customizable** in the toolbar's View menu under Columns: Task, Title and Job number
+  are always shown (checked, disabled, "Always shown"); Record, From and Received can be hidden,
+  and the choice is saved per person. **With the drawer open, Title always stays visible** (critique 2026-11-12): Task folds into the
+  kind icon (the Task column hides; the icon carries the task as a tooltip and for screen readers,
+  e.g. "Request · Correction"), Record, From and Received hide, and Job number hides too when the
+  list is narrower than 30rem (a container query on the list, so it follows the divider). At the
+  narrowest list (35 %) Title keeps about 280 px. Record truncates with
+  an ellipsis. Columns: Kind (icon, then the Request pill or "Update",
+  then the kind), Title (bold when unread), Record (IDs in mono), From, Received. While the
+  drawer is open, Record and From hide so the title keeps its room. The selected row has `accent` (over the stripe). 28 px is a
+  deliberate exception to the 44 px rule for this dense view (still above the 24 px minimum); the
+  other views keep their size.
+- **One stream,** newest first, under day headings (Today, Tuesday, Monday…; a heading has no line under it, so it reads with its
+  own items, Kyle 2026-11-11), with requests above
+  updates on the same day. **Grouped:** "Needs action · 3" first, then "Updates · 3".
+- **Telling them apart, never by colour alone:**
+  - A **request** has a filled `primary` circle with `circle-dot`, a filled "Request" pill and its
+    kind (Correction, Close a program, Retention…).
+  - An **update** has an outline circle with `bell`, no pill and its kind (Your request was
+    decided, Returned for correction, Ready to submit).
+  - Unread rows have a dot, "Unread" for screen readers and a bold title. The selected row has
+    `accent`.
+- **Drawer, a request:** the pill and kind; the title; "From Sam Sample · 12 min ago · waiting on
+  you"; the record as a short definition list with IDs in mono; the main action (Make the
+  correction) and Open the unit; "This request closes on its own when the correction is saved.";
+  History.
+- **Drawer, an update:** the bell and kind; the title; who it's from; a sentence; Open retention
+  and Dismiss.
+- **Empty states, in the app's wording:** "Nothing is waiting on you." (Requests); "You have read
+  every notification." (Updates); with nothing selected, "Select an item to see it here."
+- **View setting:** Settings › Preferences gains an "Inbox" section with "Inbox view" (One stream
+  / Grouped / Table), the same choice as on the page.
+- **LAB station:** each person chooses whether their Inbox opens on shared LAB computers (Kyle,
+  2026-11-11). Anyone at the station can see it while that person is picked, because there's no
+  per-person password.
+  - **The setting:** Settings › Preferences › **Privacy** › "Show my Inbox on shared LAB
+    computers", with the explanation. It's **off by default** (it's a choice to share).
+  - **On:** the station shows their full Inbox, with a line saying whose it is.
+  - **Off:** the Inbox page shows a lock and "Pat Example's Inbox stays private here" (how to turn
+    it on, and that work is still recorded under their name). The shell hides every count (the
+    sidebar badge and the bell's), and the bell's hover card only says the notifications stay
+    private.
+- **Built as** `InboxContent.dc.html` (`variant`, `station` tweaks). In the shell, `SidebarLive`'s
+  page tweak takes `inbox-*` values: the top bar title reads "Inbox" and the sidebar marks Inbox
+  as the current page. Boards:
+  - a request open in the drawer;
+  - an update open in the drawer;
+  - nothing open (the list at full width);
+  - Grouped;
+  - Table;
+  - Table with a request open (Record and From hidden);
+  - Requests empty;
+  - Updates all read;
+  - the LAB station, shown (the person turned it on);
+  - the LAB station, kept private;
+  - dark.
+
+### Today for a technician (canvas page "Today", fourth row)
+
+The same layout again, drawn as Pat Example. Kyle asked for the technician next (2026-11-11).
+Claude chose the content from PRODUCT.md, and Kyle approved it ("Looks right", 2026-11-11).
+
+- **Shortcuts:** Receive, Move storage units, Print labels, My tests.
+- **Needs you:**
+  - tests assigned to you today (Start, the one `primary`);
+  - units to pull for a lab program, with their places (Pull list);
+  - your own draft receipts not confirmed (Finish);
+  - a label that didn't print (Print again).
+
+  A longer list adds a move waiting to be confirmed and tests waiting on a sample you received.
+
+- **Last 24 hours** is the person's own work, in the second person ("You received 2 buckets…").
+- **Boards:** busy, long list ("Show all 8"), clear day, dark. `TodayTechContent.dc.html`; in the
+  shell, `tech-*` values, and the account row reads "Pat Example · Technician".
+
+Phone screens are set aside for now (Kyle, 2026-11-11: web screens first).
+
+### Storage unit record (page: Storage unit), round 1, designed 2026-11-12
+
+Round 1 is drawn from its brief (below). The page holds 23 screen boards and 4 components:
+`UnitContent`, `UnitDrawerContent`, `ShelfContent` and `LabelPrintContent`. The shell routes
+`today="unit-…"`, `"shelf-…"` and `"labels-…"` to them, with Inventory highlighted in the sidebar.
+
+- **Unit page:**
+  - Variants: stored, inlab, due, disposed, conflict, loading and notfound, plus a LAB station
+    board, dark and 1024 px.
+  - Primary by stage: Move, Move back to storage, Decide, or none (disposed: "Read-only. Disposed
+    units keep their ID and history.").
+  - A conflict keeps Move as the primary. The `danger` alert says the move clears it, and its own
+    action is an outline "Open WH-B-B1-S2". The conflict is shown as a second tag, "Urgent ·
+    Location"; the track stays on Stored.
+  - Disposed: Print label and Correct are disabled, each with its reason on a separate line below
+    it, linked with `aria-describedby`.
+  - Test hole summaries are a small table: Test hole, Samples (range), Count, Depth.
+  - At narrow widths the body goes 2:1 from a 56rem container and the header goes two-column from
+    52rem. Below that, History moves under the facts.
+  - `Strata.LifecycleTrack` gained `compact`: five dots with the current stage written, used in
+    the drawer.
+- **Unit drawer:**
+  - Has the Inbox drawer toolbar and an outline Print label next to the main action. History and
+    lab programs stay on the full page.
+- **Shelf page:**
+  - 16 cells, 4 per row (2 below 44rem). Filled cells are buttons with an inset stripe and the
+    short stage word; empty places are dashed.
+  - The Units here table uses comfortable rows. The compact Notion look stays Inbox-only. With the
+    drawer open it keeps ID and Stage.
+  - The peek board has two primaries, the shelf's "Move units here" and the drawer's Move. The
+    Inbox drawer does the same; the drawer is its own context.
+- **Label printing:**
+  - The preview is the real sticker (`apps/api/src/labels/template-v1.ts`): ID, project number and
+    name, test holes, Code 128, QR and the received date, black on white at true size (3.5 × 1.5
+    in) in both themes.
+  - The preview has **no SAMPLE#/DEPTH** (Kyle confirmed, 2026-11-12), because the template must not change.
+  - Failure: "The printer didn't answer." Try again replaces the primary and Save as PDF stays. A
+    PDF isn't recorded as a print.
+  - Below 896 px of content the preview drops under the form.
+
+### Receiving (page: Receiving), round 2, designed 2026-11-12
+
+Drawn in its own session from the round 2 brief: 34 boards and 6 components (`R2EntryContent`,
+`R2DoneContent`, `R2LogContent`, `R2ReceiptContent`, `R2ReceiptDrawerContent` and the
+`Round2Content` router).
+
+- **Receive samples:** one page with a row per storage unit. A unit with more than one test hole
+  gets "Also holds" lines, one SAMPLE#/DEPTH summary per hole. Bulk samples and location
+  references are a row option.
+  - Enter on the last row adds a unit. Shift+Enter copies the previous one.
+  - Received by starts as the signed-in or picked person and can be changed.
+  - Add project is a Dialog with today's nomination wording.
+  - Errors are counted in the sticky bar ("2 things to fix before confirming…"), and each row
+    shows its own.
+  - Confirm is an AlertDialog. It lists each unit with the prefix it will get ("New BKT- ID"),
+    never a guessed number.
+- **Done page:** the issued IDs large in mono, with each label "Sent to printer" (never "Printed").
+  The steps are Stick each label, then Put away (primary). If a print fails, Print again becomes
+  the primary.
+  - The preference "After confirming a receipt" is per person.
+  - Go straight to Put away is drawn as a stand-in for round 3's Move screen. A failed print still
+    stops on the done page.
+- **Receiving log:** receipts have no number, so the received date and time is the row's link.
+  - Confirmed and Corrected tags share the storage stage.
+  - Drafts on this computer are Items with Continue and Delete draft.
+- **Receipt page:** follows the record pattern. Units and the original record sit on the left,
+  corrections and history on the right. A corrected value is highlighted in the original record.
+- **Kyle's answers (2026-11-12):** anyone can change Received by (a staff picker; the receipt
+  then says "Entered by Pat Example, for Jordan Lab"); bulk samples and location references stay
+  as row options; only the person who started a draft or a Lab Manager can delete it.
+
+### Inventory, Move and search (page: Inventory, move, search), round 3, designed 2026-11-12
+
+Drawn in its own session from the round 3 brief: 33 boards (light, dark and 1024 px); components `Round3Content`, `R3InventoryContent`, `R3MoveContent`, `R3SearchContent`. Every decision is in `rounds/round3.json`; the ones that set direction:
+
+- New lifecycle (Kyle, 2026-11-12): the brief's 'In storage' tab became Short-term and Long-term tabs, in lifecycle order: All, In lab, Short-term, Long-term, Retention due, Disposed, Conflicts. Stored units' tags say Short-term or Long-term (storage hue), from their location's storage term. Retention due stays a tag for long-term units.
+- Kyle, 2026-11-12: a record's own tag uses record status words (In lab, Short-term, Long-term, Retention due, Retention overdue, Disposed, Location conflict). The '<Stage> · <domain>' form stays for work items (Today, Inbox). Round 1's drawer now matches.
+- Kyle, 2026-11-12: Search shows concrete sets by their field report number ('Set 4') with the 'numbering is open (package 3)' note until set numbering is decided.
+- Kyle, 2026-11-12: Move on a LAB station preselects the person recording there ('Moved by Pat Example · recording here'). Scanning works at once, and Change (a menu of the station's people, then Someone else…) is one click.
+- Kyle, 2026-11-12: receipts get no new number. They are named by date and receiver everywhere ('Receipt 2026-11-11 · Pat Example'), in Search, Put away and breadcrumbs. Put away's breadcrumb is Receiving log › Receipt 2026-11-11 · Pat Example › Put away. The receipt's units show 'Waiting for its label' until scanned, and Save takes only the scanned ones.
+- The narrow Inventory list (under 40rem, such as with the drawer open) swaps the stage tabs for a Stage select with the same options and counts, so the tabs never wrap.
+- A unit that is confirmed but not yet put away shows the draft hue with the word 'Received', the lifecycle's first step.
+- The filter chip row is always shown with '+ Add filter', even with no filters on (UX change 5). Each chip is a ButtonGroup: field and value open its picker, and × removes it.
+
+### Projects (page: Projects), round 4, designed 2026-11-12
+
+Drawn in its own session from the round 4 brief: 38 boards (light, dark and 1024 px); components `Round4Content`, `R4List`, `R4Project`, `R4PersonDrawer`. Every decision is in `rounds/round4.json`; the ones that set direction:
+
+- Projects list: tabs use the Inbox segmented Tabs; the project page's sections use the line Tabs, so page sections and list filters look different.
+- Projects list has no page action icon: projects are created while receiving (round 2), and Quick actions keeps New project.
+- Projects list rows have no stage stripe: every open project would be the same green bar. 'Waiting for a lead' is a due tag in the Lead column, with the nomination state under it.
+- At 1024 px (table narrower than 50rem) the Projects list hides Test holes; Number, Name, Lead, Units in stock and Last receipt stay.
+- Project header: number in mono 28/34 bold beside the name, lead with avatar, then three counts as text (test holes, units in stock, units received). Receive for this project is the primary; More holds Edit project and Copy link.
+- One primary per screen: on Team & permissions, while a decision or form is open (nominate, admin decision, a needs-review reason, a grant change), Receive for this project turns outline and the form's button is the primary.
+- Overview at wide widths is 2:1: Test holes and Recent receipts left; Retention coming up and Lab programs right. Under 56rem (1024 px) the sections stack.
+- Test holes show 6 rows with 'Show all 12 test holes'; a hole with no units yet says 'No units yet'. A row opens Storage units filtered to that hole.
+
+### Soils lab programs and Workboard (page: Soils lab), round 5, designed 2026-11-12
+
+Drawn in its own session from the round 5 brief: 56 boards (light, dark and 1024 px); components `Round5Content`. Every decision is in `rounds/round5.json`; the ones that set direction:
+
+- Shadcn throughout (Kyle 2026-11-12): row and card links are Button variant=link, empty and no-permission states are Empty, history, comments, test rows, tag rows and Workboard cards are Item/ItemGroup; no raw button, input, select, table or hand-built breadcrumb. Only token radii.
+- Kyle 2026-11-12: no Start on Workboard cards; tests start on the program page. Cards keep Review, Pull list and Open.
+- Kyle 2026-11-12: the requester, the project lead or the Lab Manager can close a Ready program. Close program is the requester's and lead's main action; the Lab Manager closes it from More (board: Program page — Ready, seen by the Lab Manager).
+- Kyle 2026-11-12: long programs (up to 60 lines) get a filter bar above the Lines view once there are more than about 12 lines: Show All / each test hole / Standalone with counts, and a Go to line field. All lines stay in one list, no paging; problems on hidden lines still show in the sticky bar (board: Program editor — long program).
+- Program status tags follow "<Stage> · <domain>": Draft · Lab program, Due · Review, In lab · Pull units, In lab · Testing, Due · Ready to close, Closed · Lab program. Priority shows as Urgent · Priority (an outline tag with a `flag`, not a status colour; Kyle 2026-11-12); Normal is plain text.
+- Test states on a line are record words on stage colours: Waiting (due), Accepted and In testing (lab), Done (closed, with a check), Cancelled (closed, name struck through, reason shown). Not submitted (draft) on a draft.
+- Drafts show no LP number ("Draft lab program"); the number is issued on submit, as the app does today. The Drafts tab says so.
+
+### Retention and disposal (page: Retention), round 6, designed 2026-11-12
+
+Drawn in its own session from the round 6 brief: 33 boards (light, dark and 1024 px); components `Round6Content`, `R6RetentionContent`, `R6DecideContent`, `R6ScanContent`. Every decision is in `rounds/round6.json`; the ones that set direction:
+
+- Record dates in rows follow DESIGN.md › Dates (2026-11-18 · in 7 days) rather than the brief's 'Nov 18' example.
+- An Overdue unit that meets every rule shows in Eligible too, tagged 'Eligible' in its band; one with an open program is tagged 'Program open'.
+- Holds, extensions, waiting requests and 'Hold released' are outline tags (neutral), so stage colours keep meaning stage only.
+- Bands: Overdue = Urgent stripe, Within 30 days = Due, Within 90 days = Stored. Units in the bands are in long-term storage (new lifecycle: Received, In lab, Short-term, Long-term, Disposed); Due · Retention is a tag, not a track step. Tested units (program closed, so past In lab) have the Stored stripe and sit in their own section under the bands.
+- Table tools: Filter (Projects I lead, the three bands, Has a hold, Has an extension), Sort (Retention ends soonest first, Project, ID), Search; the page action icon is Disposal scan. Project and lead pickers would arrive as chips like Inventory.
+- Decision drawer: one primary at the bottom that repeats the count ('Extend 4 units', 'Place a hold on 3 units'); a unit that can't go on the disposal list is shown unticked and disabled with the reason.
+- Requesters choose only Extend or Place a hold ('Request hold or extension'); Add to disposal list stays with leads and admins.
+- **Decided by Kyle, 2026-11-13** (were open decisions STRATA-110 to 113; see Choices made):
+  - Qualifying Overdue units show in both Coming up (tagged Eligible) and Eligible; Eligible is the server's one definition.
+  - Any personal account with the disposal-scan permission records a disposal scan; the LAB station is refused (today's rule).
+  - Offline disposal scans are intents only; after reconnecting each is checked online and the person confirms the exact ID list again.
+  - Minimum retain-until is the received date plus one year; holds and extensions only push the effective date later.
+
+### Concrete lab (page: Concrete lab), round 7, designed 2026-11-12
+
+Drawn in its own session from the round 7 brief: 54 boards (light, dark, station and 1024 px). Kyle's choices (2026-11-12):
+
+- **Breaks: variant A** (list, then Record breaks in the Testing table). Variant B (enter results in the list) is removed.
+- **Holds default to open holds only** (inside the hold period or past the hold date); Disposal authorized and Disposed are Filter options shown as a chip.
+- **Four hold states:** "Waiting for removal" is the same as Disposal authorized (the API statuses), so they are merged.
+- **Sets without a casting time** are listed in Receiving and can be received, marked "Casting time not recorded · No test dates until it is" (the C31 queue must stop leaving them out).
+- **Hold until** stays in the Breaks selection bar; it needs a new server command (none in docs/concrete.md yet).
+
+Other decisions that set direction (all in `rounds/round7.json`):
+
+- “Hold until” stays in the Breaks selection bar as the brief has it (2026-11-11). It needs a new server command (move a scheduled specimen of a numbered set to ordinary HOLD, with a reason); docs/concrete.md has none yet, so it is an implementation follow-up, not drawn as a dialog.
+- Breaks A rows are one per set with a set checkbox (all/some/none) and one checkbox per due specimen in the Specimens cell, so specimens or whole sets can be ticked without a third table level.
+- Reschedule dialog takes a new test age in days and shows each specimen’s age and date before → after; specimens that can’t be rescheduled (draft report, unnumbered set) are named, not silently dropped.
+- No testing machine: a due-stage banner with a link to Settings → Equipment; Record breaks is disabled in the selection bar with the reason under it. Listing stays usable.
+- HOLD rows use the danger stripe as the brief says. Holds has four states (open question answered 2026-11-11): Inside the hold period and Hold period has ended (danger), Disposal authorized (due; it already means waiting for removal, so there is no separate state), Disposed (closed). These match the API statuses On hold, Review due, Disposal authorized, Disposed.
+- Holds selection bar keeps all three actions visible and disables those not every selected specimen allows, with the brief’s sentence and the specific reason underneath.
+
+### Concrete review and reports (page: Concrete review), round 8, designed 2026-11-12
+
+Drawn in its own session from the round 8 brief: 60 boards (light, dark and 1024 px); components `Round8Content`, `R8QueueContent`, `R8ReportContent`, `R8StrengthContent`, `R8ProjectContent`, `R8MixContent`, `R8PropContent`. Every decision is in `rounds/round8.json`; the ones that set direction:
+
+- Kyle 2026-11-11: strength reports are reviewed and issued under the separate concrete_strength scope (confirms the C39 proposal).
+- Kyle 2026-11-11: the project Concrete tab has five sub-tabs: Field reports, Sets, Mixes, Summary (filters, Preview, Generate summary report with a CSR number, list of generated reports) and Settings (default test ages, testing machine info default Include/Omit/Not set, who reviews concrete work, history).
+- Kyle 2026-11-11: until set numbering is decided, sets show working labels (Set 2, specimens 2A–2D) with a note on list pages that permanent numbering is an open item.
+- Report page is a document-review layout: header with steps, then two panes that scroll on their own (paper on muted left, 22rem panel right) with the decision pinned at the panel foot.
+- The paper preview re-declares light tokens (.r8-paper) so the report stays black on white in dark mode, as printed output does; its tables are plain HTML because they are the print preview.
+- Paper is labelled "Review preview, not the issued file · template P1 is provisional (report templates are an open item)", following docs/concrete.md (C28 interim preview, C32 P1).
+- Report numbers: CF number shown as "CF number at issue" until issued (allocated inside the issue transaction); issued example CF-2026-00014 Rev 0.
+- **Open (on Notion as decisions):**
+  - G2 strength report, G8 units/readings/methods, report templates and permanent set numbering (package 3) remain gates; the strength paper and the P1 templates are placeholders.
+
+### Settings (page: Settings), round 9, designed 2026-11-12
+
+Drawn in its own session from the round 9 brief: 74 boards (light, dark and 1024 px); components `Round9Content`. Every decision is in `rounds/round9.json`; the ones that set direction:
+
+- Lab Managers and administrators manage Staff and Printers (Kyle); Lab Managers don't see Make/Remove admin ('Only administrators can make or remove admins.').
+- Round9Content is the modal itself (nav + panel slot) with variant, role (tech/manager/admin), size (1080/1024), dark and station props; each section is its own R9*Panel component.
+- **Staff, Locations and Lab tests are full pages** (Kyle, 2026-11-12, after the critique: up to 150 people and 2,000 locations don't fit a 1080 × 680 modal). They sit under **Lab admin** in the app shell, with line tabs Staff · Locations · Lab tests across the top (tabs, not a left sub-nav, so the table keeps the whole page container) and a ghost button "Printers, templates and receiving" that opens the modal for the rest. Each page: h1, one-line description, toolbar, full-width table, the right drawer for one record, and a footer pager that stays in view (Staff 20 per page; Locations paged by top-level place, 10 per page, so a branch never splits; Lab tests grouped, unpaged). In the modal those three nav items carry an `arrow-up-right` and "Opens as a page". Routes: `/admin/staff`, `/admin/locations`, `/admin/lab-tests`. The rail has no Lab admin item (few people use it; it opens from Settings), so nothing in the rail is current there. `Round9Content` renders the page layout for `staff-`, `locations-` and `labtests-` variants.
+- Locations shows where each storage term comes from: "Set here", "From WH-A" (inherited, muted) or "Overrides WH-B".
+- Profile is read-only: name and email come from Microsoft (Refresh from Microsoft), initials and position are set by an administrator, as the app does today.
+- On a LAB station, Settings shows Account sections for the shared LAB account; Profile says the picked person's own preferences are changed from their own computer.
+- A technician opening /settings/staff lands on My access with an info alert ('Staff isn't available to you'), since hidden sections have no page.
+- Notifications: Requests always count (locked switch), Updates switchable; an info alert says nothing is emailed (the app's 'Email me' option is dropped per the brief).
+- Disable access is an inline confirm in the drawer with a required reason (reversible via Re-enable), not an AlertDialog. Retire location uses an AlertDialog with a reason; a shelf holding units gets a 'can't be retired' AlertDialog with Open shelf page.
+- **Answered by Kyle (2026-11-12):**
+  - Kyle 2026-11-12: Staff and Printers are managed by Lab Managers and administrators (making or removing admins stays administrator-only).
+  - Kyle 2026-11-12: avatars show the Microsoft directory photo when there is one, initials otherwise (Profile says so; boards use initials because the fictional people have no photos).
+  - Kyle 2026-11-12: Storage term is set on a warehouse, inherited by its bays and shelves, and can be overridden on a bay or shelf (as drawn).
+  - Kyle 2026-11-12: on a LAB station, Settings shows the shared LAB account read-only (as drawn).
+
+### System pages (page: System pages), round 10, designed 2026-11-12
+
+Drawn in its own session from the round 10 brief: 52 boards (light, dark and 1024 px); components `Round10Content`, `R10SignInLayout`. Every decision is in `rounds/round10.json`; the ones that set direction:
+
+- Kyle 2026-11-12: /help can be read signed out (the same guides without the sidebar, with Back to sign in).
+- Kyle 2026-11-12: Feedback & bugs messages arrive in the administrators’ Inbox as a Feedback item with the page they came from; Sent says so.
+- Kyle 2026-11-12: Unavailable retries with back-off (5, 10, 20 s, then every 30 s) and keeps drafts and scanned moves on the computer until they can be sent; the board shows the 10 s step.
+- Kyle 2026-11-12: the approver line reads “An administrator, in Settings, Staff, Pending.” to match round 9.
+- Help drawer is the Inbox PeekSplit (46 % of the content, resizable 30–65 %) beside the current page, which stays in place; toolbar: Close (Esc), Open as full page, and a "?" hint.
+- Drawer order: help for this page as an accordion (first useful task open), All guides as rows with counts, Common questions; Keyboard shortcuts is a sub-view with an All help back link.
+- Added "Getting around" (sidebar, search, Inbox) as a guide group on /help so "How the sidebar works" has a home; the five groups in the brief stay as written.
+
+## Briefs still to design
+
+Shaped one round at a time ([Strata screens and shaping plan](https://app.notion.com/p/4161bd4b6bde810f8f74f5f4f81607ff)
+on Notion), then designed in the same order. Each brief is what the design must do, not how it
+looks; the visual world is the rest of this file.
+
+### Round 1: storage unit record (shaped 2026-11-12)
+
+Kyle chose: history beside the facts, Inbox's resizable drawer when a unit opens from a list, and
+a main action that changes with the stage.
+
+- **Job and audience:** a technician or station user who scanned or clicked a unit and needs to
+  know what it is, where it is and what to do with it; a lead checking where a project's samples
+  are; the Lab Manager sorting out a location conflict. Operate mode: one glance, one action.
+- **Outcome:** in one look, the ID, the holder, the project and hole, the stage and the place;
+  the next action is one click. This page sets the record pattern that sets, lab programs and
+  projects reuse.
+- **Storage unit page** (`/sample-storage/:id`):
+  - Context row: "Inventory › BKT-2026-000019" (back to the list it came from).
+  - Header: the unit label block on the left (holder type and project, the ID in `unit-id`, test
+    hole, SAMPLE#/DEPTH summary, depth range in mono, never a bar); on the right the stage tag,
+    the lifecycle track under it, and the actions.
+  - **Main action changes with the stage:** Stored → Move; In lab → Move back to storage; Retention
+    due or overdue → Decide; Disposed → none (read-only). Print label, Correct and Copy link sit
+    in a More menu. Only one primary.
+  - Body, 2 : 1. Left, the facts, each a section with its own heading: **Where it is** (location
+    path linking to its shelf, the code, "here since", a pending move note, a location conflict
+    as a `danger` alert with what to do); **Test hole summaries** (per hole: SAMPLE# range and
+    depth; never individual samples); **Receipt** (receipt link, received date and by whom);
+    **Retention** (retain until, extensions, the decision when due); **Lab programs** (each with
+    "n of m" progress). Right, **History**: a timeline, newest first, each event with the
+    person's avatar, what happened and when, paged; it stays in view while the facts scroll.
+- **Unit drawer** (from Inventory, a shelf, a project, search): Inbox's resizable drawer
+  (`PeekSplit`, 44 %, 30–65 %), with Close, Open as full page and Previous/Next (K/J). Shows the
+  label block (compact), stage tag, compact track (five dots with the current stage written),
+  Where it is, Retention and the main action; History and Lab programs only on the full page.
+  The list keeps Title-equivalent columns visible as in Inbox.
+- **Shelf page** (`/sample-storage/locations/:code`):
+  - Header: the location code large in mono, its path (Warehouse A · Bay 2 · Shelf 3) and counts
+    ("12 of 16 places used").
+  - **On this shelf:** counted cells, one per place, each a unit ID with its stage stripe; empty
+    places outlined. Clicking a cell opens the unit drawer.
+  - **Units here:** a table (ID, project, hole, stage, here since, retention due) with the table
+    tools.
+  - **Comings and goings:** the last 30 days, as in History.
+  - States: nothing stored ("Nothing is stored here."), unknown code ("No location has this
+    code." with Scan again), a conflict on one of its units.
+- **Label printing** (`/labels/print/unit|receipt|units`): choose the labels (one unit, a
+  receipt's units, a selection), a true-size preview of the printed label (black on white, not
+  restyled), the printer (Zebra printers from Settings › Printers) and copies; Print. Save as PDF
+  is the fallback. Failure: "The printer didn't answer" with Try again and Save as PDF; IDs are
+  never affected by printing.
+- **States and ranges:** loading (skeleton of the header and sections); not found (the ID and
+  Scan again); Disposed (read-only, keeps its ID and full history, no main action); location
+  conflict; pending move; in a lab program; retention due and overdue; done by a test account
+  (the existing badge); Correct on a LAB station without a personal account is shown disabled
+  with "Corrections need a personal account." Ranges: 1–20 hole summaries, 0–6 lab programs,
+  history from 1 to hundreds of events (paged), shelves of 4–40 places.
+- **Interaction and layout:** at 1024 px History moves below the facts; Esc closes the drawer and
+  returns focus to the row; Ctrl K and a scan land on this page; Print label never changes
+  anything else.
+- **Constraints:** IDs never change after issue and are never recycled; no individual sample
+  inventory at receiving; corrections need a personal account and are enforced on the server;
+  the printed label stays as it is; stage colours and words from Lifecycle; fictional data
+  (DEMO-2601, TH26-01).
+
+### Round 2: receiving (shaped 2026-11-12)
+
+Kyle chose: one page with a row per storage unit (not a wizard); after confirming, a done page
+and then Put away, with a Settings preference to go straight into Put away; no separate "log a
+delivery at the door" step (drafts are enough, so "Deliveries waiting" leaves station Today).
+
+- **Job and audience:** the person at the receiving bench (often on a LAB station, recording as
+  the picked person) turning a delivery of buckets, Shelby tubes and core boxes into storage
+  units with permanent IDs and labels; leads and the Lab Manager looking up what arrived.
+- **Outcome:** several units received in one pass, mostly from the keyboard and scanner; nothing
+  is in inventory, and no ID exists, until Confirm.
+- **Receive samples** (`/receiving-log/new`), one page:
+  - Header: "Receive samples", the draft state ("Draft · saved 09:41 on this computer") and who
+    it is recorded as on a station.
+  - **Project** (find by number or name; Add project when allowed, with the lead nomination as
+    today: "No nomination: leave it to an admin").
+  - **Storage units:** one row per unit: holder type (Bucket, Shelby tube, Core box, Other
+    container), test hole ("Match the test hole written on the holder"), the SAMPLE#/DEPTH
+    summary for that hole, core runs for core boxes, description. Add unit, Copy previous unit
+    (same hole, next unit), remove a row. One summary per test hole per unit; never individual
+    samples.
+  - **Received** (date, received by) at the foot.
+  - A sticky bar: "3 storage units · IDs issue on confirm" and the primary **Confirm and print
+    labels**; errors summarised in the bar and inline on their rows.
+- **Done page:** "3 storage units received", each new ID in `unit-id` with its prefix (BKT-, ST-,
+  CRE-, CT-), "Sending the labels to the printer…", then "Stick each label on its unit". Next:
+  **Put away** (the round 3 Move screen: scan the units and the shelf in either order) as the primary, Print all labels again, Receive
+  more. Units not put away show at Receiving until shelved.
+- **Preference** (Settings › Preferences › Receiving): "After confirming a receipt": Show the
+  done page (default) / Go straight to Put away.
+- **Receiving log** (`/receiving-log`): every delivery, newest first, in the table tools pattern
+  (Search, Filter by project, received by, status; Sort; View). Columns: receipt, project,
+  storage units (count and IDs), received, received by, status (Confirmed, Corrected). Drafts
+  on this computer show above the list as "Drafts on this computer" with Continue and Delete
+  draft. Rows open the receipt in the drawer.
+- **Receipt page** (`/receiving-log/:id`): the record pattern from round 1: header (receipt,
+  project, received date and by, status tag), main action Print all labels (Reprint), body:
+  storage units in this receipt (each opens the unit drawer), the original receipt record
+  (as confirmed), corrections and history beside it. Draft receipts show "Not confirmed yet",
+  started by, last saved, Continue.
+- **States and ranges:** 1–30 units per receipt, 1–10 test holes; loading drafts on this
+  computer; project or test holes couldn't load (rows stay editable; Try again); session expired
+  ("Your session has expired. Your draft is saved. Sign in to confirm."); IDs issued but labels
+  didn't print (due alert, Print again); a unit later disposed (its label can't be reprinted);
+  no receipts yet; no matches for filters.
+- **Interaction and layout:** Enter on the last row adds a unit; Copy previous with a shortcut;
+  the scanner fills project or test hole when focused; the confirm bar stays in view; at 1024 px
+  the row wraps to two lines (holder and hole, then summary and description).
+- **Constraints:** IDs are issued only on confirm, per prefix and year (America/Edmonton), never
+  changed or recycled; drafts never get IDs; no individual sample inventory; labels stay as
+  printed today; on a LAB station everything records under the picked person.
+
+### Round 3: inventory, moves and scanning (shaped 2026-11-12)
+
+Kyle chose: one Move screen that takes labels in either order (used by Move and by Put away);
+no separate Scan page on desktop (Ctrl K and scan-anywhere cover it; a camera Scan page returns
+with the phone screens); Inventory with stage tabs and filter chips.
+
+- **Job and audience:** anyone finding a unit or a group of units (where is it, what's on
+  retention, what's in the lab); technicians moving units between shelves, the lab and back;
+  the Lab Manager clearing location conflicts.
+- **Inventory** (`/sample-storage`):
+  - **Stage tabs** with counts: All, In storage, In lab, Retention due, Disposed, Conflicts.
+  - The **table tools** (page action Receive as an icon, Filter, Sort, View with Columns, Search
+    at the far right). Filters added from the Filter menu appear as **chips** in a row under the
+    tabs: Project, Test hole, Type, Location, Received (date range), Retention; each chip opens
+    its own picker and has ×; "+ Add filter" ends the row. The Conflicts tab replaces today's
+    Conflict filter.
+  - **Table:** checkbox, ID (mono, stage stripe), project, test hole, type, where (location path),
+    stage tag, received, retain until. Default sort newest received; headings sort; columns can
+    be hidden (ID, project and stage always shown). Rows open the unit drawer (round 1).
+  - **Selection bar** when rows are ticked: "3 selected" with Move, Print labels, Clear.
+  - States: no storage units yet ("Receive samples to add the first." with Receive), no matches
+    ("No storage units match this search and these filters." with Clear filters), loading rows,
+    couldn't load (Try again). Up to tens of thousands of units: server-side search, filters,
+    sort and paging (or virtual scrolling).
+- **Move** (`/sample-storage/move`, also Put away after receiving and Move from a unit or a
+  selection):
+  - "Moved by" (the signed-in or picked person; a LAB station asks first: "Choose who is moving
+    these units first").
+  - **Scan labels in any order:** a shelf label sets the destination ("Moving to Warehouse A ·
+    Bay 2 · Shelf 3", with "Shelf after this move: 14 of 16 places"); unit labels join the
+    batch, each row showing from → to and its stage tag. Scanning another shelf changes the
+    destination for the units scanned after it (the earlier ones keep theirs). Typed IDs work
+    like scans.
+  - **Save moves** (primary) with the count; "All moves saved." on success.
+  - Problems on their row, never blocking the rest: already scanned, no storage unit has this ID,
+    disposed units can't be moved, retired locations can't receive units, and offline: moves are
+    queued on this computer ("Not moved yet", "Needs online lookup" for a unit this computer
+    hasn't seen) and sent when it reconnects; session ended (sign in again, nothing lost).
+- **Scanning on desktop:** a label scanned with no field focused opens that unit or shelf (the
+  drawer over the current list, or the page); with Ctrl K open it searches; Quick actions' Scan
+  opens Ctrl K. There is no Scan page; `/sample-storage/scan` redirects to Inventory with Ctrl K
+  open until the phone screens bring a camera Scan page.
+- **Search results** (`/search`, from Ctrl K "Show all"): results grouped by kind with counts and
+  "Show all in Inventory / the Receiving log / Projects / Concrete": storage units (ID, project,
+  hole, where, stage tag), projects, test holes, receipts, lab programs, concrete sets. "Type
+  what you are looking for." when empty; "Nothing matches." with what was searched and a tip
+  (check the ID or scan again).
+- **Interaction and layout:** stage tabs keep their counts live; chips wrap to a second line;
+  at 1024 px the table drops Received and Retain until first; the Move list keeps the newest
+  scan at the top and announces each result to screen readers.
+- **Constraints:** IDs never change; disposed units can't move; moves record who and when and
+  are enforced on the server; offline moves are queued, never lost; fictional data.
+
+### Round 4: projects (shaped 2026-11-12)
+
+Kyle chose: a project page with a header and tabs; the Projects list opening on My projects; Team
+& permissions as a people table with a person drawer.
+
+- **Job and audience:** project leads and team members checking everything about their job in one
+  place; technicians finding a project's units or holes; admins appointing leads and reviewing
+  grants. Authority is project-scoped and never implicit (docs/permissions.md).
+- **Projects list** (`/projects`): tabs My projects (lead or on the team; default), All projects,
+  Waiting for a lead (with a count). Table tools; table: number (mono), name, lead (avatar and
+  name, or "Waiting for a lead" tag), test holes, units in stock, last receipt. Rows open the
+  project page. States: no projects yet ("Projects are added while receiving samples."), no
+  matches. Projects are created while receiving (round 2), not here.
+- **Project page** (`/projects/:id`):
+  - Header: number in mono and name, the lead (or "Waiting for a lead" with the nomination
+    state), counts (test holes, units in stock, units received), main action Receive for this
+    project, More (Edit project, Copy link).
+  - **Tabs:** Overview; Storage units (count); Lab programs (count); Concrete (only when the
+    project has concrete work; round 8 shapes its contents); Team & permissions.
+  - **Overview:** Test holes (each: units, SAMPLE# range, depth range; Add test hole; a hole opens
+    its units), Recent receipts (last 5, link to the log), Retention coming up (units due in the
+    next 30 days with Decide), Lab programs (each with "n of m").
+  - **Storage units:** the Inventory table (round 3) filtered to the project, with stage tabs and
+    chips; rows open the unit drawer.
+  - **Lab programs:** the project's programs (round 5 list pattern).
+- **Team & permissions** (tab):
+  - **Leadership:** the Lead Project Engineer, or the nomination flow (Nominate a Lead Project
+    Engineer, note for the admin, Withdraw; admins Confirm or Reject with a reason). "An admin
+    confirms it. Nominating gives nobody authority."
+  - **Your permissions here:** what you can do on this project and where it comes from, as the
+    server reports it.
+  - **Needs review** (only to the lead or an admin, with a count): join requests and grant
+    reviews, each with Approve or Decline and a reason.
+  - **People:** a table: person (avatar, name), job title, responsibilities, grants as tags.
+    Clicking a person opens the drawer: their responsibilities and grants with where each comes
+    from, change a grant (reason required, "The grant ends now. Earlier work keeps their name."),
+    acceptance delegate (lead only), and their history on this project. Job titles and team
+    places grant no approvals (said once, near the table).
+  - **History:** assignments and grants as recorded, who and why, paged.
+- **States and ranges:** projects 1–2,000; holes 0–80 per project; people 1–40; project not found;
+  waiting for a lead (Receive still works; approvals don't); no assignment ("You have no
+  assignment on this project. You can still see it."); couldn't load (Try again); a reason is
+  required for every grant change.
+- **Interaction and layout:** tabs keep their own URL; at 1024 px the Overview's sections stack;
+  the person drawer is the Inbox drawer.
+- **Constraints:** permissions are enforced on the server and shown as reported; the lead manages
+  acceptance delegates; review is never one's own work; concrete authority is project-scoped
+  (CLAUDE.md, docs/concrete.md); fictional data.
+
+### Round 5: soils lab (shaped 2026-11-12)
+
+Kyle chose: the program editor as sample lines with test chips, with a second Samples × tests grid
+view; the Workboard as both a board by status and a list, as two views.
+
+- **Job and audience:** project leads requesting soils tests on their samples; the Lab Manager
+  reviewing requests and running the lab's queue; technicians pulling units and doing tests.
+  The app tracks **progress only**: results are never recorded here.
+- **Lab programs list** (`/programs`): tabs Open, Drafts (mine), Closed; table tools; table:
+  program (LP number, mono), project, requested by (avatar), submitted, priority (Urgent tag),
+  progress ("n of m" with a thin bar), status tag. New lab program (primary). Rows open the
+  program in the drawer.
+- **Program editor** (`/programs/new`, a draft, an amendment):
+  - Header: project, requested by, priority (Normal / Urgent), "Draft · saved 10:02".
+  - **Lines view** (default): one row per sample line: the source (test hole with interval
+    from–to, or a standalone Shelby tube or bulk sample), the tests as removable chips with
+    - Add test (search the catalogue; groups), the storage units the line covers, a line comment.
+    - Add sample line; Choose a template (fills the tests); Include later receipts.
+  - **Grid view:** samples down the side, tests across the top, a checkbox per cell; tick a
+    column header to add that test to every sample. Same data as Lines; switching keeps it.
+  - Sticky bar: "3 lines · 5 tests" and **Submit to the lab**; problems listed there and on their
+    lines ("Choose a project first.", "Add a test to a line").
+  - Amendments after submission are marked "Added by amendment" and keep their history.
+- **Program page** (`/programs/:id`), the record pattern: header (LP number, project, requested
+  by, priority with Mark urgent/normal and its history, status, "n of m" progress); main action
+  by state (Draft: Continue editing; Submitted: Review, for the Lab Manager; In testing: Print
+  tags; Ready: Close program). Body: the lines, each with its tests and their state (waiting,
+  accepted, in testing, done, cancelled with reason), units covered and **Units to pull** (where
+  each is; "Nothing to pull: every covered unit is at the lab."); comments; history beside.
+  - **Review** happens on this page: each test Accept or Cancel with a reason; "Every test is
+    accepted or cancelled with a reason." before closing. Reopen keeps the history.
+- **Workboard** (`/lab-testing`), two views of the same work (View menu; Board by default):
+  - **Board:** columns Waiting for review, Units to pull, In testing, Ready to close; each card a
+    program (LP number, project, Urgent tag, "n of m tests", oldest open, stage stripe). Urgent
+    first in each column; actions on the card (Review, Pull list, Open). No drag.
+  - **List:** the same programs in a table sorted by priority then oldest open, with the table
+    tools.
+- **Sample ID tags** (Print tags from a program): the print screen pattern from round 1 for tag
+  sheets: which tags (only tests that need a sample ID tag), start at card, a nudge for this
+  computer's printer (inches), true-size preview, Print. "Sample ID tags are available once the
+  program is submitted." and "No test in this program needs a sample ID tag." as states.
+- **States and ranges:** 1–60 lines, 1–40 tests per program; catalogue couldn't load; program
+  changed elsewhere ("This program changed. Reload it to continue."); no permission; someone
+  else's draft; no units received for these lines yet.
+- **Interaction and layout:** the editor saves as you go; Grid view scrolls sideways past ~12
+  tests with the sample column fixed; at 1024 px the board shows two columns at a time with a
+  horizontal scroll and the Lines view wraps chips.
+- **Constraints:** progress only, no results; individual samples appear only in lab requests
+  (never at receiving); review is never by the requester; tests come from the catalogue;
+  fictional data.
+
+### Round 6: retention and disposal (shaped 2026-11-12)
+
+Kyle chose: the Retention page as pipeline tabs in the order the work flows; Decide opens one
+decision drawer for the whole group.
+
+- **Job and audience:** project leads deciding what happens when retention ends (extend, hold,
+  dispose) and approving disposal; the Lab Manager running the disposal list; the person at the
+  shelf scanning units out. Nothing is disposed until it is scanned out.
+- **Retention** (`/disposal-retention`, sidebar "Due and overdue"):
+  - **Tabs**, each with a count: Coming up, Eligible, On disposal list, Approved (waiting for the
+    scan), Disposed.
+  - **Coming up** is grouped in bands: Overdue, Within 30 days, Within 90 days ("Nothing in this
+    band." when empty). Rows: ID (stage stripe), project, test hole, where, "Retention ends Nov 18"
+    or "On hold until Mar 2027", holds and extensions as small tags, and Decide.
+  - **Eligible:** "Each is eligible: retain-until reached, no hold, programs closed." Add to
+    disposal list (selection bar).
+  - **On disposal list** and **Approved:** grouped by project with the lead; leads Approve or
+    Revoke approval (reason required); "Approval doesn't dispose anything; the units stay in
+    stock until scanned out."
+  - **Disposed:** read-only, each keeps its ID and history.
+  - Tested units follow their own route: "Retention doesn't apply. Open each unit and use
+    'Confirm removal after testing'." (listed separately, not in the bands).
+  - Table tools throughout (Filter by project, lead, band; Sort; Search); rows open the unit
+    drawer.
+- **Decision drawer** (Decide on a row, a band, a project, from Today or Inbox): the units listed,
+  all ticked (untick to decide some separately), their effective and minimum retain-until, and
+  three choices: **Extend** (months to add, or a new retain-until date), **Place a hold** (until a
+  date or until released), **Add to disposal list**. Reason required. Leads and admins decide;
+  others send a request ("Request hold or extension", "Send request") that appears in the lead's
+  Inbox. Whole-project holds and extensions from the project page use the same drawer.
+- **Disposal scan** (`/disposal-retention/scan`): the Move screen pattern (round 3) for scanning
+  out: "Scan each unit as it leaves the shelf"; each scan shows the unit and whether it's
+  approved; not approved, on hold or unknown IDs are flagged on their row and not disposed. Then
+  **Record disposal of n units**, which opens the confirmation that lists every ID (the critique step 5 rule) and says it can't be undone.
+- **States and ranges:** units per project 0–500; bands empty; nothing approved; approved units
+  couldn't load; a request declined (with the reason); a hold released; offline scanning queues
+  like Move.
+- **Interaction and layout:** tab counts stay live; the drawer is the Inbox drawer; at 1024 px rows
+  drop the location column.
+- **Constraints:** a unit is disposable only when retain-until is reached, there is no hold and
+  its programs are closed; approval and disposal are separate steps; disposal keeps the ID and
+  history forever; reasons are required; authority is project-scoped and server-enforced.
+
+### Round 7: concrete lab (shaped 2026-11-12)
+
+Kyle chose: keep a Concrete overview page (the sidebar's Concrete group gains Overview at the top);
+for Breaks, design **both** "Breaks list, then Record breaks" and "Enter results in the list" so he
+can compare them. **Kyle picked variant A on 2026-11-12.**
+
+- **Job and audience:** lab technicians receiving specimen sets and breaking cylinders on their
+  test dates (often on a LAB station); the Lab Manager watching what is due, overdue, on HOLD or
+  an exception, and handling holds. Concrete is its own domain with individual specimen records
+  (docs/concrete.md); lab staff = Lab Technician, Lab Manager, or LAB naming the performer.
+- **Concrete overview** (`/concrete`): counters, each a link to the list that clears it: awaiting
+  pickup, awaiting receiving, tests due today, tests overdue, on HOLD, exceptions, awaiting review,
+  awaiting issuance. Then "Find concrete records" (search a set, specimen or field report) and the
+  strength reports for the lab (gated by G2 until it's decided). Sidebar: Concrete › Overview,
+  Breaks, Receiving, Specimens, Holds, Review.
+- **Breaks** (`/lab-testing/concrete`): tabs with counts: Overdue (days late), Today, Next 7 days,
+  On HOLD, Exceptions ("No open exceptions from the sources checked so far."). Rows grouped by set:
+  project, set, test age (7-, 28-day…), specimens, due date, stage stripe (lab; danger when
+  overdue or on HOLD). "No testing machine is registered (Settings → Equipment)." blocks recording
+  with a link. **Two variants were designed; Kyle chose A (2026-11-12):**
+  - **A. List, then Record breaks (chosen):** tick specimens or whole sets; the selection bar
+    offers Record breaks, Reschedule (new test age in days) and Hold until; Record breaks opens the
+    Testing table for just the selection.
+  - **B. Enter results in the list (dropped):** a due row expands in place to type its readings;
+    save per specimen; Reschedule and Hold on the row.
+- **Testing table** (`/concrete/testing`, used by variant A and for bulk work): the keyboard-first
+  grid as today: specimen, age (assigned / actual), test date, the reading fields the app has now
+  (diameter, max load, several readings separated by spaces), excluded, save status per row;
+  arrow keys move between cells; Columns to show or hide; completed rows can be hidden; changing a
+  saved value asks "Say why the saved value is being changed". No new result fields until G8
+  (units, readings, methods) is decided.
+- **Receiving** (`/concrete/receiving`): field reports whose sets are awaiting receiving, "My
+  reports" first then "Other reports" (field technician, project, sets, specimens, casting time or
+  "Casting time not recorded"); receive a set by scanning or ticking its specimens; the pickup and
+  receiving rules stay as in docs/concrete.md. Sets with no casting time can be received too
+  (answered 2026-11-11).
+- **Specimens** (`/concrete/specimens`, `/concrete/specimens/:setId`): look up a set or specimen
+  (Ctrl K too); the **set page** uses the record pattern: header (set, project, field ID, specimen
+  type, stage), main action by state (Receive, Record breaks, Open hold), specimens with their test
+  dates (rescheduled marked), the field report link, history beside.
+- **Holds** (`/lab-testing/concrete/holds`): tabs All holds, Failed-specimen holds, Ordinary HOLD;
+  rows: specimen, project, casting date, hold until or "No expiry", state (inside the hold period,
+  hold period has ended, disposal authorized, disposed; "waiting for removal" is what disposal
+  authorized means, answered 2026-11-11). Opens on open holds only; disposal authorized and
+  disposed are filters (Kyle, 2026-11-11). Selection bar:
+  Schedule test, Authorize disposal, Record disposal ("Each action is offered when every selected
+  specimen allows it."); a reason is required; disposal uses the confirmation that lists every ID.
+- **Concrete search:** folded into Ctrl K and the round-3 search results (Concrete group); the
+  page redirects there.
+- **States and ranges:** 0–200 specimens due a day; sets of 1–12 specimens; no machine registered;
+  nothing due ("No concrete specimens are due today."); nothing overdue or on HOLD; reports
+  continuing on the next page; a saved value changed with a reason.
+- **Interaction and layout:** Breaks and Testing table are keyboard-first (arrows, Enter to save);
+  on a LAB station the person picked is the performer; at 1024 px the Testing table fits whole with
+  the rail collapsed (Status stays in view; units on a second header line; tables fix 2026-11-12).
+- **Constraints and open decisions:** G2 strength report, G8 units/readings/methods, workbook and
+  CSA/ASTM limits, report templates, offline device runs and set numbering stay **gates**, never
+  defaults; HOLD and review authority as in docs/concrete.md and docs/permissions.md; specimens
+  never change storage-unit rules; fictional data (DEMO-2616).
+
+### Round 8: concrete review and reports (shaped 2026-11-12)
+
+Kyle chose: review shows the report beside a review panel; issuing is the last step on the same
+report page (Review, then Issue); a project's Concrete tab has sub-tabs.
+
+- **Job and audience:** the project lead or a designated `concrete_field` reviewer reviewing field
+  reports (never their own); report issuers issuing reviewed reports; field technicians correcting
+  returned reports; the lead managing mixes. Authority is project-scoped and never implicit
+  (docs/concrete.md, docs/permissions.md).
+- **Review queue** (`/concrete/review`): tabs Waiting for review, Returned, Reviewed (not yet
+  issued), Exceptions; rows: project, report date, report type, technician (avatar), routed to
+  ("Any designated reviewer" or a person), version (Revised tag), with or without exceptions;
+  "Nothing here needs your action." when empty. Table tools; rows open the report page.
+- **Report page** (`/concrete/review/:id`, Issue at `/concrete/review/:id/issue`):
+  - Steps across the top: **Review**, then **Issue**; the header shows the report's status
+    (Submitted, Returned for correction, Reviewed awaiting issuance, Issued, Recalled) and version.
+  - **Left:** the report as it would be issued, paper-like and true to the printed layout, with
+    comment markers on its sections; changes since the last version highlighted; "None on this
+    version" when nothing changed.
+  - **Right, the review panel:** exceptions (each resolved or documented with a note: "Enter a
+    note explaining how it was addressed."), comments, routing, history; the decision: **Return
+    for correction** (comment required: "Enter a comment explaining the changes needed.") or
+    **Mark reviewed** ("Marked reviewed. It now awaits issuance."). Not shown to the report's own
+    author as a reviewer.
+  - **Issue step:** "Before it goes out": issue options (each Included or not, with the project
+    default; "The project hasn't set a default, so it's omitted unless you choose Include."),
+    documented exceptions, "The version that will be issued", then **Issue report**. Issued
+    reports show "As issued"; a revision starts a new draft ("Revision started. The report is a
+    draft again.") and never changes the issued version.
+- **Strength report** (`/concrete/strength/:setId`): **gated by G2.** The provisional design
+  (one report per set, cumulative) may be drawn only as clearly marked provisional; the
+  structure follows the report page (report left, panel right): specimens with Exclude from /
+  Reinstate in the strength test (reason), Mark reviewed, Return for correction, Resubmit; "Not
+  calculated" until the rules exist. Nothing here invents limits, units or numbering.
+- **Project › Concrete tab** (round 4's Concrete tab), sub-tabs:
+  - **Field reports:** status, review state, technician, date; the technician's draft, submit and
+    correct flow stays as it is today (offline field entry and final reports are not built).
+  - **Sets:** each set with test ages and "n of m tested"; opens the set page (round 7).
+  - **Mixes:** each mix with its approved revision and any draft; the **mix page** shows the
+    revision (cement type, max aggregate, supplier…), drafts with changes marked, Change this mix /
+    Edit as a new revision, and history. Only the project's lead edits mixes.
+  - **Change propagation** (from a mix revision): records grouped as **Can be updated**, **Your
+    call** and **Won't change** (with "Why it stays"); Approve all or choose records; a note kept
+    in the history; Apply. "This mix has no approved revision yet, so there is nothing to update."
+- **States and ranges:** 0–100 reports in the queue; reports with 0–10 exceptions; versions 1–5;
+  the report changed while loading (Reload); couldn't load; not available at this stage; not the
+  reviewer's own report.
+- **Interaction and layout:** comment markers link to their comments; at 1024 px the review panel
+  becomes a drawer over the report; keyboard: J/K between queue items.
+- **Constraints and open decisions:** G2 strength report, report templates and set numbering stay
+  gates; never review one's own report; issued versions are immutable; mixes are the lead's only;
+  fictional data (DEMO-2616).
+
+### Round 9: settings (shaped 2026-11-12)
+
+Kyle chose: everything lives in the one Settings modal (admin sections as wide panels inside it),
+and the nav shows only the sections a person can open.
+
+- **Job and audience:** everyone setting their own preferences; Lab Managers running staff,
+  locations, printers, templates and receiving; administrators running concrete reference data
+  and the system. Rare, deliberate visits; mistakes here affect everyone.
+- **The modal** (the existing mock-up, 1080 × 680, nav matching the sidebar): Settings opens from
+  the account menu or Ctrl K, on the last section visited; each section has its own URL
+  (`/settings/staff` opens the modal on Staff over the current page); Esc closes it.
+- **Nav by permission:** a technician sees **Account** only (Profile, Preferences, Notifications,
+  My access); Lab Managers also see **Lab** (Staff, Locations, Printers, Templates, Receiving, Lab
+  tests) and the **Concrete** reference sections they manage; administrators see everything,
+  including **System** (System status). Hidden, not locked; the server enforces every change.
+- **Account sections:**
+  - **Profile:** name, initials, position, avatar (Microsoft directory photo when there is one, initials otherwise; Kyle, 2026-11-12), personal vs Shared LAB account shown read-only.
+  - **Preferences:** Appearance (theme, table rows Comfortable/Compact), Inbox (Inbox view),
+    Privacy (Show my Inbox on shared LAB computers, off by default), Receiving (After confirming a
+    receipt: Show the done page / Go straight to Put away), Dates and time (date format, time
+    zone America/Edmonton), Scanning (Open a scanned label's record), Sidebar (Start with the
+    sidebar collapsed; Reset sidebar layout).
+  - **Notifications:** which kinds of Inbox items raise the bell badge (requests always; updates
+    on or off). In-app only; nothing is emailed (no off-site access).
+  - **My access:** "What you can do" by area and where it comes from, as the server reports it.
+- **Admin sections** (each a wide panel: a header with the main action, the table tools, a table,
+  rows opening the Inbox drawer to edit; every destructive change asks for a reason):
+  - **Staff:** tabs People, Pending (applicants waiting for approval, with a count), Disabled;
+    columns person (avatar), position, roles, account (Personal / Shared LAB), last sign-in,
+    status; drawer: roles (Save roles), Make or Remove admin, Disable / Re-enable, reason
+    required. "No changes to save." guards empty saves.
+  - **Locations:** the location tree (warehouse › bay › shelf) with code, places, in stock,
+    retired; Add location; Retire location (reason; can't retire one holding units); the system
+    location's code can't change.
+  - **Printers:** Zebra printers with address, status (Connected, Unavailable, "Not sure if
+    printed"), Test print, default printer per computer.
+  - **Templates:** label and tag templates with a true-size preview (printed labels unchanged).
+  - **Receiving:** receiving draft settings ("Only Lab Managers and administrators can change
+    this.").
+  - **Lab tests:** the soils test catalogue and templates used by the program editor.
+  - **Concrete reference:** Equipment (testing machines; "No testing machine is registered"
+    elsewhere links here), Suppliers, Holidays (non-test days), Report header; values the gates
+    leave open (G8 units/methods, report templates) are not invented.
+  - **System status:** database, backups (last run, last success, backup owner), alerts go to,
+    checked time; Unavailable and "Not set up" states.
+- **States and ranges:** staff 5–150, locations 10–2,000, printers 1–10; loading; couldn't load;
+  saved toast; a change someone else made meanwhile (reload); not permitted (the section isn't in
+  the nav at all).
+- **Interaction and layout:** the modal keeps its size; panels scroll inside; at 1024 px the modal
+  fills the window with the nav as a narrow column. Staff, Locations and Lab tests open as full
+  pages under Lab admin (2026-11-12).
+- **Constraints:** permissions server-side; reasons for destructive changes; no secrets shown;
+  D38 session length stays deferred (no session settings); fictional data.
+
+### Round 10: system pages (shaped 2026-11-12)
+
+Kyle chose: Help as a drawer from anywhere (? or the account menu) plus a full page; Feedback &
+bugs as a dialog from anywhere.
+
+- **Job and audience:** anyone stuck, new, or locked out: a first-day technician, someone whose
+  sign-in failed, a new person waiting to be approved, anyone who hit a broken address.
+  Reassurance first, then one clear next step.
+- **Help drawer** (press ?, or account menu › Help): the Inbox drawer on the right. It opens on
+  **help for the page you're on** (e.g. on Inventory: find a unit, move units, print labels),
+  then all guides grouped (Receiving, Shelves, labels and retention, Lab tests, Concrete, Access
+  and accounts), a search, and **Keyboard shortcuts** (Ctrl K, Ctrl B, ?, J/K, Esc). Answers
+  are short task steps in the app's words and follow the shaped screens (e.g. Move: "Scan the
+  units and the shelf, in either order."). Common questions stay ("Does an ID ever change? No. A
+  correction changes the details and keeps the ID." "Does it work from home? No. It runs on the
+  office network only.").
+- **Help page** (`/help`): the same guides as a full page, for links from sign-in, the station
+  picker ("How LAB stations work") and Customize sidebar ("How the sidebar works"); the app
+  version at the foot.
+- **Feedback & bugs** (account menu): a dialog over the current page: what kind (Problem,
+  Idea, Question), what happened, "Include the page I was on" (on by default), Send to the
+  administrator; "Stays inside the office. Nothing is sent outside the building." then "Sent. An
+  administrator will read it here in the office."
+- **Microsoft sign-in return** (`/sign-in/microsoft/callback`): the sign-in layout (gradient,
+  card): "Finishing Microsoft sign-in…" with a spinner, then on failure one card per case, each
+  with a title, one plain sentence and the next step (Try again or Back to sign in): cancelled,
+  permission not granted, link expired, took too long or another browser, account can't sign in
+  here, guest accounts, access removed, too many attempts, not set up on this server, something
+  went wrong.
+- **Waiting for approval** (`/access-pending`): the sign-in layout: "You are signed in, but not
+  set up yet.", signed in as (name, email), who approves ("An administrator, in Settings, Staff
+  and access"), "This page opens the app by itself once you are approved.", Check again, Sign
+  out.
+- **Page not found:** inside the shell (sidebar and top bar stay): "This page doesn't exist.
+  Check the address, or go back to Today." with Go to Today and Search (Ctrl K). A record that
+  doesn't exist (a unit, a project) uses its own not-found state from its round instead.
+- **Something went wrong** (a page crashed): inside the shell: "Something went wrong while
+  showing this page." with Reload and Go to Today; the rest of the app keeps working.
+- **Material Mule is unavailable** (the server can't be reached): the sign-in layout: what
+  happened, that work in progress on this computer is kept (drafts, queued moves), Try again;
+  it retries by itself.
+- **States:** each page in light and dark; long names and emails truncate; screen readers get
+  the heading first, then the message.
+- **Constraints:** no off-site access, so nothing links outside the office except Microsoft
+  sign-in itself; no secrets or stack traces shown; D38 session length stays deferred (no "your
+  session ends at" text); fictional data.
+
+## Next
+
+All 47 remaining screens are shaped (rounds 1–10, 2026-11-12). Next:
+
+1. **Design phase** (under way, 2026-11-12): rounds 1, 2 and 5–10 are drawn; rounds 3 and 4 are
+   in progress. In the same order as the shaping rounds, each area on its own canvas page:
+   every screen, its empty, loading, error and permission states, dark, and a 1024 px version
+   (audit P1). Kyle reviews each area before the next starts. Round 7 drew both Breaks variants;
+   Kyle chose A, list then Record breaks (2026-11-12).
+2. **Gates stay gates:** D38, billing D16–D18, G2, G8, report templates, offline field entry and
+   set numbering are drawn only as marked open items.
+3. **Implementation plan** in the same shape as Field Ledger's (wave 0 Tailwind, shadcn, tokens
+   and shell; parallel lanes by folder; an integration branch), from the build board on Notion.
+   Nothing is merged without Kyle (Kyle, 2026-11-11: "Do not merge anything").

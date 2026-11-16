@@ -1,6 +1,15 @@
 import { randomBytes } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
+import { accountRow } from './support/shell';
+
+/** STRATA-16: a LAB sign-in asks who is working; Taylor Bench (fictional, dev seed lab technician) is picked. */
+async function pickWhoIsWorking(page: Page) {
+  await expect(page).toHaveURL(/\/who-is-working$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Who is working here?' })).toBeVisible();
+  await page.getByRole('button', { name: /^Taylor Bench/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
 
 // MM-T06 T6. One test, desktop only: setting the LAB password signs out every LAB station, so a
 // second project running this in parallel would sign this one out.
@@ -13,28 +22,34 @@ test('T6/AC4: an admin sets the LAB password; LAB stays signed in after the brow
   // Generated per run, never committed.
   const password = `e2e-${randomBytes(12).toString('base64url')}`;
 
-  // Admin: Settings → Staff & access → Reset LAB password, with confirmation.
+  // Admin: Lab admin › Staff → Reset LAB password, with confirmation.
   await signInAs(page, 'admin');
   await page.goto('/settings/staff');
   const card = page.getByRole('region', { name: 'Shared receiving account (LAB)' });
   await card.getByLabel('New LAB password').fill(password);
   await card.getByLabel('Repeat the new password').fill(password);
   await card.getByRole('button', { name: 'Reset LAB password' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Reset password' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Reset password' }).click();
   await expect(card.getByRole('status')).toContainText('LAB password reset');
 
   // The shared station signs in as LAB on the landing page.
   const station = await browser.newContext({ baseURL });
   const stationPage = await station.newPage();
   await stationPage.goto('/sign-in');
-  const form = stationPage.getByRole('region', { name: 'Shared receiving station (LAB)' });
+  // STRATA-18: a computer not marked as the station opens on Microsoft sign-in; the LAB form is
+  // one link away (a marked station opens straight on it).
+  await expect(stationPage.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
+  await stationPage.getByRole('link', { name: 'Sign in as LAB' }).click();
+  await expect(stationPage).toHaveURL(/[?&]method=lab/);
+  const form = stationPage.getByRole('region', { name: 'Shared receiving station', exact: true });
   await expect(form.getByText('Forgot password? Ask an administrator.')).toBeVisible();
   await form.getByLabel('Password').fill(password);
   await form.getByRole('button', { name: 'Sign in as LAB' }).click();
-  await expect(stationPage).toHaveURL(/\/$/);
-  const header = stationPage.getByLabel('Signed in user');
-  await expect(header).toContainText('Shared station: LAB');
-  await expect(header).toContainText('Session ends');
+  await pickWhoIsWorking(stationPage);
+  const account = accountRow(stationPage);
+  await expect(account).toContainText('LAB station');
+  // D38 (session length) is an open gate: no session end time is shown.
+  await expect(account).not.toContainText('Session ends');
 
   // The cookie is persistent, lasting about a calendar month (28–31 days).
   const cookie = (await station.cookies()).find((c) => c.name === 'materialmule_session');
@@ -52,7 +67,9 @@ test('T6/AC4: an admin sets the LAB password; LAB stays signed in after the brow
   const reopened = await browser.newContext({ baseURL, storageState: stored });
   const reopenedPage = await reopened.newPage();
   await reopenedPage.goto('/');
-  await expect(reopenedPage.getByLabel('Signed in user')).toContainText('Shared station: LAB');
+  // The picked person lasts for the tab only, so the reopened station asks again.
+  await pickWhoIsWorking(reopenedPage);
+  await expect(accountRow(reopenedPage)).toContainText('LAB station');
 
   // When the session is gone, the station explains that the draft is kept.
   await reopened.clearCookies();

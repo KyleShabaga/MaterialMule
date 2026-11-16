@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { SignJWT, exportJWK, generateKeyPair, type JWK } from 'jose';
+import { tinyPng } from './tiny-image.js';
 
 // A fake Microsoft Entra ID tenant plus Microsoft Graph /me, for tests only (MM-T05). Every user
 // and identifier here is fictional. It speaks just enough OpenID Connect for the real client code:
@@ -31,8 +32,12 @@ export interface MockUser {
   /** Overrides for the ID token, e.g. another `tid` or a guest `idp`. */
   extraClaims?: Record<string, unknown>;
   graph: MockGraphProfile;
-  /** When set, Graph answers with this HTTP status instead of the profile. */
+  /** When set, Graph answers with this HTTP status instead of the profile (and the photo). */
   graphStatus?: number;
+  /** STRATA-52: the photo Graph serves at /me/photos/96x96/$value; none answers 404. */
+  photo?: { contentType: string; bytes: Buffer };
+  /** When set, the photo endpoint answers with this HTTP status instead. */
+  photoStatus?: number;
 }
 
 export interface AuthorizeRequestRecord {
@@ -112,7 +117,8 @@ export function fictionalUsers(): MockUser[] {
         officeLocation: 'Edmonton',
       },
     }),
-    user('riley', 2, 'Riley Example'),
+    // STRATA-52: Riley has a (generated) directory photo; everyone else has none.
+    user('riley', 2, 'Riley Example', { photo: { contentType: 'image/png', bytes: tinyPng() } }),
     user('morgan', 3, 'Morgan Example'),
     user('casey', 4, 'Casey Example'),
     user('drew', 5, 'Drew Example'),
@@ -304,6 +310,21 @@ export async function startMockOidc(port = 0, users = fictionalUsers()): Promise
         return json(response, current.graphStatus, { error: { code: 'ServiceUnavailable' } });
       }
       return json(response, 200, { '@odata.context': 'mock', ...current.graph });
+    }
+    if (path === '/v1.0/me/photos/96x96/$value') {
+      const token = (request.headers.authorization ?? '').replace(/^Bearer /, '');
+      const user = tokens.get(token);
+      if (!user) return json(response, 401, { error: { code: 'InvalidAuthenticationToken' } });
+      const current = userMap.get(user.key) ?? user;
+      const status = current.photoStatus ?? current.graphStatus;
+      if (status) return json(response, status, { error: { code: 'ServiceUnavailable' } });
+      if (!current.photo) return json(response, 404, { error: { code: 'ImageNotFound' } });
+      response.writeHead(200, {
+        'content-type': current.photo.contentType,
+        'content-length': String(current.photo.bytes.length),
+      });
+      response.end(current.photo.bytes);
+      return;
     }
     json(response, 404, { error: 'not_found' });
   }

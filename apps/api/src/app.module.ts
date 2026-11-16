@@ -29,6 +29,8 @@ import { DatabaseService } from './database/database.service.js';
 import { FeedbackController } from './feedback/feedback.controller.js';
 import { FeedbackService } from './feedback/feedback.service.js';
 import { HealthController } from './health/health.controller.js';
+import { InboxController } from './inbox/inbox.controller.js';
+import { InboxService } from './inbox/inbox.service.js';
 import { InventoryController } from './inventory/inventory.controller.js';
 import { InventoryService } from './inventory/inventory.service.js';
 import { CatalogueController } from './lab/catalogue.controller.js';
@@ -48,18 +50,33 @@ import { LabelsController } from './labels/labels.controller.js';
 import { LocationsController } from './locations/locations.controller.js';
 import { LocationsService } from './locations/locations.service.js';
 import { pinoHttpOptions } from './logging/logger.js';
+import { MeRecordsService } from './me-settings/me-records.service.js';
+import { MeSettingsController } from './me-settings/me-settings.controller.js';
+import { MeSettingsService } from './me-settings/me-settings.service.js';
 import { MovesController } from './moves/moves.controller.js';
 import { ActionItemsController } from './notifications/action-items.controller.js';
 import { DisposalController } from './disposal/disposal.controller.js';
 import { DisposalService } from './disposal/disposal.service.js';
+import { DisposalScanController } from './disposal/disposal-scan.controller.js';
+import { DisposalScanService } from './disposal/disposal-scan.service.js';
 import { BusinessClock } from './retention/business-clock.js';
 import { RetentionController } from './retention/retention.controller.js';
 import { RetentionService } from './retention/retention.service.js';
+import { RetentionPipelineController } from './retention/retention-pipeline.controller.js';
+import { RetentionPipelineService } from './retention/retention-pipeline.service.js';
 import { ActionItemsService } from './notifications/action-items.service.js';
 import { EmailWorkerService } from './notifications/email-worker.service.js';
 import { NotificationsController } from './notifications/notifications.controller.js';
 import { NotificationsService } from './notifications/notifications.service.js';
 import { MovesService } from './moves/moves.service.js';
+import { UndoController } from './undo/undo.controller.js';
+import { UndoService } from './undo/undo.service.js';
+import { ReceiptDraftsController } from './receiving-drafts/receipt-drafts.controller.js';
+import { ReceiptDraftsService } from './receiving-drafts/receipt-drafts.service.js';
+import { StationConfigService } from './station/station-config.service.js';
+import { StationController } from './station/station.controller.js';
+import { StationInboxService } from './station/station-inbox.service.js';
+import { StationTodayService } from './station/station-today.service.js';
 import { PrintingController } from './printing/printing.controller.js';
 import { PrintWorkerService } from './printing/print-worker.service.js';
 import { ProfileController } from './profile/profile.controller.js';
@@ -78,6 +95,7 @@ import { StaffGrantsService } from './project-access/staff-grants.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { StaffDirectoryController } from './staff-directory/staff-directory.controller.js';
+import { PeopleController } from './people/people.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
 import { BulkGroupsController } from './storage-units/bulk-groups/bulk-groups.controller.js';
@@ -139,6 +157,8 @@ import { ConcreteStrengthReportsService } from './concrete/concrete-strength-rep
 import { ConcreteTestingTableController } from './concrete/concrete-testing-table.controller.js';
 import { ConcreteTestingTableService } from './concrete/concrete-testing-table.service.js';
 import { UsersService } from './users/users.service.js';
+import { TodayController } from './today/today.controller.js';
+import { TodayService } from './today/today.service.js';
 
 @Module({})
 export class AppModule {
@@ -156,6 +176,7 @@ export class AppModule {
         LabAdminController,
         MicrosoftAuthController,
         ProfileController,
+        MeSettingsController,
         ActivityController,
         FeedbackController,
         PrintingController,
@@ -165,6 +186,7 @@ export class AppModule {
         AccessSummaryController,
         TestHolesController,
         StaffDirectoryController,
+        PeopleController,
         StaffController,
         ReceiptsController,
         ReceivingLogController,
@@ -183,8 +205,15 @@ export class AppModule {
         LabLifecycleController,
         ActionItemsController,
         NotificationsController,
+        InboxController,
+        TodayController,
+        UndoController,
+        ReceiptDraftsController,
+        StationController,
         RetentionController,
+        RetentionPipelineController,
         DisposalController,
+        DisposalScanController,
         SystemStatusController,
         LabelsController,
         SettingsController,
@@ -223,6 +252,8 @@ export class AppModule {
         MicrosoftSignInService,
         MicrosoftSignInRateLimit,
         ProfileService,
+        MeSettingsService,
+        MeRecordsService,
         FeedbackService,
         UsersService,
         StaffService,
@@ -273,10 +304,19 @@ export class AppModule {
         LabAmendmentsService,
         ActionItemsService,
         NotificationsService,
+        InboxService,
+        TodayService,
+        UndoService,
+        ReceiptDraftsService,
+        StationTodayService,
+        StationConfigService,
+        StationInboxService,
         EmailWorkerService,
         BusinessClock,
         RetentionService,
+        RetentionPipelineService,
         DisposalService,
+        DisposalScanService,
         // Units referenced by open testing programs block project corrections (MM-T23, D47).
         { provide: LAB_REQUEST_LINK_CHECKER, useClass: ProgramLabRequestLinks },
         // Default deny on every route (MM-T04).

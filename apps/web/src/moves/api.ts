@@ -1,14 +1,18 @@
 import {
   locationConflictDetailSchema,
   locationListSchema,
+  receiptDetailSchema,
   resolveLocationConflictResponseSchema,
   scanResolveResponseSchema,
   storageUnitDetailSchema,
+  undoResultSchema,
   type LocationConflictDetail,
+  type ReceiptDetail,
   type ResolveLocationConflictRequest,
   type ScanResolveResponse,
   type StorageLocation,
   type StorageUnitDetail,
+  type UndoResult,
 } from '@materialmule/shared';
 import type { z } from 'zod';
 import { apiFetch } from '../api/client';
@@ -73,4 +77,24 @@ export function resolveConflict(id: string, body: ResolveLocationConflictRequest
     resolveLocationConflictResponseSchema,
     { method: 'POST', body: JSON.stringify(body) },
   );
+}
+
+/** Put away (STRATA-80): the receipt the units came from, named by its date and receiver. */
+export function fetchReceipt(receiptId: string): Promise<Fetched<ReceiptDetail>> {
+  return read(`/api/receipts/${encodeURIComponent(receiptId)}`, receiptDetailSchema);
+}
+
+/**
+ * Undo of a saved move (STRATA-123, lane 1C): a new, audited compensating move the server checks
+ * again. On a LAB station `moverUserId` is the person the move was credited to.
+ */
+export function undoMove(body: {
+  sourceId: string;
+  idempotencyKey: string;
+  moverUserId?: string;
+}): Promise<Fetched<UndoResult>> {
+  return read('/api/undo', undoResultSchema, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'move', ...body }),
+  });
 }

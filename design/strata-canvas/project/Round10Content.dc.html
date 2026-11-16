@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Round 10 content: system pages inside the shell</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="strata-ui/strata-ui.css">
+<script src="strata-ui/strata-ui.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600;700&amp;family=Atkinson+Hyperlegible+Next:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.sc-host:has(> .r10-root){flex:1 1 0%;min-height:0;height:100%}
+</style>
+</helmet>
+<!-- Round 10 inside the shell: the Help drawer (opened with ? or account menu › Help, over the page
+     you're on, here Inventory), the Help page (/help), Page not found and Something went wrong.
+     The sidebar and top bar stay; only the content area changes. All data is fictional. -->
+<div class="r10-root bg-background text-foreground flex min-h-0 flex-1 flex-col font-sans" style="height: 100%;">
+<x-import component-from-global-scope="Strata.Theme" dark="{{dark}}">
+
+<!-- ============ HELP DRAWER: the Inbox drawer on the right of the current page ============ -->
+<sc-if value="{{drawer}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.PeekSplit" peek-size="{{peekSize}}">
+<div>
+<!-- The page underneath (Inventory), kept as it was: the drawer doesn't navigate away -->
+<div class="flex flex-col">
+<div class="flex items-center gap-3 border-b px-6 py-3">
+<h1 class="text-lg font-semibold">Inventory</h1>
+<span class="text-muted-foreground font-mono text-[13px]">412 units</span>
+<div class="text-muted-foreground ml-auto flex items-center gap-1">
+<span class="flex size-9 items-center justify-center rounded-md"><x-import component-from-global-scope="Strata.Icon" name="list-filter"></x-import></span>
+<span class="flex size-9 items-center justify-center rounded-md"><x-import component-from-global-scope="Strata.Icon" name="arrow-up-down"></x-import></span>
+<span class="flex size-9 items-center justify-center rounded-md"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import></span>
+</div>
+</div>
+<x-import component-from-global-scope="Strata.ItemGroup" aria-label="Storage units"><x-import component-from-global-scope="Strata.Item" size="sm" class-name="relative rounded-none border-0 border-b px-6"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0 flex-row items-center gap-4"><span class="font-mono text-sm font-semibold whitespace-nowrap">BKT-2026-000019</span><span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"><span class="font-mono">DEMO-2601</span> · <span class="font-mono">TH26-01</span></span></x-import><x-import component-from-global-scope="Strata.ItemActions" class-name="text-muted-foreground hidden font-mono text-[13px] whitespace-nowrap @min-[34rem]:flex">WH-A-B2-S3</x-import></x-import>
+<x-import component-from-global-scope="Strata.Item" size="sm" class-name="relative rounded-none border-0 border-b px-6"><span aria-hidden="true" class="bg-stage-lab-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0 flex-row items-center gap-4"><span class="font-mono text-sm font-semibold whitespace-nowrap">ST-2026-000004</span><span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"><span class="font-mono">DEMO-2601</span> · <span class="font-mono">TH26-02</span></span></x-import><x-import component-from-global-scope="Strata.ItemActions" class-name="text-muted-foreground hidden font-mono text-[13px] whitespace-nowrap @min-[34rem]:flex">Lab bench 2</x-import></x-import>
+<x-import component-from-global-scope="Strata.Item" size="sm" class-name="relative rounded-none border-0 border-b px-6"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0 flex-row items-center gap-4"><span class="font-mono text-sm font-semibold whitespace-nowrap">CRE-2026-000002</span><span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"><span class="font-mono">DEMO-2612</span> · <span class="font-mono">TH26-01</span></span></x-import><x-import component-from-global-scope="Strata.ItemActions" class-name="text-muted-foreground hidden font-mono text-[13px] whitespace-nowrap @min-[34rem]:flex">WH-A-B1-S1</x-import></x-import>
+<x-import component-from-global-scope="Strata.Item" size="sm" class-name="relative rounded-none border-0 border-b px-6"><span aria-hidden="true" class="bg-stage-due-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0 flex-row items-center gap-4"><span class="font-mono text-sm font-semibold whitespace-nowrap">CT-2026-000007</span><span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"><span class="font-mono">DEMO-2610</span> · <span class="font-mono">TH26-02</span></span></x-import><x-import component-from-global-scope="Strata.ItemActions" class-name="text-muted-foreground hidden font-mono text-[13px] whitespace-nowrap @min-[34rem]:flex">WH-B-B4-S2</x-import></x-import>
+<x-import component-from-global-scope="Strata.Item" size="sm" class-name="relative rounded-none border-0 border-b px-6"><span aria-hidden="true" class="bg-stage-storage-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0 flex-row items-center gap-4"><span class="font-mono text-sm font-semibold whitespace-nowrap">BKT-2026-000020</span><span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"><span class="font-mono">DEMO-2601</span> · <span class="font-mono">TH26-01</span></span></x-import><x-import component-from-global-scope="Strata.ItemActions" class-name="text-muted-foreground hidden font-mono text-[13px] whitespace-nowrap @min-[34rem]:flex">WH-A-B2-S3</x-import></x-import>
+<x-import component-from-global-scope="Strata.Item" size="sm" class-name="relative rounded-none border-0 border-b px-6"><span aria-hidden="true" class="bg-stage-closed-mark absolute top-2.5 bottom-2.5 left-1 w-1 rounded-full"></span><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0 flex-row items-center gap-4"><span class="font-mono text-sm font-semibold whitespace-nowrap">BKT-2025-000041</span><span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"><span class="font-mono">DEMO-2615</span> · <span class="font-mono">TH26-02</span></span></x-import><x-import component-from-global-scope="Strata.ItemActions" class-name="text-muted-foreground hidden font-mono text-[13px] whitespace-nowrap @min-[34rem]:flex">Disposed</x-import></x-import></x-import>
+</div>
+</div>
+<div class="h-full">
+<aside aria-labelledby="r10-help-title" class="bg-background flex h-full flex-col">
+<div class="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Close help" title="Close (Esc)"><x-import component-from-global-scope="Strata.Icon" name="chevrons-right"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open help as a full page" title="Open as full page"><x-import component-from-global-scope="Strata.Icon" name="maximize-2"></x-import></x-import>
+<x-import component-from-global-scope="Strata.Separator" orientation="vertical" class-name="mx-1 h-5"></x-import>
+<span class="text-muted-foreground flex items-center gap-2 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="circle-question-mark"></x-import>Help</span>
+<span class="text-muted-foreground ml-auto flex items-center gap-1.5 pr-2 text-[13px]">Open or close <x-import component-from-global-scope="Strata.Kbd">?</x-import></span>
+</div>
+<div class="min-h-0 flex-1 overflow-y-auto">
+<div class="flex flex-col gap-6 px-6 py-5">
+
+<div class="flex flex-col gap-3">
+<sc-if value="{{dMain}}" hint-placeholder-val="{{ true }}"><h2 id="r10-help-title" class="text-xl font-semibold">Help for Inventory</h2></sc-if>
+<sc-if value="{{dSearching}}" hint-placeholder-val="{{ false }}"><h2 id="r10-help-title" class="text-xl font-semibold">Search help</h2></sc-if>
+<sc-if value="{{dShortcuts}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Button" variant="link" size="sm" class-name="h-auto self-start p-0"><x-import component-from-global-scope="Strata.Icon" name="arrow-left"></x-import>All help</x-import>
+<h2 id="r10-help-title" class="text-xl font-semibold">Keyboard shortcuts</h2>
+</sc-if>
+<sc-if value="{{dNotShortcuts}}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="Strata.InputGroup">
+<x-import component-from-global-scope="Strata.InputGroupAddon"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import></x-import>
+<x-import component-from-global-scope="Strata.InputGroupInput" placeholder="Search help" aria-label="Search help" default-value="{{query}}"></x-import>
+<sc-if value="{{dSearching}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Strata.InputGroupAddon" align="inline-end"><x-import component-from-global-scope="Strata.InputGroupButton" size="icon-xs" aria-label="Clear search"><x-import component-from-global-scope="Strata.Icon" name="x"></x-import></x-import></x-import></sc-if>
+</x-import>
+</sc-if>
+</div>
+
+<!-- Default: help for the page you're on first -->
+<sc-if value="{{dMain}}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="r10-onpage" class="flex flex-col gap-2">
+<h3 id="r10-onpage" class="text-muted-foreground text-[13px] font-medium">On this page</h3>
+<div class="bg-card rounded-xl border px-4">
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}" default-value="move">
+<x-import component-from-global-scope="Strata.AccordionItem" value="find"><x-import component-from-global-scope="Strata.AccordionTrigger">Find a unit</x-import><x-import component-from-global-scope="Strata.AccordionContent">
+<ol class="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-5">
+<li>Scan the label, or type the ID in Search or scan (<x-import component-from-global-scope="Strata.Kbd">Ctrl K</x-import>).</li>
+<li>One match opens the unit. More than one shows a list.</li>
+<li>To narrow the list, use the filter chips: project, place or stage.</li>
+</ol>
+</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="move"><x-import component-from-global-scope="Strata.AccordionTrigger">Move units</x-import><x-import component-from-global-scope="Strata.AccordionContent">
+<ol class="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-5">
+<li>Choose Move storage units, or press <x-import component-from-global-scope="Strata.Kbd">Ctrl K</x-import> and type Move.</li>
+<li>Scan the units and the shelf, in either order.</li>
+<li>Check the list, then choose Move. Undo stays in the message for 5 seconds.</li>
+</ol>
+<p class="text-muted-foreground mt-2">A unit's ID stays the same wherever it goes.</p>
+</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="print" class-name="border-b-0"><x-import component-from-global-scope="Strata.AccordionTrigger">Print labels</x-import><x-import component-from-global-scope="Strata.AccordionContent">
+<ol class="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-5">
+<li>Select the units, then choose Print labels.</li>
+<li>Pick the printer if this computer has more than one.</li>
+<li>If a label didn't print, open the unit and choose Print again.</li>
+</ol>
+</x-import></x-import>
+</x-import>
+</div>
+</section>
+
+<section aria-labelledby="r10-all" class="flex flex-col gap-2">
+<h3 id="r10-all" class="text-muted-foreground text-[13px] font-medium">All guides</h3>
+<x-import component-from-global-scope="Strata.ItemGroup" class-name="bg-card rounded-xl border"><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">Receiving</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><span class="text-muted-foreground font-mono text-[13px]">5</span><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open Receiving guides"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">Shelves, labels and retention</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><span class="text-muted-foreground font-mono text-[13px]">7</span><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open Shelves, labels and retention guides"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">Lab tests</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><span class="text-muted-foreground font-mono text-[13px]">4</span><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open Lab tests guides"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">Concrete</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><span class="text-muted-foreground font-mono text-[13px]">6</span><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open Concrete guides"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="key-round"></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">Access and accounts</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><span class="text-muted-foreground font-mono text-[13px]">5</span><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open Access and accounts guides"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="keyboard"></x-import></x-import><x-import component-from-global-scope="Strata.ItemContent"><x-import component-from-global-scope="Strata.ItemTitle">Keyboard shortcuts</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><span class="text-muted-foreground font-mono text-[13px]">8</span><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open Keyboard shortcuts guides"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import></x-import>
+</section>
+
+<section aria-labelledby="r10-faq" class="flex flex-col gap-2">
+<h3 id="r10-faq" class="text-muted-foreground text-[13px] font-medium">Common questions</h3>
+<div class="bg-card rounded-xl border px-4">
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}">
+<x-import component-from-global-scope="Strata.AccordionItem" value="id"><x-import component-from-global-scope="Strata.AccordionTrigger">Does an ID ever change?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">No. A correction changes the details and keeps the ID.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="home"><x-import component-from-global-scope="Strata.AccordionTrigger">Does it work from home?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">No. It runs on the office network only.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="draft" class-name="border-b-0"><x-import component-from-global-scope="Strata.AccordionTrigger">Why has my receipt no ID yet?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">A receipt is a draft until you confirm it. IDs are issued on confirm, never before.</x-import></x-import>
+</x-import>
+</div>
+</section>
+</sc-if>
+
+<!-- Search results -->
+<sc-if value="{{dResults}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="r10-results" class="flex flex-col gap-2">
+<h3 id="r10-results" role="status" class="text-muted-foreground text-[13px] font-medium">3 guides match “label”</h3>
+<x-import component-from-global-scope="Strata.ItemGroup" class-name="bg-card rounded-xl border"><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><span class="text-muted-foreground text-[13px]">Shelves, labels and retention</span><x-import component-from-global-scope="Strata.ItemTitle"><span>Print <mark class="bg-accent text-accent-foreground rounded-sm px-0.5">label</mark>s</span></x-import><x-import component-from-global-scope="Strata.ItemDescription">Select the units, then choose Print labels.</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open guide"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><span class="text-muted-foreground text-[13px]">Shelves, labels and retention</span><x-import component-from-global-scope="Strata.ItemTitle"><span>A <mark class="bg-accent text-accent-foreground rounded-sm px-0.5">label</mark> didn't print</span></x-import><x-import component-from-global-scope="Strata.ItemDescription">Open the unit and choose Print again. The ID stays the same.</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open guide"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import>
+<x-import component-from-global-scope="Strata.ItemSeparator"></x-import><x-import component-from-global-scope="Strata.Item" size="sm"><x-import component-from-global-scope="Strata.ItemContent" class-name="min-w-0"><span class="text-muted-foreground text-[13px]">Receiving</span><x-import component-from-global-scope="Strata.ItemTitle"><span>Confirm a receipt and print its <mark class="bg-accent text-accent-foreground rounded-sm px-0.5">label</mark>s</span></x-import><x-import component-from-global-scope="Strata.ItemDescription">Confirm issues the IDs, then the labels print for each unit.</x-import></x-import><x-import component-from-global-scope="Strata.ItemActions"><x-import component-from-global-scope="Strata.Button" variant="ghost" size="icon-sm" aria-label="Open guide"><x-import component-from-global-scope="Strata.Icon" name="chevron-right"></x-import></x-import></x-import></x-import></x-import>
+</section>
+</sc-if>
+
+<!-- No match -->
+<sc-if value="{{dNoMatch}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Empty" role="status" class-name="py-10"><x-import component-from-global-scope="Strata.EmptyHeader"><x-import component-from-global-scope="Strata.EmptyMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="search-x"></x-import></x-import><x-import component-from-global-scope="Strata.EmptyTitle" class-name="text-sm font-semibold">No guide matches “invoice”.</x-import><x-import component-from-global-scope="Strata.EmptyDescription">Try another word, or ask the administrator.</x-import></x-import><x-import component-from-global-scope="Strata.EmptyContent"><x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="message-circle-question-mark"></x-import>Ask a question</x-import></x-import></x-import>
+</sc-if>
+
+<!-- Keyboard shortcuts -->
+<sc-if value="{{dShortcuts}}" hint-placeholder-val="{{ false }}">
+<p class="text-muted-foreground text-sm">On a computer with a keyboard. They never fire while you type in a field.</p>
+<section aria-labelledby="r10-k-any" class="flex flex-col gap-2">
+<h3 id="r10-k-any" class="text-muted-foreground text-[13px] font-medium">Anywhere</h3>
+<dl class="bg-card divide-y rounded-xl border text-sm">
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Search or scan</dt><dd class="flex items-center gap-1"><x-import component-from-global-scope="Strata.Kbd">Ctrl</x-import><x-import component-from-global-scope="Strata.Kbd">K</x-import><span class="text-muted-foreground px-1 text-[13px]">or</span><x-import component-from-global-scope="Strata.Kbd">/</x-import></dd></div>
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Collapse or expand the sidebar</dt><dd class="flex items-center gap-1"><x-import component-from-global-scope="Strata.Kbd">Ctrl</x-import><x-import component-from-global-scope="Strata.Kbd">B</x-import></dd></div>
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Open or close Help</dt><dd><x-import component-from-global-scope="Strata.Kbd">?</x-import></dd></div>
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Close a drawer, menu or dialog</dt><dd><x-import component-from-global-scope="Strata.Kbd">Esc</x-import></dd></div>
+</dl>
+</section>
+<section aria-labelledby="r10-k-list" class="flex flex-col gap-2">
+<h3 id="r10-k-list" class="text-muted-foreground text-[13px] font-medium">In lists and drawers</h3>
+<dl class="bg-card divide-y rounded-xl border text-sm">
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Next and previous row</dt><dd class="flex items-center gap-1"><x-import component-from-global-scope="Strata.Kbd">J</x-import><x-import component-from-global-scope="Strata.Kbd">K</x-import></dd></div>
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Open the row</dt><dd><x-import component-from-global-scope="Strata.Kbd">Enter</x-import></dd></div>
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">New record on list pages</dt><dd><x-import component-from-global-scope="Strata.Kbd">N</x-import></dd></div>
+<div class="flex items-center gap-3 px-4 py-2.5"><dt class="flex-1">Scan a label with the wedge scanner</dt><dd class="text-muted-foreground text-[13px]">Just scan</dd></div>
+</dl>
+</section>
+</sc-if>
+
+<div class="text-muted-foreground flex flex-col gap-1 border-t pt-4 text-[13px]">
+<p>Still stuck? <a href="#" class="text-link font-medium underline-offset-4 hover:underline">Send feedback or a question</a></p>
+<p>Help works on the office network only, like the rest of Material Mule.</p>
+</div>
+
+</div>
+</div>
+</aside>
+</div>
+</x-import>
+</sc-if>
+
+<!-- ============ HELP PAGE (/help) ============ -->
+<sc-if value="{{page}}" hint-placeholder-val="{{ false }}">
+<div class="@container min-h-0 flex-1 overflow-y-auto">
+<div class="mx-auto flex max-w-[1280px] flex-col gap-6 px-8 py-6">
+<sc-if value="{{publicNote}}" hint-placeholder-val="{{ false }}">
+<p class="bg-accent text-accent-foreground flex items-center gap-2 rounded-md px-3 py-2 text-[13px]"><x-import component-from-global-scope="Strata.Icon" name="info"></x-import>You're not signed in. These guides need no account; sign in to use the app.</p>
+</sc-if>
+<div class="flex flex-wrap items-end gap-4">
+<sc-if value="{{pAll}}" hint-placeholder-val="{{ true }}">
+<div class="grid min-w-0 flex-1 gap-1"><h1 class="text-2xl font-semibold">Help and how-tos</h1><p class="text-muted-foreground text-sm">Short steps for each job in Material Mule, in the app's own words.</p></div>
+</sc-if>
+<sc-if value="{{pStations}}" hint-placeholder-val="{{ false }}">
+<div class="grid min-w-0 flex-1 gap-1">
+<x-import component-from-global-scope="Strata.Breadcrumb"><x-import component-from-global-scope="Strata.BreadcrumbList"><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbLink" href="#">Help</x-import></x-import><x-import component-from-global-scope="Strata.BreadcrumbSeparator"></x-import><x-import component-from-global-scope="Strata.BreadcrumbItem"><x-import component-from-global-scope="Strata.BreadcrumbPage">Access and accounts</x-import></x-import></x-import></x-import>
+<h1 class="text-2xl font-semibold">How LAB stations work</h1>
+</div>
+</sc-if>
+<div class="w-full @min-[44rem]:w-80">
+<x-import component-from-global-scope="Strata.InputGroup">
+<x-import component-from-global-scope="Strata.InputGroupAddon"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import></x-import>
+<x-import component-from-global-scope="Strata.InputGroupInput" placeholder="Search help" aria-label="Search help"></x-import>
+</x-import>
+</div>
+</div>
+
+<div class="grid items-start gap-8 @min-[56rem]:grid-cols-[13rem_1fr]">
+<!-- Guide groups: a sticky list beside the guides; at 1024 px it becomes a row of links above them -->
+<nav aria-label="Help topics" class="@min-[56rem]:sticky @min-[56rem]:top-0">
+<ul class="flex flex-wrap gap-1 text-sm @min-[56rem]:flex-col">
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" aria-current="{{curAll}}" class-name="{{navAll}} h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="compass"></x-import>Getting around</x-import></li>
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" class-name="h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="arrow-down-to-line"></x-import>Receiving</x-import></li>
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" class-name="h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="package"></x-import>Shelves, labels and retention</x-import></li>
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" class-name="h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="flask-conical"></x-import>Lab tests</x-import></li>
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" class-name="h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="cylinder"></x-import>Concrete</x-import></li>
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" aria-current="{{curStations}}" class-name="{{navStations}} h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="key-round"></x-import>Access and accounts</x-import></li>
+<li><x-import component-from-global-scope="Strata.Button" variant="ghost" class-name="h-9 justify-start @min-[56rem]:w-full"><x-import component-from-global-scope="Strata.Icon" name="keyboard"></x-import>Keyboard shortcuts</x-import></li>
+</ul>
+</nav>
+
+<div class="flex min-w-0 flex-col gap-8">
+<sc-if value="{{pAll}}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="r10-g-around" class="flex flex-col gap-3">
+<h2 id="r10-g-around" class="text-lg font-semibold">Getting around</h2>
+<div class="bg-card rounded-xl border px-5">
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}" default-value="sidebar">
+<x-import component-from-global-scope="Strata.AccordionItem" value="sidebar"><x-import component-from-global-scope="Strata.AccordionTrigger">How the sidebar works</x-import><x-import component-from-global-scope="Strata.AccordionContent">
+<ol class="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-5">
+<li>Today, Projects and Inbox are always at the top.</li>
+<li>Click a section's name to fold it. Recent starts folded.</li>
+<li>To reorder or hide sections, choose Customize sidebar at the bottom of the list, then Done.</li>
+<li>Press <x-import component-from-global-scope="Strata.Kbd">Ctrl B</x-import> to collapse the sidebar to icons.</li>
+</ol>
+<p class="text-muted-foreground mt-2">Your layout is saved for you, so it comes back the same on any office computer you sign in to.</p>
+</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="search"><x-import component-from-global-scope="Strata.AccordionTrigger">Search or scan anything</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Press <x-import component-from-global-scope="Strata.Kbd">Ctrl K</x-import>, then type an ID, a project number or a page, or scan a label. One matching unit or shelf opens straight away.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="inbox" class-name="border-b-0"><x-import component-from-global-scope="Strata.AccordionTrigger">Inbox and the bell</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Requests waiting on you and updates about your work both land in Inbox. The bell shows how many are unread.</x-import></x-import>
+</x-import>
+</div>
+</section>
+<section aria-labelledby="r10-g-receiving" class="flex flex-col gap-3">
+<h2 id="r10-g-receiving" class="text-lg font-semibold">Receiving</h2>
+<div class="bg-card rounded-xl border px-5">
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}">
+<x-import component-from-global-scope="Strata.AccordionItem" value="r1"><x-import component-from-global-scope="Strata.AccordionTrigger">Receive storage units</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Start a receipt from Receive. Add the delivery, then one row per storage unit with its test hole and a SAMPLE#/DEPTH summary. Confirm to issue the IDs and print the labels.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="r2"><x-import component-from-global-scope="Strata.AccordionTrigger">Finish a draft receipt</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Drafts wait in Receive. Open one, check the units, then Confirm. A draft has no ID until then.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="r3" class-name="border-b-0"><x-import component-from-global-scope="Strata.AccordionTrigger">Put units away after receiving</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Scan the units and the shelf, in either order.</x-import></x-import>
+</x-import>
+</div>
+</section>
+<section aria-labelledby="r10-g-concrete" class="flex flex-col gap-3">
+<h2 id="r10-g-concrete" class="text-lg font-semibold">Concrete</h2>
+<div class="bg-card rounded-xl border px-5">
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}">
+<x-import component-from-global-scope="Strata.AccordionItem" value="c1"><x-import component-from-global-scope="Strata.AccordionTrigger">Receive concrete sets</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Choose Receive concrete, find the field report, then check each specimen in.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="c2"><x-import component-from-global-scope="Strata.AccordionTrigger">Record breaks</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Open Breaks, pick the set due today and enter each specimen's result.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="c3" class-name="border-b-0"><x-import component-from-global-scope="Strata.AccordionTrigger">Strength reports</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Not written yet: the report and its template are still open (G2, report templates).</x-import></x-import>
+</x-import>
+</div>
+<p class="text-muted-foreground flex items-center gap-2 text-[13px]"><x-import component-from-global-scope="Strata.Badge" variant="outline" class-name="border-dashed">Open item</x-import>Guides for strength and final reports wait on G2 and the report templates.</p>
+</section>
+<p class="text-muted-foreground text-[13px]">Shelves, labels and retention, Lab tests, Access and accounts and Keyboard shortcuts follow below in the same form.</p>
+</sc-if>
+
+<sc-if value="{{pStations}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="r10-st" class="flex flex-col gap-4">
+<p class="text-muted-foreground text-sm">A LAB station is a shared computer in the receiving lab. It stays signed in as LAB, and each person picks their own name so their work is recorded under it.</p>
+<div class="bg-card rounded-xl border p-5">
+<h2 id="r10-st" class="mb-3 text-sm font-semibold">Start and end your turn</h2>
+<ol class="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-5 text-sm">
+<li>On "Who is working here?", choose your name. Not listed? Choose Someone else… and find it.</li>
+<li>Work as usual. The top bar says "Recording as" with your name the whole time.</li>
+<li>When you leave, open your name and choose Sign off. The station goes back to "Who is working here?".</li>
+</ol>
+</div>
+<div class="bg-card rounded-xl border px-5">
+<x-import component-from-global-scope="Strata.Accordion" type="single" collapsible="{{yes}}" default-value="s1">
+<x-import component-from-global-scope="Strata.AccordionItem" value="s1"><x-import component-from-global-scope="Strata.AccordionTrigger">Is my Inbox shown on the station?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Only if you turn it on: Settings, Preferences, Privacy, "Show my Inbox on shared LAB computers". It's off unless you choose it.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="s2"><x-import component-from-global-scope="Strata.AccordionTrigger">Who can change what the station shows?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Lab Managers. The change applies to everyone at that computer.</x-import></x-import>
+<x-import component-from-global-scope="Strata.AccordionItem" value="s3" class-name="border-b-0"><x-import component-from-global-scope="Strata.AccordionTrigger">Forgot the LAB password?</x-import><x-import component-from-global-scope="Strata.AccordionContent" class-name="text-muted-foreground">Ask an administrator. A reset signs out every LAB computer.</x-import></x-import>
+</x-import>
+</div>
+<p class="text-muted-foreground text-[13px]">Linked from the station's "Who is working here?" page.</p>
+</section>
+</sc-if>
+
+<footer class="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-4 text-[13px]">
+<span>Material Mule <span class="font-mono">0.1.0</span> · build <span class="font-mono">4f2c9e1</span></span>
+<span class="flex items-center gap-1.5"><x-import component-from-global-scope="Strata.Icon" name="building-2"></x-import>Runs on the office network only</span>
+<sc-if value="{{signedIn}}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="Strata.Button" variant="link" size="sm" class-name="h-auto p-0">Feedback &amp; bugs</x-import></sc-if>
+</footer>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ PAGE NOT FOUND / SOMETHING WENT WRONG: centred in the content area ============ -->
+<sc-if value="{{notfound}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Empty" class-name="min-h-0 flex-1"><x-import component-from-global-scope="Strata.EmptyHeader" class-name="max-w-[440px]"><x-import component-from-global-scope="Strata.EmptyMedia" variant="icon"><x-import component-from-global-scope="Strata.Icon" name="signpost"></x-import></x-import><x-import component-from-global-scope="Strata.EmptyTitle"><h1 class="text-2xl font-semibold">This page doesn&#39;t exist.</h1></x-import><x-import component-from-global-scope="Strata.EmptyDescription">Check the address, or go back to Today.</x-import><p class="bg-muted max-w-full truncate rounded-md px-2 py-1 font-mono text-[13px]" title="/inventroy/shelves/WH-A-B2-S3">/inventroy/shelves/WH-A-B2-S3</p></x-import><x-import component-from-global-scope="Strata.EmptyContent" class-name="flex-row flex-wrap justify-center"><x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import>Go to Today</x-import><x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="search"></x-import>Search<x-import component-from-global-scope="Strata.Kbd">Ctrl K</x-import></x-import></x-import></x-import>
+</sc-if>
+
+<sc-if value="{{crashed}}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="Strata.Empty" role="alert" class-name="min-h-0 flex-1"><x-import component-from-global-scope="Strata.EmptyHeader" class-name="max-w-[520px]"><x-import component-from-global-scope="Strata.EmptyMedia" variant="icon" class-name="bg-stage-danger-bg text-stage-danger-fg"><x-import component-from-global-scope="Strata.Icon" name="triangle-alert"></x-import></x-import><x-import component-from-global-scope="Strata.EmptyTitle"><h1 class="text-2xl font-semibold">Something went wrong while showing this page.</h1></x-import><x-import component-from-global-scope="Strata.EmptyDescription">The rest of Material Mule keeps working. Reload this page, or go back to Today. Anything already saved is kept.</x-import></x-import><x-import component-from-global-scope="Strata.EmptyContent"><div class="flex flex-wrap justify-center gap-2"><x-import component-from-global-scope="Strata.Button"><x-import component-from-global-scope="Strata.Icon" name="rotate-cw"></x-import>Reload</x-import><x-import component-from-global-scope="Strata.Button" variant="outline"><x-import component-from-global-scope="Strata.Icon" name="house"></x-import>Go to Today</x-import></div><p class="text-muted-foreground text-[13px]">If it happens again, tell the administrator in <a href="#" class="text-link font-medium underline-offset-4 hover:underline">Feedback &amp; bugs</a>. The page you were on is included.</p></x-import></x-import>
+</sc-if>
+
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"select","options":["help-drawer","help-search","help-nomatch","help-shortcuts","help-page","help-stations","help-public","notfound","crashed"],"default":"help-drawer"},"station":{"editor":"boolean","default":false},"dark":{"editor":"boolean","default":false},"$preview":{"width":1024,"height":744}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var v = this.props.variant || 'help-drawer';
+    var drawer = /^help-(drawer|search|nomatch|shortcuts)$/.test(v);
+    var page = /^help-(page|stations|public)$/.test(v);
+    var stations = v === 'help-stations';
+    var on = 'bg-accent text-accent-foreground font-medium';
+    var off = 'hover:bg-accent';
+    return {
+      dark: !!this.props.dark,
+      yes: true,
+      drawer: drawer,
+      peekSize: '46%',
+      dMain: v === 'help-drawer',
+      dSearching: v === 'help-search' || v === 'help-nomatch',
+      dResults: v === 'help-search',
+      dNoMatch: v === 'help-nomatch',
+      dShortcuts: v === 'help-shortcuts',
+      dNotShortcuts: drawer && v !== 'help-shortcuts',
+      query: v === 'help-search' ? 'label' : v === 'help-nomatch' ? 'invoice' : '',
+      page: page,
+      pAll: page && !stations,
+      pStations: stations,
+      publicNote: v === 'help-public',
+      signedIn: v !== 'help-public',
+      navAll: stations ? off : on,
+      navStations: stations ? on : off,
+      curAll: stations ? 'false' : 'page',
+      curStations: stations ? 'page' : 'false',
+      notfound: v === 'notfound',
+      crashed: v === 'crashed'
+    };
+  }
+}
+</script>
+</body>
+</html>

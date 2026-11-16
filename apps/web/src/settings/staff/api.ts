@@ -79,3 +79,13 @@ export const staffApi = {
   setJobTitleOverride: (id: string, jobTitleOverride: string | null, reason: string) =>
     send(`/api/staff/${id}/job-title-override`, 'PUT', { jobTitleOverride, reason }),
 };
+
+/** The words to show for a failed staff call. */
+export function staffErrorMessage(error: unknown): string {
+  return error instanceof StaffApiError ? error.message : 'Something went wrong. Try again.';
+}
+
+/** A 403: the viewer lost staff management mid-session (MM-T52). */
+export function isStaffForbidden(error: unknown): boolean {
+  return error instanceof StaffApiError && error.forbidden;
+}

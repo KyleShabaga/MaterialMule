@@ -4,6 +4,8 @@ import {
   applyStoredTheme,
   chooseTheme,
   currentTheme,
+  currentThemeChoice,
+  followSystemTheme,
   readStoredTheme,
 } from './theme';
 
@@ -43,5 +45,14 @@ describe('theme choice', () => {
     expect(() => chooseTheme('light')).not.toThrow();
     expect(currentTheme()).toBe('light');
     expect(readStoredTheme()).toBeNull();
+  });
+
+  it('System clears the stored choice so the OS setting applies again (STRATA-7)', () => {
+    chooseTheme('dark');
+    expect(currentThemeChoice()).toBe('dark');
+    followSystemTheme();
+    expect(currentThemeChoice()).toBe('system');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    expect(currentTheme()).toBe('light');
   });
 });

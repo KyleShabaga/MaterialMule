@@ -142,6 +142,13 @@ describe.runIf(testDatabaseUrl)('projects and test holes (MM-T08)', () => {
       const results = projectSearchResponseSchema.parse(response.body);
       expect(results).toHaveLength(10);
       expect(results.every((p) => p.projectNumber.startsWith('88'))).toBe(true);
+      // STRATA-47: the header counts every match (12 numbers and one name), whatever the cap.
+      expect(response.headers['x-total-count']).toBe('13');
+      const capped = await get('/api/projects/search?q=88&limit=1', cookies.tech!);
+      expect(capped.body).toHaveLength(1);
+      expect(capped.headers['x-total-count']).toBe('13');
+      const none = await get('/api/projects/search?q=nothing-like-this', cookies.tech!);
+      expect(none.headers['x-total-count']).toBe('0');
     });
 
     it('needs an active session', async () => {

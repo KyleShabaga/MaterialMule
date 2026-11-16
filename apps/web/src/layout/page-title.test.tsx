@@ -2,7 +2,7 @@ import { act, render } from '@testing-library/react';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { describe, expect, it } from 'vitest';
-import { PageHeader } from '../components/ui';
+import { PageHeader } from '../components/app-ui';
 import { applyPageTitle, pageTitle, usePageTitle } from './page-title';
 
 // MTR-134: unique tab titles per page, with the record ID on detail pages.
@@ -19,16 +19,17 @@ describe('pageTitle', () => {
       'BKT-2026-000014 · Inventory · Material Mule',
     ],
     ['/sample-storage', null, 'Inventory · Material Mule'],
-    ['/sample-storage/move', null, 'Move units · Inventory · Material Mule'],
-    ['/lab-testing', null, 'Worklist · Lab programs · Material Mule'],
+    ['/sample-storage/move', null, 'Move storage units · Inventory · Material Mule'],
+    ['/lab-testing', null, 'Workboard · Lab programs · Material Mule'],
     ['/lab-testing/programs', null, 'Programs · Lab programs · Material Mule'],
     ['/lab-testing/programs/p1', 'LP-2026-0001', 'LP-2026-0001 · Lab programs · Material Mule'],
     ['/projects/p1', 'DEMO-2601', 'DEMO-2601 · Projects · Material Mule'],
     ['/projects/p1/team', null, 'Team & Permissions · Projects · Material Mule'],
     ['/settings/profile', null, 'My profile · Settings · Material Mule'],
     ['/settings/system-status', null, 'System status · Settings · Material Mule'],
-    ['/action-requests', 'Action requests', 'Action requests · Material Mule'],
-    ['/notifications', 'Notifications', 'Notifications · Material Mule'],
+    ['/inbox', 'Inbox', 'Inbox · Material Mule'],
+    ['/inbox', null, 'Inbox · Material Mule'],
+    ['/inbox/update%3An-1', null, 'Inbox · Material Mule'],
     ['/disposal-retention/scan', null, 'Disposal scan · Retention · Material Mule'],
     ['/disposal-retention', null, 'Retention · Material Mule'],
     ['/lab-testing/concrete', null, 'Breaks · Concrete · Material Mule'],

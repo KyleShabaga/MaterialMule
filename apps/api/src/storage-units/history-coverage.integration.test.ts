@@ -303,7 +303,7 @@ describe.runIf(testDatabaseUrl)('storage unit history coverage (MTR-59)', () => 
         'post',
         `/api/test-requests/${requestId}/review`,
         { action: 'complete', version, idempotencyKey: newKey() },
-        'tech',
+        'jo',
       )
     ).body.version;
     const accepted = await h.send(

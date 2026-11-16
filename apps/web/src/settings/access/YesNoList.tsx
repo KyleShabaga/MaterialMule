@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StatusBadge } from '../../components/ui';
+import { StatusBadge } from '../../components/app-ui';
 import '../settings.css';
 
 export interface YesNoItem {

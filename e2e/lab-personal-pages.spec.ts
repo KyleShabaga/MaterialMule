@@ -15,42 +15,59 @@ function collect403s(page: Page): string[] {
   return refused;
 }
 
+/** Sign-in step 2 on the station (STRATA-16): pick who is working before any app page opens. */
+async function pickStationPerson(page: Page, name: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/who-is-working/);
+  await page
+    .getByRole('list', { name: 'Receiving lab staff' })
+    .getByRole('button', { name: new RegExp(name) })
+    .click();
+  await expect(
+    page.getByRole('button', { name: `Recording as ${name}. Sign off or switch person` }),
+  ).toBeVisible();
+}
+
 test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ page }) => {
-  await signInAsLabStation(page);
+  await signInAsLabStation(page, { person: null });
+  await pickStationPerson(page, 'Taylor Bench');
   const refused = collect403s(page);
 
+  // The old Action requests page is the Inbox (STRATA-24); on a station it shows the station
+  // Inbox (STRATA-27), never the shared account's own feed, so it never fails to load one.
   await page.goto('/action-requests');
-  await expect(
-    page.getByText('Action requests are for personal accounts. Sign in with your own account.'),
-  ).toBeVisible();
-  await expect(page.getByText('Action requests couldn’t load.')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/inbox\?tab=requests$/);
+  await expect(page.getByText('Inbox couldn’t load')).toHaveCount(0);
 
   await page.goto('/settings/profile');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Settings' })).not.toContainText(
-    'Staff & access',
-  );
+  await expect(page.getByRole('navigation', { name: 'Settings' })).not.toContainText('Staff');
 
+  // STRATA-119: Settings on the station shows the shared LAB account, read-only.
   await page.goto('/settings/access');
-  await expect(page.getByText(/My access is for personal accounts/)).toBeVisible();
+  await expect(page.getByText(/What this shared LAB account can do/)).toBeVisible();
 
   await page.goto(`/projects/${DEMO_PROJECT_ID}`);
   await expect(page.getByRole('heading', { name: 'DEMO-2601' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Team & Permissions' })).toHaveCount(0);
 
   await page.goto(`/projects/${DEMO_PROJECT_ID}/team`);
-  await expect(
-    page.getByText('Team & Permissions is for personal accounts. Sign in with your own account.'),
-  ).toBeVisible();
+  await expect(page.getByText('Team & permissions is for personal accounts')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
 
   await page.goto(`/disposal-retention?projectId=${DEMO_PROJECT_ID}`);
   await expect(
     page.getByRole('heading', { level: 1, name: 'Retention', exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel('Units shown')).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Retention stage' })).toBeVisible();
+
+  // The picked person is attribution only: LAB still can't reach personal-account data.
+  await expect(
+    page.getByRole('button', { name: 'Recording as Taylor Bench. Sign off or switch person' }),
+  ).toBeVisible();
 
   // Let in-flight requests settle before the check: the last page's loads must be finished.
   await page.waitForLoadState('networkidle');
   expect(refused).toEqual([]);
+  expect((await page.request.get('/api/me/access')).status()).toBe(403);
 });

@@ -20,10 +20,11 @@ export function canonicalJson(value: unknown): string {
 }
 
 /**
- * SHA-256 (hex) of the validated, normalised request without its idempotency key. Stored on the
+ * SHA-256 (hex) of the validated, normalised request without its idempotency key or draft ID
+ * (which only names the browser draft to close). Stored on the
  * receipt; a retry with the same key must produce the same hash to get the original result.
  */
 export function receiptPayloadHash(request: ConfirmReceiptRequest): string {
-  const { idempotencyKey: _key, ...payload } = request;
+  const { idempotencyKey: _key, draftId: _draft, ...payload } = request;
   return createHash('sha256').update(canonicalJson(payload), 'utf8').digest('hex');
 }

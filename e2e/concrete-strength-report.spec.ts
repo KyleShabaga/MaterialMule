@@ -103,7 +103,9 @@ test('submit → review → issue a strength report', async ({ page }) => {
   await page.goto('/concrete/review');
   const link = page.locator(`a[href="${path}"]`);
   const row = page.getByRole('row').filter({ has: link });
-  await expect(row).toContainText(`Strength report ${label} v1`);
+  // STRATA-97: report type and version are their own columns.
+  await expect(row).toContainText(`Strength report ${label}`);
+  await expect(row).toContainText('v1');
   await link.click();
   await expect(page.getByRole('heading', { name: `Strength report ${label}` })).toBeVisible();
   await page.getByRole('button', { name: 'Mark reviewed' }).click();

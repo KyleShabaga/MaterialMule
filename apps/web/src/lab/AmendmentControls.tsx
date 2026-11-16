@@ -16,7 +16,24 @@ import {
   type TestTemplate,
   type TestType,
 } from '@materialmule/shared';
+import { ChevronDown, FilePlus2, History, Info, Plus, Send } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
+import { Item, ItemContent, ItemGroup } from '@/components/ui/item';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { shortDateTime } from '../dashboard/format';
 import {
   amendProgram,
@@ -27,29 +44,99 @@ import {
   fetchTemplates,
   type WriteResult,
 } from './api';
+import { testLabel } from './editor/labels';
+import { TEST_STATE_WORDS, lineTitle } from './format';
 import { LineEditor } from './LineEditor';
 import { emptyLine, numberOrNull, type LineDraft } from './line-draft';
 import { problemText } from './problem-text';
+import { AddTestButton, TestChip } from './TestPicker';
 
-// Amendments to an open program (D02) and changes to an accepted test (D09), MM-T26. Every
-// change here is explicit: later receipts join a line only when ticked, and changing an accepted
-// test says that it returns to Requested and needs a fresh review and acceptance. A new testing
-// line (MM-T83) is added only after the person has seen and confirmed what it will cover.
+// Amendments to an open program (D02, MM-T26) and changes to an accepted test (D09), in the
+// editor's line and test UI (STRATA-86). Submitted tests stay as they are; what an amendment
+// adds is marked "Added by amendment" and keeps its history. Every change is explicit: later
+// receipts join a line only when ticked, and a new testing line (MM-T83) is added only after the
+// person has seen and confirmed what it will cover. Changing an accepted test says that it
+// returns to Requested and needs a fresh review and acceptance.
 
 const newKey = () => crypto.randomUUID();
+const ADDED = 'Added by amendment';
+const LABEL = 'text-[13px] font-medium text-muted-foreground';
+const CONTROL_SM = 'h-9 pointer-coarse:h-11';
 
-function useActiveTests(): TestType[] {
-  const [tests, setTests] = useState<TestType[]>([]);
+function useActiveTests(): { tests: TestType[]; catalogue: TestCatalogue | null } {
+  const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
   useEffect(() => {
+    let current = true;
     fetchCatalogue().then(
-      (catalogue) => setTests(catalogue.tests.filter((test) => test.active)),
-      () => setTests([]),
+      (loaded) => current && setCatalogue(loaded),
+      () => current && setCatalogue({ groups: [], tests: [] }),
     );
+    return () => {
+      current = false;
+    };
   }, []);
-  return tests;
+  return { tests: catalogue?.tests.filter((test) => test.active) ?? [], catalogue };
 }
 
-/** Program-level: add a test to a line, include later receipts, amendment history. */
+function AmendmentHistory({ amendments }: { amendments: ProgramWork['lifecycle']['amendments'] }) {
+  if (amendments.length === 0) return null;
+  return (
+    <Collapsible className="grid gap-2">
+      <CollapsibleTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="w-fit pointer-coarse:h-11">
+          <History aria-hidden="true" />
+          Amendments ({amendments.length})
+          <ChevronDown aria-hidden="true" />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ItemGroup className="gap-1">
+          {amendments.map((amendment) => (
+            <Item key={amendment.id} size="sm" variant="muted">
+              <ItemContent className="text-[13px]">
+                <p>
+                  Amendment {amendment.amendmentNumber} by{' '}
+                  {formatPerson(amendment.person.initials, amendment.person.name)},{' '}
+                  {shortDateTime(amendment.createdAt)}
+                  {amendment.addedRequestIds.length > 0
+                    ? ` · ${amendment.addedRequestIds.length} test(s) added`
+                    : ''}
+                  {amendment.addedLineIds.length > 0
+                    ? ` · ${amendment.addedLineIds.length} line(s) added`
+                    : ''}
+                  {amendment.addedUnitReadableIds.length > 0
+                    ? ` · later receipts included: ${amendment.addedUnitReadableIds.join(', ')}`
+                    : ''}
+                </p>
+                {amendment.reason ? (
+                  <p className="whitespace-pre-wrap text-muted-foreground">{amendment.reason}</p>
+                ) : null}
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/** A submitted test on a line: its name and state, "Added by amendment" when one added it. */
+function RequestChip({ request }: { request: TestRequest }) {
+  const state = TEST_STATE_WORDS[request.status];
+  return (
+    <TestChip
+      label={`${request.code} · ${request.name ?? request.description} · ${state.label}`}
+      description={request.description}
+      marker={request.amendmentId ? ADDED : undefined}
+    />
+  );
+}
+
+/**
+ * Program-level amending: add tests to submitted lines, include later receipts, add a testing
+ * line, and the amendment history. Opened with "Amend program"; nothing is sent until Submit
+ * amendment (tests and receipts) or Add line (a new line, after its preview).
+ */
 export function AmendProgram({
   program,
   work,
@@ -65,211 +152,301 @@ export function AmendProgram({
   const id = useId();
   const life = work.lifecycle;
   const [open, setOpen] = useState(false);
-  const tests = useActiveTests();
-  const [lineId, setLineId] = useState(program.lines[0]?.id ?? '');
-  const [testId, setTestId] = useState('');
+  const { catalogue } = useActiveTests();
+  const [added, setAdded] = useState<Record<string, string[]>>({});
   const [later, setLater] = useState<LaterReceipts | null>(null);
   const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [reason, setReason] = useState('');
   const [key, setKey] = useState(newKey);
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
-  const history =
-    life.amendments.length > 0 ? (
-      <details className="lifecycle-history">
-        <summary>Amendments ({life.amendments.length})</summary>
-        <ol>
-          {life.amendments.map((amendment) => (
-            <li key={amendment.id}>
-              Amendment {amendment.amendmentNumber} by{' '}
-              {formatPerson(amendment.person.initials, amendment.person.name)},{' '}
-              {shortDateTime(amendment.createdAt)}
-              {amendment.addedRequestIds.length > 0
-                ? ` · ${amendment.addedRequestIds.length} test(s) added`
-                : ''}
-              {amendment.addedLineIds.length > 0
-                ? ` · ${amendment.addedLineIds.length} line(s) added`
-                : ''}
-              {amendment.addedUnitReadableIds.length > 0
-                ? ` · later receipts included: ${amendment.addedUnitReadableIds.join(', ')}`
-                : ''}
-              {amendment.reason ? <span className="pre-wrap">: {amendment.reason}</span> : null}
-            </li>
-          ))}
-        </ol>
-      </details>
-    ) : null;
-
+  const history = <AmendmentHistory amendments={life.amendments} />;
   if (!life.canAmend) return history;
   if (!open) {
     return (
-      <>
-        <button type="button" onClick={() => setOpen(true)}>
-          Amend program
-        </button>
+      <div className="grid gap-2">
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="pointer-coarse:h-11"
+            onClick={() => setOpen(true)}
+          >
+            <FilePlus2 aria-hidden="true" />
+            Amend program
+          </Button>
+        </div>
         {history}
-      </>
+      </div>
     );
   }
-  const line = program.lines.find((l) => l.id === lineId);
-  const onLine = new Set(line?.requests.map((r) => r.testTypeId) ?? []);
-  const addable = tests.filter((test) => !onLine.has(test.id));
+  const addTests = Object.entries(added)
+    .filter(([, ids]) => ids.length > 0)
+    .map(([lineId, testTypeIds]) => ({ lineId, testTypeIds }));
   const laterPicks = Object.entries(picked).filter(([, ids]) => ids.length > 0);
+  const testsAdded = addTests.reduce((sum, entry) => sum + entry.testTypeIds.length, 0);
+  const unitsAdded = laterPicks.reduce((sum, [, ids]) => sum + ids.length, 0);
+  const byId = new Map(catalogue?.tests.map((test) => [test.id, test]) ?? []);
 
-  async function submit(body: {
-    addTests?: { lineId: string; testTypeIds: string[] }[];
-    includeLaterReceipts?: { lineId: string; unitIds: string[] }[];
-  }) {
+  function close() {
+    setOpen(false);
+    setAdded({});
+    setPicked({});
+    setLater(null);
+    setReason('');
+    setProblem(null);
+  }
+
+  async function submit() {
     setBusy(true);
+    setProblem(null);
     const result: WriteResult<unknown> = await amendProgram(program.id, {
       version: life.version,
       idempotencyKey: key,
       reason: reason.trim() || null,
-      ...body,
+      addTests,
+      includeLaterReceipts: laterPicks.map(([lineId, unitIds]) => ({ lineId, unitIds })),
     });
     setBusy(false);
     if (!result.ok && result.kind === 'network') {
-      onDone(problemText(result));
+      setProblem(problemText(result));
       return;
     }
     setKey(newKey());
     if (result.ok) {
-      setOpen(false);
-      setTestId('');
-      setPicked({});
-      setLater(null);
-      setReason('');
+      close();
+      onDone(null);
+      return;
     }
-    onDone(result.ok ? null : problemText(result));
+    if (result.kind === 'conflict') onRefresh?.();
+    onDone(problemText(result));
   }
 
   return (
-    <div className="action-panel" role="group" aria-labelledby={`${id}-title`}>
-      <p id={`${id}-title`} className="action-title">
+    <section
+      className="grid gap-4 rounded-lg border bg-card p-4"
+      role="group"
+      aria-labelledby={`${id}-title`}
+    >
+      <h2 id={`${id}-title`} className="text-lg font-semibold">
         Amend program
-      </p>
-      <label htmlFor={`${id}-reason`}>Reason (optional)</label>
-      <textarea
-        id={`${id}-reason`}
-        value={reason}
-        maxLength={LIFECYCLE_REASON_MAX_LENGTH}
-        onChange={(event) => setReason(event.target.value)}
-      />
-      <fieldset>
-        <legend>Add a test to a line</legend>
-        <label htmlFor={`${id}-line`}>Line</label>
-        <select id={`${id}-line`} value={lineId} onChange={(e) => setLineId(e.target.value)}>
-          {program.lines.map((l: LabLine) => (
-            <option key={l.id} value={l.id}>
-              Line {l.lineNumber}
-            </option>
-          ))}
-        </select>
-        <label htmlFor={`${id}-test`}>Test</label>
-        <select id={`${id}-test`} value={testId} onChange={(e) => setTestId(e.target.value)}>
-          <option value="">Choose a test</option>
-          {addable.map((test) => (
-            <option key={test.id} value={test.id}>
-              {test.code} · {test.name ?? test.description}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled={busy || !testId || !lineId}
-          onClick={() => void submit({ addTests: [{ lineId, testTypeIds: [testId] }] })}
-        >
-          Add test
-        </button>
-      </fieldset>
+      </h2>
+      <Alert role="status">
+        <Info aria-hidden="true" />
+        <AlertTitle>You are amending a submitted program.</AlertTitle>
+        <AlertDescription>
+          Submitted tests stay as they are. Added tests and lines are marked Added by amendment,
+          keep their history and go to the Lab Manager for review.
+        </AlertDescription>
+      </Alert>
+
+      <ItemGroup className="gap-3">
+        {program.lines.map((line: LabLine) => {
+          const onLine = line.requests.map((request) => request.testTypeId);
+          const mine = added[line.id] ?? [];
+          const covered = line.coverage.filter((unit) => unit.included);
+          return (
+            <Item key={line.id} asChild variant="outline" className="flex-col items-stretch gap-2">
+              <section aria-label={`Amend line ${line.lineNumber}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-9 font-mono text-sm font-semibold" aria-hidden="true">
+                    L{line.lineNumber}
+                  </span>
+                  <span className="text-sm">{lineTitle(line)}</span>
+                  {line.amendmentId ? (
+                    <Badge variant="outline">
+                      <FilePlus2 aria-hidden="true" />
+                      {ADDED}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="grid gap-2 pl-11 max-sm:pl-0">
+                  <span className={LABEL}>Tests</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <ul className="flex flex-wrap gap-1.5" aria-label="Submitted tests">
+                      {line.requests.map((request) => (
+                        <RequestChip key={request.id} request={request} />
+                      ))}
+                    </ul>
+                    {mine.length > 0 ? (
+                      <ul className="flex flex-wrap gap-1.5" aria-label="Tests to add">
+                        {mine.map((testId) => {
+                          const test = byId.get(testId);
+                          return (
+                            <TestChip
+                              key={testId}
+                              marker={ADDED}
+                              label={test ? testLabel(test) : 'Test'}
+                              removeLabel={`Remove ${test?.code ?? 'test'}`}
+                              onRemove={() =>
+                                setAdded((current) => ({
+                                  ...current,
+                                  [line.id]: (current[line.id] ?? []).filter((t) => t !== testId),
+                                }))
+                              }
+                            />
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                    {catalogue ? (
+                      <AddTestButton
+                        catalogue={catalogue}
+                        selected={[...onLine, ...mine]}
+                        accessibleLabel={`Add test to line ${line.lineNumber}`}
+                        onAdd={(testId) =>
+                          setAdded((current) => ({
+                            ...current,
+                            [line.id]: [...(current[line.id] ?? []), testId],
+                          }))
+                        }
+                      />
+                    ) : null}
+                  </div>
+                  {covered.length > 0 ? (
+                    <p className="text-[13px] text-muted-foreground">
+                      Storage units covered:{' '}
+                      <span className="font-mono">
+                        {covered.map((unit) => unit.readableId).join(', ')}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            </Item>
+          );
+        })}
+      </ItemGroup>
+
       <AddTestingLine
         program={program}
         version={life.version}
         reason={reason}
         onRefresh={onRefresh}
         onDone={(message) => {
-          if (message === null) {
-            setOpen(false);
-            setReason('');
-          }
+          if (message === null) close();
           onDone(message);
         }}
       />
-      <fieldset>
-        <legend>Include later receipts</legend>
-        <p className="field-hint">
+
+      <fieldset className="grid gap-2" data-slot="fieldset">
+        <legend className="mb-1 text-sm font-semibold">Include later receipts</legend>
+        <p className="text-[13px] text-muted-foreground">
           Units received after submission are never added on their own. Tick the exact units to
           include; Grabs and SPT units have no recorded G/S classification, so ticking one is your
           review that includes it.
         </p>
         {later === null ? (
-          <button
-            type="button"
-            onClick={() =>
-              fetchLaterReceipts(program.id).then(setLater, () =>
-                onDone('Later receipts couldn’t be loaded. Try again.'),
-              )
-            }
-          >
-            Check later receipts
-          </button>
-        ) : later.lines.every((l) => l.units.length === 0) ? (
-          <p>No units have been received for these lines since submission.</p>
-        ) : (
-          <>
-            {later.lines
-              .filter((l) => l.units.length > 0)
-              .map((l) => (
-                <div key={l.lineId} className="unit-choices">
-                  <p className="action-title">Line {l.lineNumber}</p>
-                  {l.units.map((unit) => (
-                    <label key={unit.storageUnitId} className="unit-choice">
-                      <input
-                        type="checkbox"
-                        checked={(picked[l.lineId] ?? []).includes(unit.storageUnitId)}
-                        onChange={(event) =>
-                          setPicked((current) => {
-                            const ids = current[l.lineId] ?? [];
-                            return {
-                              ...current,
-                              [l.lineId]: event.target.checked
-                                ? [...ids, unit.storageUnitId]
-                                : ids.filter((other) => other !== unit.storageUnitId),
-                            };
-                          })
-                        }
-                      />
-                      <span className="mono">{unit.readableId}</span> {unit.contents ?? ''}{' '}
-                      (received {unit.receivedDate}
-                      {unit.unknownClassification ? ', G/S unknown' : ''})
-                    </label>
-                  ))}
-                </div>
-              ))}
-            <button
+          <div>
+            <Button
               type="button"
-              disabled={busy || laterPicks.length === 0}
+              variant="outline"
+              size="sm"
+              className="pointer-coarse:h-11"
               onClick={() =>
-                void submit({
-                  includeLaterReceipts: laterPicks.map(([lineId, unitIds]) => ({
-                    lineId,
-                    unitIds,
-                  })),
-                })
+                fetchLaterReceipts(program.id).then(setLater, () =>
+                  setProblem('Later receipts couldn’t be loaded. Try again.'),
+                )
               }
             >
-              Include ticked units
-            </button>
-          </>
+              Check later receipts
+            </Button>
+          </div>
+        ) : later.lines.every((l) => l.units.length === 0) ? (
+          <p className="text-sm">No units have been received for these lines since submission.</p>
+        ) : (
+          later.lines
+            .filter((l) => l.units.length > 0)
+            .map((l) => (
+              <div key={l.lineId} className="grid gap-1.5">
+                <p className={LABEL}>Line {l.lineNumber}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {l.units.map((unit) => {
+                    const boxId = `${id}-later-${l.lineId}-${unit.storageUnitId}`;
+                    return (
+                      <div key={unit.storageUnitId} className="flex items-center gap-2">
+                        <Checkbox
+                          id={boxId}
+                          checked={(picked[l.lineId] ?? []).includes(unit.storageUnitId)}
+                          onCheckedChange={(checked) =>
+                            setPicked((current) => {
+                              const ids = current[l.lineId] ?? [];
+                              return {
+                                ...current,
+                                [l.lineId]:
+                                  checked === true
+                                    ? [...ids, unit.storageUnitId]
+                                    : ids.filter((other) => other !== unit.storageUnitId),
+                              };
+                            })
+                          }
+                        />
+                        <Label htmlFor={boxId} className="font-normal">
+                          <span className="font-mono">{unit.readableId}</span>
+                          <span className="text-muted-foreground">
+                            {' '}
+                            {unit.contents ?? ''} (received {unit.receivedDate}
+                            {unit.unknownClassification ? ', G/S unknown' : ''})
+                          </span>
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
         )}
       </fieldset>
-      <div className="form-actions">
-        <button type="button" onClick={() => setOpen(false)}>
-          Close
-        </button>
+
+      <div className="grid max-w-2xl gap-1.5">
+        <Label htmlFor={`${id}-reason`} className={LABEL}>
+          Reason (optional)
+        </Label>
+        <Textarea
+          id={`${id}-reason`}
+          value={reason}
+          maxLength={LIFECYCLE_REASON_MAX_LENGTH}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </div>
+
+      {problem ? (
+        <Alert variant="destructive">
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-3 border-t pt-3">
+        <span className="text-sm font-medium" aria-live="polite">
+          {testsAdded} test{testsAdded === 1 ? '' : 's'} added
+          {unitsAdded > 0 ? ` · ${unitsAdded} later receipt${unitsAdded === 1 ? '' : 's'}` : ''}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="pointer-coarse:h-11"
+            disabled={busy}
+            onClick={close}
+          >
+            Discard amendment
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="pointer-coarse:h-11"
+            disabled={busy || testsAdded + unitsAdded === 0}
+            onClick={() => void submit()}
+          >
+            <Send aria-hidden="true" />
+            Submit amendment
+          </Button>
+        </div>
       </div>
       {history}
-    </div>
+    </section>
   );
 }
 
@@ -300,9 +477,10 @@ function amendmentLine(line: LineDraft, reviewedCoverageUnitIds: string[]): Amen
 }
 
 /**
- * Add a testing line to a submitted program (MM-T83): source, scope, explicit Grabs/SPT units
- * and tests, then a preview of what it will cover before anything is saved. The coverage is the
- * server's own answer, so disposed units and tubes destroyed in testing are never included.
+ * Add a testing line to a submitted program (MM-T83): the editor's line row (source, scope,
+ * explicit Grabs/SPT units and tests), then a preview of what it will cover before anything is
+ * saved. The coverage is the server's own answer, so disposed units and tubes destroyed in
+ * testing are never included.
  */
 function AddTestingLine({
   program,
@@ -317,7 +495,6 @@ function AddTestingLine({
   onDone: (message: string | null) => void;
   onRefresh?: () => void;
 }) {
-  const id = useId();
   const [adding, setAdding] = useState(false);
   const [line, setLine] = useState<LineDraft>(emptyLine);
   const [catalogue, setCatalogue] = useState<TestCatalogue | null>(null);
@@ -358,10 +535,17 @@ function AddTestingLine({
 
   if (!adding) {
     return (
-      <div className="form-actions">
-        <button type="button" onClick={() => setAdding(true)}>
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="pointer-coarse:h-11"
+          onClick={() => setAdding(true)}
+        >
+          <Plus aria-hidden="true" />
           Add a testing line
-        </button>
+        </Button>
       </div>
     );
   }
@@ -466,10 +650,7 @@ function AddTestingLine({
   const tests = line.testTypeIds.length;
 
   return (
-    <section className="add-line" aria-labelledby={`${id}-title`}>
-      <p id={`${id}-title`} className="action-title">
-        Add a testing line
-      </p>
+    <div className="grid gap-3">
       {catalogue ? (
         <LineEditor
           index={lineNumber - 1}
@@ -480,6 +661,12 @@ function AddTestingLine({
           templates={templates}
           review={discrepancy ? { discrepancy } : null}
           title={`New line ${lineNumber}`}
+          marker={
+            <Badge variant="outline" className="mt-2 shrink-0">
+              <FilePlus2 aria-hidden="true" />
+              {ADDED}
+            </Badge>
+          }
           onChange={(change) => {
             // Acknowledging a depth keeps the preview; any other change needs a fresh one.
             if (Object.keys(change).some((field) => field !== 'acknowledgedDepths')) {
@@ -492,11 +679,17 @@ function AddTestingLine({
           }}
         />
       ) : problem ? null : (
-        <p aria-busy="true">Loading the test catalogue…</p>
+        <p aria-busy="true" className="text-sm text-muted-foreground">
+          Loading the test catalogue…
+        </p>
       )}
       {preview ? (
-        <div className="review-line" role="region" aria-label={`Preview of new line ${lineNumber}`}>
-          <p className="action-title">
+        <div
+          className="grid gap-2 rounded-lg border border-dashed p-3 text-sm"
+          role="region"
+          aria-label={`Preview of new line ${lineNumber}`}
+        >
+          <p className="font-semibold">
             Preview: line {lineNumber} · {LINE_SCOPE_LABEL[line.scope]} · {tests} test
             {tests === 1 ? '' : 's'}
           </p>
@@ -512,50 +705,70 @@ function AddTestingLine({
           ) : included.length > 0 ? (
             <p>Covers {included.map((unit) => unit.readableId).join(', ')} received so far.</p>
           ) : (
-            <p className="text-warning">Covers no units.</p>
+            <p className="text-stage-due-fg">Covers no units.</p>
           )}
           {!specific && excluded.length > 0 ? (
-            <p className="text-warning">
+            <p className="text-stage-due-fg">
               {excluded.length} unit{excluded.length === 1 ? '' : 's'} with unknown G/S
               classification excluded ({excluded.map((unit) => unit.readableId).join(', ')}).
             </p>
           ) : null}
           {preview.length > 0 ? (
-            <ul className="coverage-list">
+            <ul className="grid gap-0.5 text-[13px]">
               {preview.map((unit) => (
                 <li key={unit.storageUnitId}>
-                  <span className="mono">{unit.readableId}</span> {unit.contents ?? ''} —{' '}
+                  <span className="font-mono">{unit.readableId}</span> {unit.contents ?? ''} —{' '}
                   {MATCHING_BASIS_LABEL[unit.matchingBasis]}
                 </li>
               ))}
             </ul>
           ) : null}
-          <p className="field-hint">
+          <p className="text-[13px] text-muted-foreground">
             The new tests start as Requested. Coverage is frozen when you add the line; later
             receipts join it only by another amendment.
           </p>
         </div>
       ) : null}
       {problem ? (
-        <p className="notice notice-warning" role="alert">
-          {problem}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
       ) : null}
-      <div className="form-actions">
-        <button type="button" onClick={reset} disabled={busy}>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="pointer-coarse:h-11"
+          onClick={reset}
+          disabled={busy}
+        >
           Cancel new line
-        </button>
+        </Button>
         {preview ? (
-          <button type="button" className="primary" disabled={busy} onClick={() => void confirm()}>
+          <Button
+            type="button"
+            size="sm"
+            className="pointer-coarse:h-11"
+            disabled={busy}
+            onClick={() => void confirm()}
+          >
             Add line {lineNumber}
-          </button>
+          </Button>
         ) : (
-          <button type="button" disabled={busy || !ready} onClick={() => void showPreview()}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="pointer-coarse:h-11"
+            disabled={busy || !ready}
+            onClick={() => void showPreview()}
+          >
             Preview line
-          </button>
+          </Button>
         )}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -574,7 +787,7 @@ export function ChangeAcceptedTest({
   const id = useId();
   const progress = work.requests.find((r) => r.testRequestId === request.id);
   const [open, setOpen] = useState(false);
-  const tests = useActiveTests();
+  const { tests } = useActiveTests();
   const identity = request.identity ?? {
     sampleLabel: line.sampleLabel ?? '',
     depthMode: line.depthMode ?? 'point',
@@ -593,29 +806,47 @@ export function ChangeAcceptedTest({
   const revisions = work.lifecycle.identityRevisions.filter((r) => r.testRequestId === request.id);
   const history =
     revisions.length > 0 ? (
-      <details className="review-history">
-        <summary>Changed after acceptance ({revisions.length})</summary>
-        <ol>
-          {revisions.map((revision) => (
-            <li key={revision.id}>
-              {revision.before.test}
-              {revision.before.sample ? ` (${revision.before.sample})` : ''} → {revision.after.test}
-              {revision.after.sample ? ` (${revision.after.sample})` : ''} by{' '}
-              {formatPerson(revision.person.initials, revision.person.name)},{' '}
-              {shortDateTime(revision.changedAt)}:{' '}
-              <span className="pre-wrap">{revision.reason}</span>
-            </li>
-          ))}
-        </ol>
-      </details>
+      <Collapsible className="grid gap-1">
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="w-fit pointer-coarse:h-11">
+            Changed after acceptance ({revisions.length})
+            <ChevronDown aria-hidden="true" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ItemGroup className="gap-1">
+            {revisions.map((revision) => (
+              <Item key={revision.id} size="sm" variant="muted">
+                <ItemContent className="text-[13px]">
+                  <p>
+                    {revision.before.test}
+                    {revision.before.sample ? ` (${revision.before.sample})` : ''} →{' '}
+                    {revision.after.test}
+                    {revision.after.sample ? ` (${revision.after.sample})` : ''} by{' '}
+                    {formatPerson(revision.person.initials, revision.person.name)},{' '}
+                    {shortDateTime(revision.changedAt)}:
+                  </p>
+                  <p className="whitespace-pre-wrap text-muted-foreground">{revision.reason}</p>
+                </ItemContent>
+              </Item>
+            ))}
+          </ItemGroup>
+        </CollapsibleContent>
+      </Collapsible>
     ) : null;
   if (!progress?.lifecycle.canChange) return history;
   if (!open) {
     return (
       <>
-        <button type="button" onClick={() => setOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="pointer-coarse:h-11"
+          onClick={() => setOpen(true)}
+        >
           Change sample, depth or test
-        </button>
+        </Button>
         {history}
       </>
     );
@@ -624,7 +855,7 @@ export function ChangeAcceptedTest({
   const interval = identity.depthMode === 'interval';
   return (
     <form
-      className="action-panel"
+      className="grid gap-3 rounded-lg border bg-card p-3"
       aria-labelledby={`${id}-title`}
       onSubmit={async (event) => {
         event.preventDefault();
@@ -656,71 +887,117 @@ export function ChangeAcceptedTest({
         onDone(result.ok ? null : problemText(result));
       }}
     >
-      <p id={`${id}-title`} className="action-title">
+      <p id={`${id}-title`} className="text-sm font-semibold">
         Change {request.code}
       </p>
-      <p className="field-hint">
+      <p className="text-[13px] text-muted-foreground">
         This test returns to Requested and needs a fresh review and acceptance. Other tests stay as
         they are; the earlier acceptance stays in the history.
       </p>
-      <label htmlFor={`${id}-test`}>Test</label>
-      <select id={`${id}-test`} value={testId} onChange={(e) => setTestId(e.target.value)}>
-        <option value={request.testTypeId}>{request.code} (current)</option>
-        {tests
-          .filter((test) => test.id !== request.testTypeId)
-          .map((test) => (
-            <option key={test.id} value={test.id}>
-              {test.code} · {test.name ?? test.description}
-            </option>
-          ))}
-      </select>
+      <div className="grid gap-1.5">
+        <Label htmlFor={`${id}-test`} className={LABEL}>
+          Test
+        </Label>
+        <Select value={testId} onValueChange={setTestId}>
+          <SelectTrigger id={`${id}-test`} className={`w-full max-w-md ${CONTROL_SM}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={request.testTypeId}>{request.code} (current)</SelectItem>
+            {tests
+              .filter((test) => test.id !== request.testTypeId)
+              .map((test) => (
+                <SelectItem key={test.id} value={test.id}>
+                  {testLabel(test)}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
       {specific ? (
-        <>
-          <label htmlFor={`${id}-label`}>Sample label</label>
-          <input id={`${id}-label`} value={label} onChange={(e) => setLabel(e.target.value)} />
-          <label htmlFor={`${id}-from`}>{interval ? 'Depth from' : 'Depth'}</label>
-          <input
-            id={`${id}-from`}
-            inputMode="decimal"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${id}-label`} className={LABEL}>
+              Sample label
+            </Label>
+            <Input
+              id={`${id}-label`}
+              className={`w-28 ${CONTROL_SM}`}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${id}-from`} className={LABEL}>
+              {interval ? 'Depth from' : 'Depth'}
+            </Label>
+            <Input
+              id={`${id}-from`}
+              inputMode="decimal"
+              className={`w-20 font-mono ${CONTROL_SM}`}
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </div>
           {interval ? (
-            <>
-              <label htmlFor={`${id}-to`}>Depth to</label>
-              <input
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${id}-to`} className={LABEL}>
+                Depth to
+              </Label>
+              <Input
                 id={`${id}-to`}
                 inputMode="decimal"
+                className={`w-20 font-mono ${CONTROL_SM}`}
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
-            </>
+            </div>
           ) : null}
-          <label htmlFor={`${id}-unit`}>Unit</label>
-          <select
-            id={`${id}-unit`}
-            value={unit}
-            onChange={(e) => setUnit(e.target.value as 'ft' | 'm')}
-          >
-            <option value="ft">ft</option>
-            <option value="m">m</option>
-          </select>
-        </>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${id}-unit`} className={LABEL}>
+              Unit
+            </Label>
+            <Select value={unit} onValueChange={(value) => setUnit(value as 'ft' | 'm')}>
+              <SelectTrigger id={`${id}-unit`} className={`w-20 ${CONTROL_SM}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="ft">ft</SelectItem>
+                <SelectItem value="m">m</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       ) : null}
-      <label htmlFor={`${id}-reason`}>Reason (required)</label>
-      <textarea
-        id={`${id}-reason`}
-        value={reason}
-        maxLength={LIFECYCLE_REASON_MAX_LENGTH}
-        onChange={(e) => setReason(e.target.value)}
-      />
-      <div className="form-actions">
-        <button type="button" onClick={() => setOpen(false)}>
+      <div className="grid gap-1.5">
+        <Label htmlFor={`${id}-reason`} className={LABEL}>
+          Reason (required)
+        </Label>
+        <Textarea
+          id={`${id}-reason`}
+          value={reason}
+          maxLength={LIFECYCLE_REASON_MAX_LENGTH}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="pointer-coarse:h-11"
+          onClick={() => setOpen(false)}
+        >
           Cancel
-        </button>
-        <button type="submit" className="primary" disabled={busy || !reason.trim()}>
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          className="pointer-coarse:h-11"
+          disabled={busy || !reason.trim()}
+        >
           Change and reset to Requested
-        </button>
+        </Button>
       </div>
       {history}
     </form>

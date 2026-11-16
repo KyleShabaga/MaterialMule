@@ -7,6 +7,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
 } from 'react';
+import { useOwnScans } from '../search/scan-anywhere';
 import { cleanScannedValue, DuplicateScanFilter, SCAN_DUPLICATE_WINDOW_MS } from './scan-core';
 
 export interface UseScannerOptions {
@@ -46,6 +47,8 @@ export interface Scanner {
  * Focus leaving the scan panel marks the scanner paused so the screen can say so.
  */
 export function useScanner(options: UseScannerOptions): Scanner {
+  // Scan-anywhere stands down while this page's scan field is here, focused or not.
+  useOwnScans();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const setInput = useCallback((element: HTMLInputElement | null) => {
     inputRef.current = element;

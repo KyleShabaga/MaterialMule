@@ -7,6 +7,8 @@ export const THEME_STORAGE_KEY = 'materialmule:theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 export type Theme = 'light' | 'dark';
+/** STRATA-7: what the person picked; 'system' means no stored choice, so the OS setting applies. */
+export type ThemeChoice = Theme | 'system';
 
 function isTheme(value: unknown): value is Theme {
   return value === 'light' || value === 'dark';
@@ -42,6 +44,33 @@ export function chooseTheme(theme: Theme): void {
   } catch {
     // Storage blocked (private window, policy): the choice lasts for this page only.
   }
+}
+
+/** Clears the stored choice so the operating system setting applies again (STRATA-7). */
+export function followSystemTheme(): void {
+  document.documentElement.removeAttribute('data-theme');
+  try {
+    window.localStorage.removeItem(THEME_STORAGE_KEY);
+  } catch {
+    // Storage blocked: the page follows the OS until reload, then the old choice (if any) returns.
+  }
+}
+
+/** The person's pick: light, dark, or system when nothing is stored. */
+export function currentThemeChoice(): ThemeChoice {
+  const explicit = document.documentElement.getAttribute('data-theme');
+  return isTheme(explicit) ? explicit : 'system';
+}
+
+/** The pick (for a Light / Dark / System control) and a setter. */
+export function useThemeChoice(): [ThemeChoice, (choice: ThemeChoice) => void] {
+  const [choice, setChoice] = useState<ThemeChoice>(currentThemeChoice);
+  const set = useCallback((next: ThemeChoice) => {
+    if (next === 'system') followSystemTheme();
+    else chooseTheme(next);
+    setChoice(next);
+  }, []);
+  return [choice, set];
 }
 
 export function useTheme(): [Theme, (theme: Theme) => void] {

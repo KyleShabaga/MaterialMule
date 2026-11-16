@@ -15,6 +15,7 @@ import {
   type ConcreteStrengthResultRow,
   concreteStrengthSelfReviewUserIds,
   type ConcreteReviewQueue,
+  type ConcreteReviewQueueFilter,
   type ConcreteReviewQueueQuery,
   type ConcreteReviewQueueRow,
   type ConcreteReviewQueueStatus,
@@ -67,13 +68,53 @@ const STATUS_CASE = `CASE
   WHEN ${STATUS_SQL.issued} THEN 'issued'
 END`;
 
+/** How many of the latest version's exceptions (code + field) the reviewer documented. */
+const DOCUMENTED_SQL = `(SELECT count(*)::int FROM concrete_report_exception_note n
+  WHERE n.version_id = v.id)`;
+
+/**
+ * The latest version's distinct exceptions: one per code and field, as the review checklist and
+ * the notes count them (two warnings on the same field are one exception to document).
+ */
+const EXCEPTION_KEYS_SQL = `(SELECT count(DISTINCT (w->>'code') || '|' || coalesce(w->>'field', ''))::int
+  FROM jsonb_array_elements(coalesce(v.snapshot->'warnings', '[]'::jsonb)) w)`;
+
+/**
+ * STRATA-97, the Exceptions tab: reports awaiting review or returned whose latest version has
+ * exceptions not yet documented. Documented means a reviewer's note on that version; a live
+ * recheck that clears an exception shows on the report page, not here.
+ */
+const OPEN_EXCEPTIONS_SQL = `${STATUS_CASE} IN ('awaiting_review', 'returned')
+  AND ${EXCEPTION_KEYS_SQL} > ${DOCUMENTED_SQL}`;
+
+const FILTER_SQL: Record<ConcreteReviewQueueFilter, string> = {
+  ...STATUS_SQL,
+  open_exceptions: OPEN_EXCEPTIONS_SQL,
+};
+
 /** Oldest first where someone is waiting to act; newest first for the history-like lists. */
-const ORDER_SQL: Record<ConcreteReviewQueueStatus, string> = {
+const ORDER_SQL: Record<ConcreteReviewQueueFilter, string> = {
   awaiting_review: 'v.submitted_at ASC, r.id',
   returned: 'v.closed_at DESC, r.id',
   reviewed_awaiting_issue: 'v.reviewed_at ASC, r.id',
   issued: 'v.issued_at DESC, r.id',
+  open_exceptions: 'v.submitted_at ASC, r.id',
 };
+
+/** STRATA-97: a chosen order (the table's sort), with the submission time as tie-break. */
+function chosenOrderSql(query: ConcreteReviewQueueQuery): string {
+  const dir = query.dir === 'desc' ? 'DESC' : 'ASC';
+  switch (query.sort) {
+    case 'submitted':
+      return `v.submitted_at ${dir}, r.id`;
+    case 'project':
+      return `p.project_number ${dir}, v.submitted_at ASC, r.id`;
+    case 'report_date':
+      return `r.report_date ${dir} NULLS LAST, v.submitted_at ASC, r.id`;
+    default:
+      return ORDER_SQL[query.status];
+  }
+}
 
 /**
  * Field reports and (MM-V2-C39) strength reports, one row per report with its latest version.
@@ -130,7 +171,7 @@ interface QueueRow {
   closed_at: Date | null;
   issued_by_user_id: string | null;
   issued_at: Date | null;
-  warnings: { code: ConcreteReportExceptionCode }[] | null;
+  warnings: { code: ConcreteReportExceptionCode; field?: string | null }[] | null;
   documented: number;
 }
 
@@ -146,8 +187,7 @@ const SELECT_SQL = `SELECT r.id, r.kind, r.set_id, r.set_label,
     v.submitted_at, v.route_kind, v.routed_to_user_id, v.reviewed_by_user_id, v.reviewed_at,
     v.review_cleared_at, v.closed_by_user_id, v.closed_at, v.issued_by_user_id, v.issued_at,
     v.snapshot->'warnings' AS warnings,
-    (SELECT count(*)::int FROM concrete_report_exception_note n WHERE n.version_id = v.id)
-      AS documented`;
+    ${DOCUMENTED_SQL} AS documented`;
 
 /**
  * The review queue and exception notes (MM-V2-C28, field reports). The queue reads like C04's
@@ -172,6 +212,7 @@ export class ConcreteReviewService {
 
     let items: QueueRow[];
     let total: number;
+    let openExceptionCount = 0;
     const counts = Object.fromEntries(CONCRETE_REVIEW_QUEUE_STATUSES.map((s) => [s, 0])) as Record<
       ConcreteReviewQueueStatus,
       number
@@ -191,10 +232,14 @@ export class ConcreteReviewService {
       for (const row of rows) {
         if (await canAct(row)) {
           counts[row.status] += 1;
-          if (row.status === query.status) actionable.push(row);
+          const open = hasOpenExceptions(row);
+          if (open) openExceptionCount += 1;
+          if (query.status === 'open_exceptions' ? open : row.status === query.status) {
+            actionable.push(row);
+          }
         }
       }
-      actionable.sort(orderOf(query.status));
+      actionable.sort(orderOf(query));
       total = actionable.length;
       items = actionable.slice(offset, offset + query.pageSize);
     } else {
@@ -207,11 +252,17 @@ export class ConcreteReviewService {
         params,
       );
       for (const g of grouped) if (g.status) counts[g.status] = g.n;
-      total = counts[query.status];
+      const { rows: open } = await this.database.pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n ${FROM_SQL}
+         WHERE ${where.join(' AND ')} AND ${OPEN_EXCEPTIONS_SQL}`,
+        params,
+      );
+      openExceptionCount = open[0]?.n ?? 0;
+      total = query.status === 'open_exceptions' ? openExceptionCount : counts[query.status];
       const { rows } = await this.database.pool.query<QueueRow>(
         `${SELECT_SQL} ${FROM_SQL}
-         WHERE ${where.join(' AND ')} AND ${STATUS_SQL[query.status]}
-         ORDER BY ${ORDER_SQL[query.status]}
+         WHERE ${where.join(' AND ')} AND ${FILTER_SQL[query.status]}
+         ORDER BY ${chosenOrderSql(query)}
          LIMIT ${query.pageSize} OFFSET ${offset}`,
         params,
       );
@@ -262,7 +313,14 @@ export class ConcreteReviewService {
         canAct: await canAct(row),
       });
     }
-    return { items: out, total, page: query.page, pageSize: query.pageSize, counts };
+    return {
+      items: out,
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+      counts,
+      openExceptionCount,
+    };
   }
 
   /** Whether the caller could take the row's next step now (the commands check it all again). */
@@ -491,6 +549,17 @@ function filtersOf(query: ConcreteReviewQueueQuery) {
     );
   }
   if (query.reportType) add((n) => `r.kind = $${n}`, query.reportType);
+  if (query.search) {
+    // STRATA-97: contains, any case; a % or _ the person types is matched literally.
+    const pattern = `%${query.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    add(
+      (n) => `(p.project_number ILIKE $${n} OR p.name ILIKE $${n} OR r.set_label ILIKE $${n}
+        OR EXISTS (SELECT 1 FROM app_user u
+          WHERE u.id = coalesce(r.technician_user_id, v.submitted_staff_user_id)
+            AND u.display_name ILIKE $${n}))`,
+      pattern,
+    );
+  }
   if (query.submittedFrom) {
     add(
       (n) => `(v.submitted_at AT TIME ZONE 'America/Edmonton')::date >= $${n}::date`,
@@ -509,7 +578,38 @@ function filtersOf(query: ConcreteReviewQueueQuery) {
   return { where, params };
 }
 
-function orderOf(status: ConcreteReviewQueueStatus) {
+/** A row the `open_exceptions` filter selects (the same rule as OPEN_EXCEPTIONS_SQL). */
+function hasOpenExceptions(row: QueueRow): boolean {
+  return (
+    (row.status === 'awaiting_review' || row.status === 'returned') &&
+    new Set((row.warnings ?? []).map((w) => `${w.code}|${w.field ?? ''}`)).size > row.documented
+  );
+}
+
+/** The order for the "needs my action" list, sorted here: the same rules as the SQL orders. */
+function orderOf(query: ConcreteReviewQueueQuery) {
+  const sign = query.dir === 'desc' ? -1 : 1;
+  const submitted = (row: QueueRow) => row.submitted_at.getTime();
+  if (query.sort === 'submitted') {
+    return (a: QueueRow, b: QueueRow) =>
+      sign * (submitted(a) - submitted(b)) || a.id.localeCompare(b.id);
+  }
+  if (query.sort === 'project' || query.sort === 'report_date') {
+    const key = (row: QueueRow) =>
+      query.sort === 'project' ? row.project_number : (row.report_date ?? null);
+    return (a: QueueRow, b: QueueRow) => {
+      const ka = key(a);
+      const kb = key(b);
+      // Report date: rows without one go last either way (NULLS LAST, as in SQL).
+      if (ka === null || kb === null) {
+        if (ka !== kb) return ka === null ? 1 : -1;
+      } else if (ka !== kb) {
+        return sign * (ka < kb ? -1 : 1);
+      }
+      return submitted(a) - submitted(b) || a.id.localeCompare(b.id);
+    };
+  }
+  const status = query.status === 'open_exceptions' ? 'awaiting_review' : query.status;
   const time = (row: QueueRow) =>
     (status === 'returned'
       ? row.closed_at

@@ -30,7 +30,7 @@ test('suppliers: the Lab Manager adds and edits one; everyone else reads it and 
   await expect(
     page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Suppliers' }),
   ).toBeVisible();
-  const section = page.getByRole('region', { name: 'Concrete suppliers' });
+  const section = page.getByRole('region', { name: 'Suppliers', exact: true });
   await section.getByRole('button', { name: 'Add a supplier' }).click();
   const form = section.getByRole('form', { name: 'Add a supplier' });
   await form.getByLabel(/Supplier name/).fill(name);
@@ -72,7 +72,7 @@ test('holidays: the Alberta list is seeded; an admin adds and removes a company 
   const date = `${year}-08-04`;
   await signInAs(page, 'admin');
   await page.goto('/settings/holidays');
-  const section = page.getByRole('region', { name: 'Holiday calendar' });
+  const section = page.getByRole('region', { name: 'Holidays', exact: true });
   await expect(section.getByRole('table', { name: /Holidays in 2026/ })).toBeVisible();
   await expect(section.getByText('Canada Day', { exact: true })).toBeVisible();
   await expect(section.getByText('Alberta Family Day', { exact: true })).toBeVisible();
@@ -84,7 +84,8 @@ test('holidays: the Alberta list is seeded; an admin adds and removes a company 
   await expect(
     section
       .getByRole('table', { name: `Holidays in ${year}` })
-      .or(section.getByText(`No holidays are listed for ${year}.`)),
+      .or(section.getByText(`No holidays are listed for ${year}.`))
+      .first(),
   ).toBeVisible();
   await section.getByRole('button', { name: 'Add a holiday' }).click();
   const add = section.getByRole('form', { name: 'Add a holiday' });
@@ -168,22 +169,26 @@ test('mix draft discard: the Lead discards a draft and the approved revision sta
   await page.goto(`/projects/${DEMO.projectId}/concrete-mixes`);
   await expect(page).toHaveURL(new RegExp(`/projects/${DEMO.projectId}/concrete/mixes$`));
   await page.getByRole('link', { name: `Open mix ${mixNumber}` }).click();
-  const heading = page.locator('.mix-heading');
-  await expect(heading.getByText('Revision awaiting approval')).toBeVisible();
-  await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
-  await expect(page.getByText('Revision 2 (draft)')).toBeVisible();
+  const status = page.getByRole('group', { name: 'Mix status' });
+  const spec = page.getByRole('table', { name: 'Mix specification' });
+  await expect(status.getByText('Revision pending')).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 1, in effect' })).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 2, draft' })).toBeVisible();
   await expectNoHorizontalScroll(page);
-  await page.getByRole('button', { name: 'Discard draft revision 2' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Discard draft revision 2?' });
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Discard draft revision 2' }).click();
+  const dialog = page.getByRole('alertdialog', { name: 'Discard draft revision 2?' });
   await dialog.getByLabel(/Note/).fill('Wrong strength');
   await dialog.getByRole('button', { name: 'Discard draft' }).click();
   await expect(
     page.getByText(`Draft revision 2 of ${mixNumber} discarded. Revision 1 stays in effect.`),
   ).toBeVisible();
-  await expect(heading.getByText('Approved', { exact: true })).toBeVisible();
-  await expect(page.getByText('Revision 1 (in effect)')).toBeVisible();
-  await expect(page.getByText('Revision 2 (draft)')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Discard draft/ })).toHaveCount(0);
+  await expect(status.getByText('Approved', { exact: true })).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 1, in effect' })).toBeVisible();
+  await expect(spec.getByRole('columnheader', { name: 'Revision 2, draft' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await expect(page.getByRole('menuitem', { name: /Discard draft/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('region', { name: 'History', exact: true })).toContainText(
     'Draft discarded',
   );
