@@ -133,7 +133,7 @@ export function UnitEditor({
           {...props}
           aria-label={`${name} note (optional)`}
           maxLength={2000}
-          placeholder="Description (optional)"
+          placeholder="Note (optional)"
           value={unit.note}
           onChange={(e) => onChange((current) => ({ ...current, note: e.target.value }))}
         />

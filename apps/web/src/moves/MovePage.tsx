@@ -1101,7 +1101,7 @@ export function MovePage() {
       <div
         ref={saveBar}
         data-testid="move-save-bar"
-        className="sticky bottom-0 z-10 mt-auto border-t bg-background/95 backdrop-blur"
+        className="sticky bottom-0 z-10 mt-auto border-t bg-background"
         style={toastClearance > 0 ? { bottom: toastClearance } : undefined}
       >
         <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-3 px-4 py-3 md:px-8">

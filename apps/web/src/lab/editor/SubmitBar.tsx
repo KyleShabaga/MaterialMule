@@ -32,7 +32,7 @@ export function SubmitBar({
     <div
       role="region"
       aria-label="Submit"
-      className="sticky bottom-0 z-20 -mx-4 mt-2 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-8 sm:px-8"
+      className="sticky bottom-0 z-20 -mx-4 mt-2 border-t bg-background px-4 py-3 sm:-mx-8 sm:px-8"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="text-sm font-medium" aria-live="polite">
