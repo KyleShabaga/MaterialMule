@@ -128,6 +128,8 @@ test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as
   const line1 = editorLine(page, 1);
   await chooseSource(page, line1, 'TH26-01');
   await addTest(page, line1, mc);
+  // STRATA-129: a comment for the lab on the line; it goes with the line to the program page.
+  await line1.getByLabel('Comment for the lab (optional)').fill('Keep the bag sealed (E2E)');
 
   // The Grid shows the same lines: ticking the test's column adds it to every line.
   await page.getByRole('button', { name: 'Add sample line' }).click();
@@ -156,6 +158,8 @@ test('T6: ALL moisture on TH26-01 and Atterberg on G3 at 7.5 ft are submitted as
   await expect(
     page.locator('.request-list [data-slot="badge"]', { hasText: 'Waiting' }),
   ).toHaveCount(2);
+  await expect(page.getByTestId('line-comment')).toHaveCount(1);
+  await expect(page.getByTestId('line-comment')).toContainText('Keep the bag sealed (E2E)');
   // AC7: nothing asks for result values.
   await expect(page.getByLabel(/result/i)).toHaveCount(0);
 });
