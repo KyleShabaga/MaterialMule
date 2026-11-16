@@ -45,7 +45,8 @@ test('LAB picks who is working, receives under that name, then signs off back to
   await expect(page.getByRole('link', { name: 'How LAB stations work' })).toBeVisible();
   const staff = page.getByRole('list', { name: 'Receiving lab staff' });
   await staff.getByRole('button', { name: /Alex Tester/ }).click();
-  await expect(page).toHaveURL(/\/receiving-log\/new$/);
+  // Receive puts its new draft's ID in the URL (?draft=…) once it has decided to start one.
+  await expect(page).toHaveURL(/\/receiving-log\/new(\?draft=[\w-]+)?$/);
   await expect(chip(page, 'Alex Tester')).toBeVisible();
 
   // A reload of the same tab keeps the person.

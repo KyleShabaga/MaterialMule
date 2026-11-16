@@ -106,16 +106,19 @@ export function useDisposalScanSession({
     };
   }, []);
 
+  /** Reloads in flight: only the newest one sets state, so an older list never undoes a change. */
+  const reloads = useRef(0);
   const reload = useCallback(async () => {
+    const seq = ++reloads.current;
     try {
       const list = await store.list();
-      if (!mounted.current) return list.scans;
+      if (!mounted.current || seq !== reloads.current) return list.scans;
       setAll(list.scans);
       setUnreadable(list.unreadable);
       setLoaded(true);
       return list.scans;
     } catch (error) {
-      if (mounted.current) {
+      if (mounted.current && seq === reloads.current) {
         setProblem({ kind: 'storage', message: toStorageError(error).message });
         setLoaded(true);
       }
@@ -223,6 +226,7 @@ export function useDisposalScanSession({
       const scan = all.find((s) => s.intentId === intentId);
       if (!scan || scan.state === 'uncertain') return;
       await store.remove([intentId]);
+      if (mounted.current) setAll((list) => list.filter((s) => s.intentId !== intentId));
       await reload();
     },
     [all, reload, store],
