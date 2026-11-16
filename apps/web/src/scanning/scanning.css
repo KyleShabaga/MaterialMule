@@ -252,11 +252,6 @@
     max-width: 48rem;
   }
 
-  .camera-scan-button {
-    justify-self: start;
-    align-self: flex-start;
-  }
-
   /* ---- Phone (≤ 640 px): the one dark screen ---- */
 
   @media (max-width: 640px) {
@@ -374,15 +369,6 @@
       bottom: -2px;
       border-right-width: 5px;
       border-bottom-width: 5px;
-    }
-
-    .scan-viewfinder .camera-scan-button {
-      align-self: center;
-      min-height: var(--control-phone);
-      background: var(--primary);
-      color: var(--on-primary);
-      border-color: var(--rule);
-      font-weight: 800;
     }
 
     /* The paper panel: the scan field, the last scanned unit and "Type an ID instead". */

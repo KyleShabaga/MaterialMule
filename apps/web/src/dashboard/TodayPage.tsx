@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { FEATURES } from '../features';
+import { RetentionDecisionDrawer } from '../retention/RetentionDecisionDrawer';
 import { useMe } from '../session/context';
 import { useRecordingPerson } from '../session/recording-person';
 import { fetchActivity, fetchDateFormat, fetchLeadsAnyProject, fetchNeedsYou } from './api';
@@ -188,7 +189,26 @@ function Shortcuts({ role, me }: { role: TodayRole | null; me: MeResponse }) {
   );
 }
 
-function NeedsRow({ item, primary }: { item: NeedsYouItem; primary: boolean }) {
+/** Retention due opens the decision drawer here (DESIGN.md › Round 6); the rest are links. */
+function decidesHere(item: NeedsYouItem): boolean {
+  return item.domain === 'retention' && (item.unitIds?.length ?? 0) > 0;
+}
+
+function NeedsRow({
+  item,
+  primary,
+  onDecide,
+}: {
+  item: NeedsYouItem;
+  primary: boolean;
+  onDecide: (item: NeedsYouItem) => void;
+}) {
+  const label = (
+    <>
+      {item.action}
+      <span className="sr-only">: {item.title}</span>
+    </>
+  );
   return (
     <li className="relative flex flex-wrap items-center gap-x-4 gap-y-2 p-4 pl-5">
       <span
@@ -216,17 +236,27 @@ function NeedsRow({ item, primary }: { item: NeedsYouItem; primary: boolean }) {
           </p>
         ) : null}
       </div>
-      <Button
-        asChild
-        size="sm"
-        variant={primary ? 'default' : 'outline'}
-        className="pointer-coarse:h-11"
-      >
-        <Link to={item.href}>
-          {item.action}
-          <span className="sr-only">: {item.title}</span>
-        </Link>
-      </Button>
+      {decidesHere(item) ? (
+        <Button
+          type="button"
+          size="sm"
+          variant={primary ? 'default' : 'outline'}
+          className="pointer-coarse:h-11"
+          aria-haspopup="dialog"
+          onClick={() => onDecide(item)}
+        >
+          {label}
+        </Button>
+      ) : (
+        <Button
+          asChild
+          size="sm"
+          variant={primary ? 'default' : 'outline'}
+          className="pointer-coarse:h-11"
+        >
+          <Link to={item.href}>{label}</Link>
+        </Button>
+      )}
     </li>
   );
 }
@@ -241,13 +271,17 @@ function NeedsYou({
   role: TodayRole | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [deciding, setDeciding] = useState<NeedsYouItem | null>(null);
   const list = useRef<HTMLUListElement>(null);
   const focusAfterExpand = useRef(false);
   useEffect(() => {
     if (!expanded || !focusAfterExpand.current) return;
     focusAfterExpand.current = false;
     // The first row that just appeared takes focus, so the keyboard carries on where it was.
-    list.current?.querySelectorAll('li')[NEEDS_YOU_FIRST]?.querySelector('a')?.focus();
+    list.current
+      ?.querySelectorAll('li')
+      [NEEDS_YOU_FIRST]?.querySelector<HTMLElement>('a, button')
+      ?.focus();
   }, [expanded]);
 
   let body;
@@ -297,7 +331,7 @@ function NeedsYou({
         ) : (
           <ul ref={list} className="divide-y overflow-hidden rounded-xl border bg-card">
             {shown.map((item, i) => (
-              <NeedsRow key={item.key} item={item} primary={i === 0} />
+              <NeedsRow key={item.key} item={item} primary={i === 0} onDecide={setDeciding} />
             ))}
           </ul>
         )}
@@ -337,6 +371,18 @@ function NeedsYou({
         </Link>
       </div>
       {body}
+      <RetentionDecisionDrawer
+        open={deciding !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeciding(null);
+        }}
+        unitIds={deciding?.unitIds}
+        context={deciding ? `Today · ${deciding.task}` : undefined}
+        onDone={() => {
+          setDeciding(null);
+          retry();
+        }}
+      />
     </section>
   );
 }

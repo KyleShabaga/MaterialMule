@@ -92,7 +92,10 @@ export function ScanLookupPage() {
           <span className="scan-corner scan-corner-tr" aria-hidden="true" />
           <span className="scan-corner scan-corner-bl" aria-hidden="true" />
           <span className="scan-corner scan-corner-br" aria-hidden="true" />
-          <CameraScanButton />
+          <CameraScanButton
+            prominent
+            className="self-start [@media(max-width:640px)]:self-center"
+          />
         </div>
         <p className="scan-helper">
           A unit label opens the unit. A shelf label shows what is on that shelf.
