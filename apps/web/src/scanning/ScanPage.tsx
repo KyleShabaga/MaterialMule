@@ -45,9 +45,13 @@ function DesktopScanRedirect() {
   useEffect(() => {
     open?.(initial);
   }, [open, initial]);
-  const state: ScanRedirectState = { scanRedirect: true };
-  return <Navigate to="/sample-storage" replace state={state} />;
+  return <Navigate to="/sample-storage" replace state={SCAN_REDIRECT_STATE} />;
 }
+
+// One object for every render (STRATA-132): <Navigate> navigates again whenever its `state`
+// changes identity, and while Inventory's code loads this redirect stays on screen and re-renders.
+// A fresh object each time sent the app back to Inventory after a scan had already moved on.
+const SCAN_REDIRECT_STATE: ScanRedirectState = { scanRedirect: true };
 
 /**
  * Inventory → Scan (MM-T16 lookup mode). Each scan looks the label up and shows that storage

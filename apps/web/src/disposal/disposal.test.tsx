@@ -111,7 +111,9 @@ describe('Retention page (STRATA-90)', () => {
       }),
     );
     const tabs = await screen.findByRole('tablist', { name: 'Retention stage' });
-    expect(within(tabs).getByRole('tab', { name: /On disposal list 9/ })).toBeInTheDocument();
+    expect(
+      await within(tabs).findByRole('tab', { name: /On disposal list 9/ }),
+    ).toBeInTheDocument();
     expect(within(tabs).getByRole('tab', { name: /Disposed 214/ })).toBeInTheDocument();
 
     const overdueBand = await screen.findByRole('region', { name: 'Overdue' });

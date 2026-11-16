@@ -12,6 +12,14 @@ export function lazyPage<M, K extends keyof M>(
   load: () => Promise<M>,
   name: K,
 ): LazyExoticComponent<M[K] extends ComponentType<infer P> ? ComponentType<P> : never> {
+  if (import.meta.env.MODE === 'test') {
+    // Unit tests only (the build drops this): start the import now, when routes.tsx is imported,
+    // so compiling a page's module graph happens at file import as it did before the split, not
+    // inside a test's 1 s findBy window on a slow CI runner. Rendering still suspends once.
+    const loaded = load();
+    loaded.catch(() => undefined); // a failure surfaces when the page renders
+    load = () => loaded;
+  }
   return lazy(async () => ({
     default: (await load())[name] as M[K] extends ComponentType<infer P> ? ComponentType<P> : never,
   }));

@@ -56,6 +56,12 @@ const TABS: TabDef[] = [
  * administrators see it in the Settings nav; its controls show only to those who may change
  * them, and the server checks every change.
  */
+// Stable per tab: <Navigate> navigates again whenever its `state` changes identity, and it can
+// re-render while the Settings chunk loads (STRATA-132).
+const BLOCKED_STATE = Object.fromEntries(
+  TABS.map((item) => [item.key, { settingsBlocked: item.label }]),
+) as Record<AdminTab, { settingsBlocked: string }>;
+
 export function AdminPage({ tab }: { tab: AdminTab }) {
   const me = useMe();
   const canStaff = me.permissions.includes('staff.manage');
@@ -64,7 +70,7 @@ export function AdminPage({ tab }: { tab: AdminTab }) {
   usePageTitle(`${current.label} · Lab admin`);
 
   if ((tab === 'staff' && !canStaff) || (tab === 'lab-tests' && !canTests)) {
-    return <Navigate to="/settings/access" replace state={{ settingsBlocked: current.label }} />;
+    return <Navigate to="/settings/access" replace state={BLOCKED_STATE[tab]} />;
   }
 
   const tabs = TABS.filter(
