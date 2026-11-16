@@ -125,14 +125,16 @@ export async function expireSession(sessionId: string): Promise<void> {
  * Picks a person on "Who is working here?" (STRATA-16) for specs that fake a station by
  * rewriting /api/me, where no pick can be pre-stored. The guard then returns to the page that was
  * asked for. The pick is attribution only and never fills a receipt's Received by (T8/AC5).
+ * The list holds only the lab roles (STRATA-131), so anyone is found with Someone else….
  */
 export async function pickOnStationPicker(page: Page, name = 'Alex Tester'): Promise<void> {
   const heading = page.getByRole('heading', { level: 1, name: 'Who is working here?' });
   await expect(heading).toBeVisible();
-  // The row's name is the person then their role ("Alex Tester Technician").
+  await page.getByRole('button', { name: 'Someone else…' }).click();
+  await page.getByRole('searchbox', { name: 'Find a person' }).fill(name.split(' ')[0]!);
   await page
-    .getByRole('list', { name: 'Receiving lab staff' })
-    .getByRole('button', { name })
+    .getByRole('list', { name: 'Matching staff' })
+    .getByRole('button', { name: new RegExp(name) })
     .click();
   await expect(heading).toHaveCount(0);
 }

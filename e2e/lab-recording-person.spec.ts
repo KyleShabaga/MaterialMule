@@ -17,7 +17,7 @@ import {
 // STRATA-16, 61, 125 (lane 1A): the shared LAB station asks "Who is working here?" after
 // sign-in, shows "Recording as <person>" in the top bar, credits work to that person, and signs
 // them off without signing LAB out. Attribution only: LAB keeps its own permissions. Fictional
-// fixtures from apps/api/seed/dev.sql: Alex Tester (Technician), Pat Example (found with
+// fixtures from apps/api/seed/dev.sql: Taylor Bench (Lab Technician role, listed), Pat Example (found with
 // Someone else…).
 
 const chip = (page: Page, name: string) =>
@@ -44,13 +44,18 @@ test('LAB picks who is working, receives under that name, then signs off back to
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'How LAB stations work' })).toBeVisible();
   const staff = page.getByRole('list', { name: 'Receiving lab staff' });
-  await staff.getByRole('button', { name: /Alex Tester/ }).click();
-  await expect(page).toHaveURL(/\/receiving-log\/new$/);
-  await expect(chip(page, 'Alex Tester')).toBeVisible();
+  // STRATA-131: the list is the Lab Technician and Lab Manager roles, whatever the position:
+  // Alex Tester (technician position, no lab role) is found with Someone else… instead.
+  await expect(staff.getByRole('button', { name: /Taylor Bench/ })).toBeVisible();
+  await expect(staff.getByRole('button', { name: /Alex Tester/ })).toHaveCount(0);
+  await staff.getByRole('button', { name: /Taylor Bench/ }).click();
+  // Receive puts its new draft's ID in the URL (?draft=…) once it has decided to start one.
+  await expect(page).toHaveURL(/\/receiving-log\/new(\?draft=[\w-]+)?$/);
+  await expect(chip(page, 'Taylor Bench')).toBeVisible();
 
   // A reload of the same tab keeps the person.
   await page.reload();
-  await expect(chip(page, 'Alex Tester')).toBeVisible();
+  await expect(chip(page, 'Taylor Bench')).toBeVisible();
 
   // Received by starts blank on LAB even with someone picked (T8/AC5, STRATA-107): the picked
   // person is chosen explicitly, like anyone else.
@@ -76,12 +81,12 @@ test('LAB picks who is working, receives under that name, then signs off back to
   });
 
   // Sign off is first in the person menu; LAB stays signed in.
-  await chip(page, 'Alex Tester').click();
+  await chip(page, 'Taylor Bench').click();
   const menu = page.getByRole('menu');
-  await expect(menu.getByRole('menuitem').first()).toHaveText(/Sign off Alex Tester/);
-  await menu.getByRole('menuitem', { name: /Sign off Alex Tester/ }).click();
+  await expect(menu.getByRole('menuitem').first()).toHaveText(/Sign off Taylor Bench/);
+  await menu.getByRole('menuitem', { name: /Sign off Taylor Bench/ }).click();
   await expectPicker(page);
-  await expect(chip(page, 'Alex Tester')).toHaveCount(0);
+  await expect(chip(page, 'Taylor Bench')).toHaveCount(0);
   const me = await page.request.get('/api/me');
   expect(me.status()).toBe(200);
 
@@ -106,8 +111,8 @@ test('LAB records as someone else found by search, and switches person from the 
   await expect(chip(page, 'Pat Example')).toBeVisible();
 
   await chip(page, 'Pat Example').click();
-  await page.getByRole('menuitemradio', { name: /Alex Tester/ }).click();
-  await expect(chip(page, 'Alex Tester')).toBeVisible();
+  await page.getByRole('menuitemradio', { name: /Taylor Bench/ }).click();
+  await expect(chip(page, 'Taylor Bench')).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
 });
 
