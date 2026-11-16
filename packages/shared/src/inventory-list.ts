@@ -123,6 +123,13 @@ export const inventoryListItemSchema = inventoryItemSchema.extend({
    * "Bay 2", "Shelf 3"]. Optional so older fixtures stay valid; the API always sends it.
    */
   locationPath: z.array(z.string()).optional(),
+  /**
+   * The other location in the unit's open location conflict (MM-T28): the destination of the
+   * latest contested scan that differs from the saved location ("Also scanned on WH-A-B2-S4").
+   * Null without an open conflict, or when every contested scan named the saved location.
+   * Optional so older fixtures and clients stay valid; the API always sends it.
+   */
+  conflictLocation: z.object({ code: z.string(), name: z.string() }).nullable().optional(),
 });
 export type InventoryListItem = z.infer<typeof inventoryListItemSchema>;
 

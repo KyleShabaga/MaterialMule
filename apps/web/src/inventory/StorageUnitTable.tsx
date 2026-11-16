@@ -247,7 +247,11 @@ export function StorageUnitTable({
 function WhereCell({ item, pending }: { item: InventoryListItem; pending?: QueuedMove }) {
   const disposed = item.status === 'disposed';
   const path = item.locationPath?.length ? item.locationPath.join(' · ') : item.location.name;
-  const place = disposed ? currentLocationName(item) : `${item.location.code} · ${path}`;
+  // MM-T28: an open conflict names the other location it was scanned on, in place of the path.
+  const also = !disposed && item.openConflict ? item.conflictLocation : null;
+  const place = disposed
+    ? currentLocationName(item)
+    : `${item.location.code} · ${path}${also ? ` · Also scanned on ${also.code}` : ''}`;
   return (
     // Every clipped piece of the cell keeps its full text in this title (MTR-58).
     <span className="flex min-w-0 items-center gap-2" title={place}>
@@ -262,9 +266,19 @@ function WhereCell({ item, pending }: { item: InventoryListItem; pending?: Queue
             <span className="truncate font-mono text-[13px]" title={item.location.code}>
               {item.location.code}
             </span>
-            <span className="truncate text-[13px] text-muted-foreground" title={path}>
-              {path}
-            </span>
+            {also ? (
+              <span
+                className="truncate text-[13px] text-stage-danger-fg"
+                data-testid="conflict-location"
+                title={`Also scanned on ${also.code} (${also.name})`}
+              >
+                Also scanned on <span className="font-mono whitespace-nowrap">{also.code}</span>
+              </span>
+            ) : (
+              <span className="truncate text-[13px] text-muted-foreground" title={path}>
+                {path}
+              </span>
+            )}
           </>
         )}
       </span>
