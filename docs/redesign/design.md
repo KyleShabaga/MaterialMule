@@ -40,6 +40,9 @@ space: [4, 8, 12, 16, 20, 24, 32, 48]
 touch-target: 44 # minimum; primary phone actions 60
 ---
 
+> **Superseded (2026-11-15).** Field Ledger was replaced by Strata. The current design is
+> [`DESIGN.md`](../../DESIGN.md) at the repo root; this folder is kept as history only.
+
 # Field Ledger
 
 A new design language for Material Mule. It replaces the dark navy/sky look entirely; nothing here

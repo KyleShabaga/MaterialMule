@@ -165,8 +165,18 @@ export function MovePage() {
   const store = indexedDbMoveStore;
 
   const [batch, setBatchState] = useState<BatchState>(() => loadBatch(me.id));
+  // A lookup can finish after the page closed. React may still run the updater then (eager
+  // state), and the stale list would be written back to this tab's storage: skip it once closed.
+  const pageOpen = useRef(true);
+  useEffect(() => {
+    pageOpen.current = true;
+    return () => {
+      pageOpen.current = false;
+    };
+  }, []);
   const setBatch = useCallback(
     (update: (current: BatchState) => BatchState) => {
+      if (!pageOpen.current) return;
       setBatchState((current) => {
         const next = update(current);
         saveBatch(me.id, next);

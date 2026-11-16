@@ -12,23 +12,7 @@
     margin-top: var(--space-4, 16px);
   }
 
-  .requested-by-station {
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--accent-line);
-    border-radius: var(--radius-control);
-    background: var(--accent-bg);
-  }
-
-  .requested-by-current {
-    margin: 0.25rem 0 0;
-    font-weight: 600;
-    color: var(--accent-ink);
-  }
-
-  .line-grid,
-  .specific-sample,
-  .test-picker-search,
-  .test-picker-template {
+  .line-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem 1rem;
@@ -39,26 +23,6 @@
     flex: 1 1 18rem;
   }
 
-  .specific-sample > .form-field {
-    flex: 0 1 9rem;
-  }
-
-  .test-picker-search > input,
-  .test-picker-search > select {
-    flex: 1 1 14rem;
-  }
-
-  .scope-toggle {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1rem;
-    margin: 0;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    padding: 0.5rem 0.75rem;
-  }
-
-  .scope-toggle label,
   .unit-choice {
     display: inline-flex;
     align-items: center;
@@ -88,7 +52,6 @@
   }
 
   .test-results,
-  .coverage-list,
   .request-list,
   .line-problems {
     list-style: none;
@@ -109,26 +72,12 @@
     text-align: left;
   }
 
-  .chips .chip-retired {
-    border-color: var(--warning-line);
-    background: var(--warning-panel);
-    color: var(--warning-panel-ink);
-  }
-
-  .chip-text {
-    overflow-wrap: anywhere;
-  }
-
   .line-problems li {
     color: var(--warning);
   }
 
   .line-problems li::before {
     content: '• ';
-  }
-
-  .coverage-list li.excluded {
-    color: var(--fl-muted);
   }
 
   .request-list li {
@@ -140,81 +89,10 @@
     border-bottom: 1px solid var(--line);
   }
 
-  .program-summary {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 0.25rem 1rem;
-  }
-
-  .program-summary dd {
-    margin: 0;
-  }
-
-  .program-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--gap-button, 0.5rem);
-    justify-content: flex-end;
-  }
-
-  .inline-select select {
-    margin-left: 0.25rem;
-  }
-
   .row-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--gap-button, 0.5rem);
-  }
-
-  .pre-wrap {
-    white-space: pre-wrap;
-  }
-
-  .review-line + .review-line {
-    border-top: 1px solid var(--line);
-    margin-top: 0.75rem;
-  }
-
-  @media (max-width: 640px) {
-    .specific-sample > .form-field,
-    .test-picker-search > input,
-    .test-picker-search > select {
-      flex: 1 1 100%;
-    }
-
-    .program-actions button {
-      flex: 1 1 100%;
-      min-height: 44px;
-    }
-  }
-
-  /* MM-T24 worklist and progress */
-  .worklist-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    align-items: center;
-    margin-bottom: 0.75rem;
-  }
-
-  .action-panel {
-    flex: 1 1 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--accent-line);
-    border-radius: var(--radius-control);
-    background: var(--inset, var(--card));
-  }
-
-  .action-title {
-    margin: 0 0 0.5rem;
-    font-weight: 600;
-  }
-
-  .comment-list {
-    list-style: none;
-    margin: 0.5rem 0;
-    padding: 0;
   }
 
   .comment {
@@ -222,23 +100,9 @@
     border-bottom: 1px solid var(--line);
   }
 
-  .comment-meta {
-    margin: 0;
-    font-size: 0.875rem;
-  }
-
-  .comment-box textarea,
   .comment textarea {
     width: 100%;
     min-height: 4rem;
-  }
-
-  .priority-control {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    align-items: center;
-    margin: 0.75rem 0;
   }
 
   /* Review corrections and acceptance (MM-T25). */
@@ -250,29 +114,9 @@
     gap: 0.5rem;
   }
 
-  .review-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .review-return {
-    margin: 0;
-    padding: 0.5rem 0.75rem;
-    border-left: 3px solid var(--warning, var(--accent-line));
-    border-radius: var(--radius-control);
-    background: var(--inset, var(--card));
-  }
-
   .review-history ol {
     margin: 0.25rem 0 0;
     padding-left: 1.25rem;
-  }
-
-  .action-panel textarea {
-    width: 100%;
-    min-height: 4rem;
   }
 
   /* Program lifecycle, cancellation and repeats (MM-T26). */
@@ -286,32 +130,11 @@
     border-radius: var(--radius-control);
   }
 
-  .lifecycle-status {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0;
-  }
-
-  .lifecycle-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   .request-lifecycle {
     flex: 1 1 100%;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
-  }
-
-  .closure-checklist ul,
-  .lifecycle-history ol {
-    margin: 0.25rem 0 0;
-    padding-left: 1.25rem;
   }
 }

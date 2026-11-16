@@ -45,8 +45,10 @@ async function printJobCount(unitIds: string[]): Promise<number> {
 /** Opens the toolbar search and types into it (the server is asked after a short pause). */
 async function searchReceipts(page: Page, text: string) {
   const box = page.getByRole('searchbox', { name: 'Search receipts' });
-  if (!(await box.isVisible()))
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
+  const open = page.getByRole('button', { name: 'Search', exact: true });
+  // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+  await expect(box.or(open).first()).toBeVisible();
+  if (!(await box.isVisible())) await open.click();
   await box.fill(text);
 }
 
@@ -219,13 +221,18 @@ test('STRATA-108: only the starter deletes a draft; the server refuses anyone el
   await button.click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete draft' }).click();
   await expect(item).toHaveCount(0);
-  const deleted = await withDatabase((client) =>
-    client.query<{ deleted_by_user_id: string }>(
-      'SELECT deleted_by_user_id FROM receipt_draft_registry WHERE draft_id = $1',
-      [draftId],
-    ),
-  );
-  expect(deleted.rows[0]!.deleted_by_user_id).toBe(DEMO.at);
+  // The list drops the draft first; the server's registry follows a moment later.
+  await expect
+    .poll(() =>
+      withDatabase(async (client) => {
+        const { rows } = await client.query<{ deleted_by_user_id: string | null }>(
+          'SELECT deleted_by_user_id FROM receipt_draft_registry WHERE draft_id = $1',
+          [draftId],
+        );
+        return rows[0]?.deleted_by_user_id ?? null;
+      }),
+    )
+    .toBe(DEMO.at);
 });
 
 test('AC4: receivers sharing initials are filtered by person, and told apart', async ({ page }) => {
