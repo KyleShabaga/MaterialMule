@@ -8,6 +8,7 @@ import {
   stationConfigSchema,
   stationInboxPageSchema,
   stationInboxSummarySchema,
+  stationPeopleResponseSchema,
   stationTodaySchema,
   type StationConfig,
 } from '@materialmule/shared';
@@ -279,6 +280,93 @@ describe.runIf(testDatabaseUrl)('LAB station API (Strata lane A)', () => {
       } finally {
         spy.mockRestore();
       }
+    });
+  });
+
+  describe('GET /api/station/people (STRATA-131)', () => {
+    let officeLabTech: string;
+    let positionOnly: string;
+    let disabledLabTech: string;
+    let pendingLabManager: string;
+
+    async function person(
+      name: string,
+      initials: string,
+      status: 'active' | 'disabled' | 'pending',
+      position: string | null,
+      roles: string[],
+      jobTitle: string | null = null,
+    ): Promise<string> {
+      const { rows } = await h.db.pool.query<{ id: string }>(
+        `INSERT INTO app_user (display_name, official_initials, account_type, status, position,
+                               job_title)
+         VALUES ($1, $2, 'personal', $3, $4, $5) RETURNING id`,
+        [name, initials, status, position, jobTitle],
+      );
+      for (const role of roles) {
+        await h.db.pool.query('INSERT INTO role_assignment (user_id, role) VALUES ($1, $2)', [
+          rows[0]!.id,
+          role,
+        ]);
+      }
+      return rows[0]!.id;
+    }
+
+    beforeAll(async () => {
+      // Fictional people: a lab-role holder with an office position, a technician by position
+      // with no lab role, and lab-role holders who are disabled or still pending.
+      officeLabTech = await person('Robin Office', 'RO', 'active', 'engineer', ['lab_technician']);
+      positionOnly = await person('Casey Position', 'CP', 'active', 'technician', [], 'Lab Tech');
+      disabledLabTech = await person('Drew Gone', 'DG', 'disabled', 'technician', [
+        'lab_technician',
+      ]);
+      pendingLabManager = await person('Morgan Waiting', 'MW', 'pending', 'lab_manager', [
+        'lab_manager',
+      ]);
+    });
+
+    it('lists active Lab Technician and Lab Manager role holders, by name, whatever their position', async () => {
+      const response = await h.get('/api/station/people', 'lab');
+      expect(response.status, json(response.body)).toBe(200);
+      const people = stationPeopleResponseSchema.parse(response.body);
+      expect(people.map((p) => p.displayName)).toEqual([
+        'Lee Manager',
+        'Robin Office',
+        'Taylor Bench',
+      ]);
+      expect(people.find((p) => p.id === officeLabTech)).toEqual({
+        id: officeLabTech,
+        displayName: 'Robin Office',
+        initials: 'RO',
+        jobTitle: 'Engineer',
+      });
+      const ids = people.map((p) => p.id);
+      expect(ids).toEqual(expect.arrayContaining([h.users.lm, labTechId]));
+      for (const absent of [positionOnly, disabledLabTech, pendingLabManager, h.users.lab]) {
+        expect(ids).not.toContain(absent);
+      }
+    });
+
+    it('returns only id, name, initials and job title: never roles, permissions or position', async () => {
+      const response = await h.get('/api/station/people', 'lab');
+      for (const entry of response.body as Record<string, unknown>[]) {
+        expect(Object.keys(entry).sort()).toEqual(['displayName', 'id', 'initials', 'jobTitle']);
+      }
+      expect(json(response.body)).not.toMatch(/lab_technician|lab_manager|roles|permissions/);
+    });
+
+    it('lets lab staff with their own accounts read it; others are refused, signed-out is 401', async () => {
+      for (const who of ['lm', labTechCookie]) {
+        expect((await h.get('/api/station/people', who)).status).toBe(200);
+      }
+      for (const who of ['tech', 'pe', 'admin']) {
+        const response = await h.get('/api/station/people', who);
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual(expect.objectContaining({ code: 'forbidden' }));
+        expect(json(response.body)).not.toContain('Robin Office');
+      }
+      const anonymous = await h.http().get('/api/station/people');
+      expect(anonymous.status).toBe(401);
     });
   });
 

@@ -33,7 +33,7 @@ import {
   type RecordingPersonController,
   type StationPeople,
 } from './recording-person-store';
-import { loadActiveStaff, stationPeopleOf, type RecordingPerson } from './station-people';
+import { loadActiveStaff, loadStationPeople, type RecordingPerson } from './station-people';
 
 // Storage helpers, constants and useOptionalRecordingPerson are in ./recording-person-store.
 export type { RecordingPerson } from './station-people';
@@ -80,9 +80,11 @@ function StationProvider({ sessionKey, children }: { sessionKey: string; childre
 
   useEffect(() => {
     let current = true;
-    loadActiveStaff().then(
-      (staff) => {
-        if (current) setPeople({ state: 'ready', staff, people: stationPeopleOf(staff) });
+    // The listed people are receiving-lab staff (GET /api/station/people, STRATA-131); `staff`
+    // is everyone active, for "Someone else…" role lines and the stale-person check below.
+    Promise.all([loadActiveStaff(), loadStationPeople()]).then(
+      ([staff, people]) => {
+        if (current) setPeople({ state: 'ready', staff, people });
       },
       () => {
         if (current) setPeople({ state: 'error' });

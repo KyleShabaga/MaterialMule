@@ -1,4 +1,4 @@
-import type { MeResponse, StaffOption } from '@materialmule/shared';
+import type { MeResponse, StaffOption, StationPickerPerson } from '@materialmule/shared';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, type RouteObject } from 'react-router';
@@ -75,6 +75,16 @@ const STAFF: StaffOption[] = [
   },
   { id: 'p-pat', displayName: 'Pat Example', initials: 'PE', position: 'engineer', jobTitle: null },
 ];
+// GET /api/station/people (STRATA-131): receiving-lab staff by role, not position. Dana holds the
+// Lab Technician role with an engineer position, so she is listed; Jordan is a technologist by
+// position with no lab role, so he isn't (he's one "Someone else…" search away). Quinn has no
+// initials yet, so can't be credited and isn't listed.
+const STATION_PEOPLE: StationPickerPerson[] = [
+  { id: 'p-alex', displayName: 'Alex Tester', initials: 'AT', jobTitle: 'Technician' },
+  { id: 'p-dana', displayName: 'Dana Example', initials: 'DE', jobTitle: 'Engineer' },
+  { id: 'p-quinn', displayName: 'Quinn New', initials: null, jobTitle: null },
+  { id: 'p-sam', displayName: 'Sam Sample', initials: 'SS', jobTitle: 'Lab Manager' },
+];
 const ALEX: RecordingPerson = {
   id: 'p-alex',
   displayName: 'Alex Tester',
@@ -110,6 +120,7 @@ const ROUTES: RouteObject[] = [
 ];
 
 let staff: StaffOption[] | 'fail' = STAFF;
+let stationPeople: StationPickerPerson[] | 'fail' = STATION_PEOPLE;
 
 function stubFetch() {
   vi.stubGlobal(
@@ -119,6 +130,10 @@ function stubFetch() {
       if (url.pathname === '/api/staff/active') {
         if (staff === 'fail') return new Response('{}', { status: 500 });
         return Response.json(staff);
+      }
+      if (url.pathname === '/api/station/people') {
+        if (stationPeople === 'fail') return new Response('{}', { status: 500 });
+        return Response.json(stationPeople);
       }
       if (url.pathname === '/api/staff/receivers') {
         const q = (url.searchParams.get('search') ?? '').toLowerCase();
@@ -148,6 +163,7 @@ function renderAt(path: string, me: MeResponse = LAB) {
 
 beforeEach(() => {
   staff = STAFF;
+  stationPeople = STATION_PEOPLE;
   stubFetch();
   toastMock.mockReset();
   window.sessionStorage.clear();
@@ -278,7 +294,7 @@ describe('RecordingAsChip', () => {
     expect(items).toEqual([
       'Sign off Alex TesterBack to Who is working here?',
       'ATAlex TesterTechnician',
-      'JLJordan LabTechnologist',
+      'DEDana ExampleEngineer',
       'SSSam SampleLab Manager',
       'Someone else…',
     ]);
@@ -293,8 +309,8 @@ describe('RecordingAsChip', () => {
     storeRecordingPerson(stationSessionKey(LAB), ALEX);
     const { router } = renderAt('/receiving-log/new');
     await user.click(await screen.findByRole('button', { name: /^Recording as Alex Tester/ }));
-    await user.click(await screen.findByRole('menuitemradio', { name: /Jordan Lab/ }));
-    expect(await screen.findByTestId('probe')).toHaveTextContent('station:Jordan Lab');
+    await user.click(await screen.findByRole('menuitemradio', { name: /Dana Example/ }));
+    expect(await screen.findByTestId('probe')).toHaveTextContent('station:Dana Example');
     expect(router.state.location.pathname).toBe('/receiving-log/new');
   });
 
@@ -328,10 +344,11 @@ describe('WhoIsWorkingPage', () => {
     const rows = within(list)
       .getAllByRole('button')
       .map((row) => row.textContent);
-    // Engineers are not station people; they're found with Someone else….
+    // Listed by lab role, not position: Dana (engineer, Lab Technician role) is listed; Jordan
+    // (technologist, no lab role) and Pat (engineer) are found with Someone else….
     expect(rows).toEqual([
       'ATAlex TesterTechnician',
-      'JLJordan LabTechnologist',
+      'DEDana ExampleEngineer',
       'SSSam SampleLab Manager',
       'Someone else…',
     ]);
@@ -341,7 +358,7 @@ describe('WhoIsWorkingPage', () => {
 
   it('shows the empty state with Someone else… when no one is listed', async () => {
     const user = userEvent.setup();
-    staff = [STAFF[1]!];
+    stationPeople = [STATION_PEOPLE[2]!];
     renderAt(WHO_IS_WORKING_PATH);
     expect(await screen.findByText('No one is listed for this station yet.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Someone else…' }));
@@ -352,13 +369,17 @@ describe('WhoIsWorkingPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers Try again and Someone else… when the list can’t load', async () => {
-    staff = 'fail';
-    renderAt(WHO_IS_WORKING_PATH);
-    expect(await screen.findByText(/The station’s people couldn’t load/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Someone else…' })).toBeInTheDocument();
-  });
+  it.each(['staff', 'station people'])(
+    'offers Try again and Someone else… when the %s list can’t load',
+    async (which) => {
+      if (which === 'staff') staff = 'fail';
+      else stationPeople = 'fail';
+      renderAt(WHO_IS_WORKING_PATH);
+      expect(await screen.findByText(/The station’s people couldn’t load/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Someone else…' })).toBeInTheDocument();
+    },
+  );
 
   it('sends a personal account home', async () => {
     renderAt(WHO_IS_WORKING_PATH, PERSONAL);

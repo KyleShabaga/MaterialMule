@@ -10,6 +10,7 @@ import { stageKeySchema, workDomainSchema } from './stage';
 //                                         system work this account may act on (STRATA-56)
 //   GET /api/activity/recent?scope=       Last 24 hours, narrowed to mine / my projects / the lab
 //   GET /api/station/today                LAB account: the "At this station" server counts
+//   GET /api/station/people               LAB and lab staff: receiving-lab staff for the picker
 //   GET /api/station/config/:stationId    any active session: a station's row order and visibility
 //   PUT /api/station/config/:stationId    Lab Manager with their own (verified) account only
 //   GET /api/station/inbox?personId=&...  LAB account: the picked person's Inbox, only when that
@@ -189,6 +190,26 @@ export type UpdateStationConfig = z.output<typeof updateStationConfigSchema>;
 export function stationCountText(count: number): string {
   return count > 99 ? '99+' : String(count);
 }
+
+// ---------------------------------------------------------------------------------------------
+// The station's people (STRATA-131): who "Who is working here?" lists without searching. Kyle's
+// rule (STRATA-36): receiving-lab staff, meaning active people holding the Lab Technician or Lab
+// Manager role, whatever their position. Only what the picker shows: never roles, permissions,
+// positions or contact details. Picking a person is attribution only and grants nothing.
+
+/** One person on `GET /api/station/people`. */
+export const stationPickerPersonSchema = z.strictObject({
+  id: z.string(),
+  displayName: z.string(),
+  /** Official initials; null when unset (the picker can't credit them until they're set). */
+  initials: z.string().nullable(),
+  /** The line under the name: their job title, else their position's label, else null. */
+  jobTitle: z.string().nullable(),
+});
+export type StationPickerPerson = z.infer<typeof stationPickerPersonSchema>;
+
+/** `GET /api/station/people`: active receiving-lab staff by name (`station.today.read`). */
+export const stationPeopleResponseSchema = z.array(stationPickerPersonSchema);
 
 // ---------------------------------------------------------------------------------------------
 // Station Inbox (STRATA-27). Consent-based and read-only. The server checks, on every call, that

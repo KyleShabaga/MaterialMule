@@ -193,6 +193,12 @@ function stubApi() {
         { id: JORDAN, displayName: 'Jordan Smith', initials: 'JS', position: 'technologist' },
       ]);
     }
+    if (url.pathname === '/api/station/people') {
+      return json(200, [
+        { id: ALEX, displayName: 'Alex Tester', initials: 'AT', jobTitle: 'Technician' },
+        { id: JORDAN, displayName: 'Jordan Smith', initials: 'JS', jobTitle: 'Technologist' },
+      ]);
+    }
     return json(404, { code: 'not_found' });
   });
   vi.stubGlobal('fetch', fetchMock);
