@@ -133,6 +133,7 @@ interface LineRow {
   depth_to: string | null;
   depth_unit: 'ft' | 'm' | null;
   acknowledged_depths: string[];
+  comment: string | null;
   source_display_snapshot: string | null;
   coverage_captured_at: Date | null;
   amendment_id: string | null;
@@ -890,8 +891,8 @@ async function loadLineRows(db: Db, programId: string): Promise<LineRow[]> {
   const { rows } = await db.query<LineRow>(
     `SELECT id, line_number, source_kind, test_hole_id, source_storage_unit_id,
             source_bulk_group_id, scope, sample_label, depth_mode, depth_from, depth_to,
-            depth_unit, acknowledged_depths, source_display_snapshot, coverage_captured_at,
-            amendment_id
+            depth_unit, acknowledged_depths, comment, source_display_snapshot,
+            coverage_captured_at, amendment_id
      FROM test_line WHERE program_id = $1 ORDER BY line_number`,
     [programId],
   );
@@ -993,6 +994,7 @@ async function saveLines(client: PoolClient, program: ProgramRow, lines: DraftLi
       line.depthTo,
       line.depthUnit,
       line.acknowledgedDepths.map(depthKey),
+      line.comment,
     ];
     let lineId: string;
     if (line.id) {
@@ -1002,7 +1004,7 @@ async function saveLines(client: PoolClient, program: ProgramRow, lines: DraftLi
          SET line_number = $2, source_kind = $3, test_hole_id = $4, source_storage_unit_id = $5,
              source_bulk_group_id = $6, scope = $7, sample_label = $8, depth_mode = $9,
              depth_from = $10, depth_to = $11, depth_unit = $12, acknowledged_depths = $13,
-             updated_at = now()
+             comment = $14, updated_at = now()
          WHERE id = $1`,
         [lineId, i + 1, ...values],
       );
@@ -1010,8 +1012,9 @@ async function saveLines(client: PoolClient, program: ProgramRow, lines: DraftLi
       const { rows } = await client.query<{ id: string }>(
         `INSERT INTO test_line (program_id, project_id, line_number, source_kind, test_hole_id,
                                 source_storage_unit_id, source_bulk_group_id, scope, sample_label,
-                                depth_mode, depth_from, depth_to, depth_unit, acknowledged_depths)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+                                depth_mode, depth_from, depth_to, depth_unit, acknowledged_depths,
+                                comment)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
         [program.id, program.project_id, i + 1, ...values],
       );
       lineId = rows[0]!.id;
@@ -1067,6 +1070,7 @@ export async function amendmentLineDiscrepancy(
     depth_to: line.depthTo === null ? null : String(line.depthTo),
     depth_unit: line.depthUnit,
     acknowledged_depths: line.acknowledgedDepths.map(depthKey),
+    comment: null,
     source_display_snapshot: null,
     coverage_captured_at: null,
     amendment_id: null,
@@ -1367,6 +1371,7 @@ export async function loadProgram(db: Db, row: ProgramRow): Promise<LabProgram> 
       depthTo: num(line.depth_to),
       depthUnit: line.depth_unit,
       acknowledgedDepths: line.acknowledged_depths,
+      comment: line.comment,
       tests: (tests.get(line.id) as LineTest[] | undefined) ?? [],
       unitIds: (choices.get(line.id) as string[] | undefined) ?? [],
       requests: requests.get(line.id) ?? [],

@@ -1,5 +1,5 @@
 import type { LabProgram, MeResponse, ProgramUnits, ProgramWork } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -70,6 +70,7 @@ const program = {
       depthTo: null,
       depthUnit: null,
       acknowledgedDepths: [],
+      comment: 'Run the hydrometer\non the finer half',
       tests: [],
       unitIds: [],
       requests: [
@@ -193,7 +194,7 @@ function stubApi() {
   );
 }
 
-function renderPage() {
+function renderPage(shown: LabProgram = program) {
   render(
     <SessionContext.Provider
       value={{
@@ -203,7 +204,7 @@ function renderPage() {
       }}
     >
       <MemoryRouter>
-        <WorkedProgram program={program} reload={vi.fn()} />
+        <WorkedProgram program={shown} reload={vi.fn()} />
       </MemoryRouter>
     </SessionContext.Provider>,
   );
@@ -231,6 +232,19 @@ describe('Program page (STRATA-87)', () => {
     expect(cancelled).toHaveTextContent('“Line 1 already covers moisture for this unit.”');
     // No results fields, ever.
     expect(screen.queryByLabelText(/result/i)).not.toBeInTheDocument();
+  });
+
+  it('STRATA-129: a line shows the requester’s comment for the lab; none shows nothing', async () => {
+    stubApi();
+    renderPage();
+    const line = await screen.findByRole('region', { name: /Line 1/ });
+    const comment = within(line).getByTestId('line-comment');
+    expect(comment).toHaveTextContent('Comment from Pat Example');
+    expect(comment).toHaveTextContent('Run the hydrometer on the finer half');
+    cleanup();
+    renderPage({ ...program, lines: [{ ...program.lines[0]!, comment: null }] });
+    await screen.findByRole('region', { name: /Line 1/ });
+    expect(screen.queryByTestId('line-comment')).not.toBeInTheDocument();
   });
 
   it('Review: the Lab Manager reviews on this page, with what is decided so far', async () => {

@@ -139,6 +139,7 @@ function line(
     depthTo: null,
     depthUnit: null,
     acknowledgedDepths: [],
+    comment: null,
     tests: tests.map(testOf),
     unitIds: [],
     requests: [],
@@ -194,6 +195,7 @@ function fakeServer(
         sampleLabel: (input.sampleLabel as string | null) ?? null,
         tests: input.testTypeIds as string[],
         unitIds: (input.unitIds as string[]) ?? [],
+        comment: (input.comment as string | null | undefined) ?? null,
       }),
     );
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -450,6 +452,38 @@ describe('Program editor: Lines and Grid share one edit state', () => {
       await within(screen.getByRole('region', { name: 'Line 1' })).findByText('BKT-2026-000021'),
     ).toBeVisible();
     expect(within(bar()).getByRole('button', { name: 'Submit to the lab' })).toBeEnabled();
+  });
+
+  it('STRATA-129: a line comment saves as you go; Grid view leaves it out', async () => {
+    const user = userEvent.setup();
+    const draft = program([line(1, { tests: [MC], comment: 'Keep the bag sealed' }), line(2)]);
+    const { calls } = fakeServer(draft);
+    renderEditor(me(), draft);
+    await screen.findByRole('heading', { level: 1, name: 'Draft lab program' });
+    const line1 = screen.getByRole('region', { name: 'Line 1' });
+    expect(within(line1).getByLabelText('Comment for the lab (optional)')).toHaveValue(
+      'Keep the bag sealed',
+    );
+    const box = within(screen.getByRole('region', { name: 'Line 2' })).getByLabelText(
+      'Comment for the lab (optional)',
+    );
+    await user.type(box, 'Run the hydrometer{Enter}on the finer half');
+    await waitFor(() => expect(calls('PATCH', `/${PROGRAM_ID}`).length).toBeGreaterThan(0), {
+      timeout: 3000,
+    });
+    await waitFor(
+      () =>
+        expect(calls('PATCH', `/${PROGRAM_ID}`).at(-1)).toMatchObject({
+          lines: [
+            { id: 'line-1', comment: 'Keep the bag sealed' },
+            { id: 'line-2', comment: 'Run the hydrometer\non the finer half' },
+          ],
+        }),
+      { timeout: 3000 },
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Grid' }));
+    expect(screen.queryByLabelText(/Comment for the lab/)).toBeNull();
   });
 
   it('+ Add test searches the catalogue by group; a template adds active tests and lists retired ones', async () => {

@@ -38,6 +38,8 @@ export type DepthMode = (typeof DEPTH_MODES)[number];
 
 export const SAMPLE_LABEL_MAX_LENGTH = 40;
 export const PROGRAM_NOTES_MAX_LENGTH = 2000;
+/** STRATA-129: a line's comment has the program notes' limit. */
+export const LINE_COMMENT_MAX_LENGTH = PROGRAM_NOTES_MAX_LENGTH;
 export const MAX_LINES_PER_PROGRAM = 200;
 
 /** How a frozen coverage row matched its line (program_scope_snapshot.matching_basis). */
@@ -66,6 +68,9 @@ export const MATCHING_BASIS_LABEL: Record<MatchingBasis, string> = {
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+/** Control characters a comment may not hold: all but tab, line feed and carriage return. */
+// eslint-disable-next-line no-control-regex
+const LINE_COMMENT_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const MAX_DEPTH = 999_999.99;
 const idSchema = z.uuid({ error: 'must be an ID' });
 
@@ -92,6 +97,23 @@ const depthValue = z
   })
   .nullish()
   .transform((value) => value ?? null);
+
+/**
+ * STRATA-129: the requester's optional comment on a sample line, for the lab. Trimmed; blank is
+ * none (null). Line breaks and tabs are kept, other control characters refused. Progress only:
+ * a comment is never a test result.
+ */
+export const lineCommentSchema = z
+  .string({ error: 'must be text' })
+  .trim()
+  .max(LINE_COMMENT_MAX_LENGTH, {
+    error: `must be at most ${LINE_COMMENT_MAX_LENGTH} characters`,
+  })
+  .refine((value) => !LINE_COMMENT_CONTROL.test(value), {
+    error: "can't contain control characters",
+  })
+  .nullish()
+  .transform((value) => (value ? value : null));
 
 export const labSourceRefSchema = z.strictObject({
   kind: z.enum(LAB_SOURCE_KINDS, { error: 'must be a sampling source kind' }),
@@ -135,6 +157,8 @@ export const draftLineInputSchema = z
     unitIds: uniqueIds('storage unit', 200).default([]),
     /** Depth variants of this sample identity the requester acknowledged, e.g. ["7.5 ft"]. */
     acknowledgedDepths: z.array(z.string().max(60)).max(50).default([]),
+    /** STRATA-129: the requester's comment for the lab; null (or omitted) for none. */
+    comment: lineCommentSchema,
   })
   .superRefine((line, ctx) => {
     const issue = (path: string, message: string, code: string) =>
@@ -327,6 +351,8 @@ export const labLineSchema = z.object({
   depthTo: z.number().nullable(),
   depthUnit: z.enum(['ft', 'm']).nullable(),
   acknowledgedDepths: z.array(z.string()),
+  /** STRATA-129: the requester's comment for the lab (frozen at submission); null for none. */
+  comment: z.string().nullable().default(null),
   /** Draft: tests picked, with current catalogue values. */
   tests: z.array(lineTestSchema),
   /** Draft: explicitly chosen units. */
