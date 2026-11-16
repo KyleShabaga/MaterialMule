@@ -88,6 +88,7 @@ describe.runIf(testDatabaseUrl)('migrate', { timeout: 30_000 }, () => {
       '0047_disposal_scan_intents',
       '0048_station_config',
       '0049_receipt_draft_close',
+      '0050_test_line_comment',
     ]);
     const second = await migrate(db.pool);
     expect(second.applied).toEqual([]);

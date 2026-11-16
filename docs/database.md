@@ -591,6 +591,9 @@ Receiving increment. Tested-unit removal ("Disposed after testing") is a separat
   standalone_unit / standalone_bulk_group, with the matching same-project FK) and a scope (all,
   grabs, spt, specific). Draft tests are in `test_line_test`, explicit unit choices in
   `test_line_unit_choice`. Lines and their children can change only while the program is a draft.
+  `comment` (STRATA-129, `0050_test_line_comment.sql`) is the requester's optional comment for the
+  lab: null for none, otherwise trimmed, 1–2000 characters, no control characters but line breaks
+  and tabs (proved in `schema-lab-line-comment.test.ts`); it freezes with the line at submission.
 - **Submission** (one transaction) freezes `program_scope_snapshot` (unit, receipt, project,
   included, `matching_basis`, display snapshots), the line's `source_display_snapshot`, and
   `test_request` rows with catalogue snapshots. Snapshots are append-only and accepted only while

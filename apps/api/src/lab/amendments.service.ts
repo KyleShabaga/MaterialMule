@@ -639,6 +639,7 @@ export class LabAmendmentsService {
         sample: line.input.identity ? sampleText(line.input.identity) : null,
         tests: line.input.testTypeIds.map((id) => catalogue.get(id)!.code),
         covered: line.coverage.filter((c) => c.included).map((c) => c.readableId),
+        comment: line.input.comment,
       })),
       includeLaterReceipts: [...laterByLine.entries()].map(([lineId, units]) => ({
         lineId,
@@ -756,8 +757,10 @@ export class LabAmendmentsService {
         `INSERT INTO test_line (program_id, project_id, line_number, source_kind, test_hole_id,
                                 source_storage_unit_id, source_bulk_group_id, scope, sample_label,
                                 depth_mode, depth_from, depth_to, depth_unit, acknowledged_depths,
-                                source_display_snapshot, coverage_captured_at, amendment_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now(), $16)
+                                source_display_snapshot, coverage_captured_at, amendment_id,
+                                comment)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now(), $16,
+                 $17)
          RETURNING id`,
         [
           programId,
@@ -776,6 +779,7 @@ export class LabAmendmentsService {
           line.input.acknowledgedDepths,
           line.display,
           amendmentId,
+          line.input.comment,
         ],
       );
       await insertCoverage(rows[0]!.id, line.coverage);
