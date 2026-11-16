@@ -295,8 +295,12 @@ describe('Move storage units (STRATA-80)', () => {
     const observer = new MutationObserver(count);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     await user.click(screen.getByRole('button', { name: 'Save 2 moves' }));
-    await waitFor(() =>
-      expect(screen.getByRole('alert', { name: '' }).textContent).toContain('All moves saved.'),
+    // Wait for the whole save under load: a test that ends mid-save leaves its queue sending
+    // through the next test's fetch stub (CI: the next test counted 2 moves).
+    await waitFor(
+      () =>
+        expect(screen.getByRole('alert', { name: '' }).textContent).toContain('All moves saved.'),
+      { timeout: 5000 },
     );
     observer.disconnect();
     count();
@@ -325,7 +329,7 @@ describe('Move storage units (STRATA-80)', () => {
     expect(screen.getAllByTestId('move-row')[0]).toHaveTextContent('BKT-2026-000125');
 
     await user.click(screen.getByRole('button', { name: 'Save 1 move' }));
-    expect(await screen.findByText('All moves saved.')).toBeInTheDocument();
+    expect(await screen.findByText('All moves saved.', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(moves).toHaveLength(1);
     expect(screen.getByText(/2 labels weren’t saved/)).toBeInTheDocument();
   });
