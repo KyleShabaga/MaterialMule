@@ -14,6 +14,17 @@ export function progressOf(item: WorklistItem) {
   return { done: p.done, total, percent: total === 0 ? 0 : Math.round((p.done / total) * 100) };
 }
 
+/**
+ * The progress words when a program has no tests left to count (STRATA-134: never "0 of 0 tests"
+ * with an empty bar): every test cancelled, or none at all. Null when there is progress to show.
+ */
+export function noProgressText(item: WorklistItem): string | null {
+  const p = testProgress(item.counts);
+  if (p.done + p.inProgress + p.notStarted > 0) return null;
+  if (p.cancelled === 0) return 'No tests';
+  return p.cancelled === 1 ? '1 test, cancelled' : `All ${p.cancelled} tests cancelled`;
+}
+
 export function oldestOpenText(item: WorklistItem): string {
   return item.oldestOpenSeconds === null
     ? 'Nothing open'

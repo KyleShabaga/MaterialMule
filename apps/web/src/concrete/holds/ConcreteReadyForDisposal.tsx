@@ -1,5 +1,6 @@
 import {
   CONCRETE_HOLD_KIND_LABEL,
+  formatRecordDate,
   type ConcreteDisposalReady,
   type ConcreteDisposalReadyRow,
 } from '@materialmule/shared';
@@ -99,7 +100,7 @@ export function ConcreteReadyForDisposal({ filter }: { filter?: ReactNode }) {
     },
     {
       header: 'Authorized',
-      cell: (r) => `${new Date(r.authorizedAt).toLocaleDateString()} by ${r.authorizedBy.name}`,
+      cell: (r) => `${formatRecordDate(r.authorizedAt)} by ${r.authorizedBy.name}`,
     },
     { header: 'Reason', cell: (r) => r.reason },
   ];

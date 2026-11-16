@@ -10,7 +10,7 @@ import { StageTag } from '@/components/strata/stage-tag';
 import { Button } from '@/components/ui/button';
 import { Item } from '@/components/ui/item';
 import { Progress } from '@/components/ui/progress';
-import { oldestOpenText, programHref, progressOf } from './program-facts';
+import { noProgressText, oldestOpenText, programHref, progressOf } from './program-facts';
 
 export function UrgentTag() {
   return <StageTag variant="outline" label="Urgent · Priority" icon={Flag} />;
@@ -24,6 +24,7 @@ export function UrgentTag() {
  */
 export function ProgramCard({ item, column }: { item: WorklistItem; column: WorkboardColumn }) {
   const { done, total, percent } = progressOf(item);
+  const noProgress = noProgressText(item);
   const tag = WORKBOARD_COLUMN_TAG[column];
   return (
     <Item
@@ -48,16 +49,20 @@ export function ProgramCard({ item, column }: { item: WorklistItem; column: Work
         <span className="shrink-0 font-mono">{item.project.projectNumber}</span>
         <span className="truncate text-muted-foreground">{item.project.name}</span>
       </p>
-      <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
-        <Progress
-          value={percent}
-          aria-label={`${done} of ${total} tests done`}
-          className="h-1.5 w-16 shrink-0"
-        />
-        <span className="tabular-nums">
-          {done} of {total} tests
+      {noProgress ? (
+        <span className="text-[13px] text-muted-foreground">{noProgress}</span>
+      ) : (
+        <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <Progress
+            value={percent}
+            aria-label={`${done} of ${total} tests done`}
+            className="h-1.5 w-16 shrink-0"
+          />
+          <span className="tabular-nums">
+            {done} of {total} tests
+          </span>
         </span>
-      </span>
+      )}
       <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <Clock aria-hidden="true" className="size-3.5" />
         {oldestOpenText(item)}

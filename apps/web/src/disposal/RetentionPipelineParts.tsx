@@ -112,7 +112,7 @@ interface ListProps {
   onChanged: () => void;
 }
 
-/** Coming up: three bands, then tested units (never in the bands). */
+/** Due and coming up: three bands, then tested units (never in the bands). */
 export function ComingUp({ data, today, openId, onOpenRow, onDecide }: ListProps) {
   const canDecideAny = data.rows.some((r) => r.canDecide) || data.canRequest;
   const decideLabel = data.rows.some((r) => r.canDecide) ? 'Decide' : 'Request';
@@ -652,7 +652,7 @@ export function DisposalListTab({ data, openId, onOpenRow, onChanged }: ListProp
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
         title={`Take ${plural(removing?.length ?? 0)} off the disposal list?`}
-        description="They go back to Coming up or Eligible. Nothing is disposed."
+        description="They go back to Due and coming up or Eligible. Nothing is disposed."
         ids={(removing ?? []).map((r) => r.readableId)}
         confirm="Take off the list"
         onConfirm={async (reason) => {

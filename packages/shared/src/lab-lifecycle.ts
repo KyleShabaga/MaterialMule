@@ -61,11 +61,12 @@ export interface ClosureEligibility {
 }
 
 const BLOCKER_PHRASE: Record<ClosureBlockerReason, [string, string]> = {
-  requested: ['test still Requested', 'tests still Requested'],
-  in_progress: ['test still In progress', 'tests still In progress'],
+  // The line words (web lab/format.ts TEST_STATE_WORDS), so the checklist and the line agree.
+  requested: ['test still Waiting', 'tests still Waiting'],
+  in_progress: ['test still In testing', 'tests still In testing'],
   completed: [
-    'test Completed but not yet reviewed or accepted',
-    'tests Completed but not yet reviewed or accepted',
+    'test Done but not yet reviewed or accepted',
+    'tests Done but not yet reviewed or accepted',
   ],
   review: ['test still in Review', 'tests still in Review'],
   cancelled_without_reason: [
@@ -145,11 +146,11 @@ export function closureBlockerLabel(blocker: ClosureBlocker): string {
         ? `In review — ${REVIEW_STATE_LABEL[blocker.reviewState]}`
         : 'In review';
     case 'requested':
-      return 'Requested';
+      return 'Waiting';
     case 'in_progress':
-      return 'In progress';
+      return 'In testing';
     case 'completed':
-      return 'Completed — review and acceptance still needed';
+      return 'Done — review and acceptance still needed';
     case 'cancelled_without_reason':
       return 'Cancelled without a recorded reason';
   }

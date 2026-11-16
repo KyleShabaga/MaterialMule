@@ -325,7 +325,7 @@ describe.runIf(testDatabaseUrl)(
       const received = await h.bucket({ hole: h.holes.a1 });
       expect(await surfaces(received.readableId)).toMatchObject({
         recordStatus: 'received',
-        stage: 'draft',
+        stage: 'storage',
         lifecycleStep: 'received',
         storageTerm: { term: null, source: 'unset' },
         neverTested: true,

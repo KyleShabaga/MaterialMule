@@ -33,6 +33,7 @@ import {
 import { ReceiverSelect } from '../../components/ReceiverSelect';
 import { DataTable, type DataTableColumn } from '../../components/strata/data-table';
 import { notifyError, notifySuccess } from '../../components/strata/toast';
+import { formatDateTime } from '../../lib/format';
 import { FactList, FactRow } from '../account/ProfilePanel';
 import { SettingsGroup, SettingsPanel } from '../modal/SettingsPanel';
 import {
@@ -772,7 +773,7 @@ function EquipmentDetailView({
                   <span className="font-medium">{ACTION_LABEL[event.action] ?? event.action}</span>
                   <span className="text-muted-foreground">
                     {' '}
-                    · {new Date(event.occurredAt).toLocaleString()} · {personText(event.changedBy)}
+                    · {formatDateTime(event.occurredAt)} · {personText(event.changedBy)}
                     {event.reason ? ` · ${event.reason}` : null}
                   </span>
                 </span>

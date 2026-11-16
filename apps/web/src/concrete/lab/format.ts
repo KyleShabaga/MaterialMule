@@ -1,5 +1,6 @@
 import { CONCRETE_HOLD_AGE, type ConcreteSpecimenAge } from '@materialmule/shared';
 import type { BadgeTone } from '../../components/app-ui';
+import { formatDateTime } from '../../lib/format';
 
 // Display helpers for the Concrete Lab workspace (MM-V2-C31).
 
@@ -40,17 +41,8 @@ export function setLabel(identity: {
 export const ageLabel = (age: ConcreteSpecimenAge | null) =>
   age === null ? '—' : age === CONCRETE_HOLD_AGE ? 'HOLD' : `${age} d`;
 
-const LAB_DATE_TIME = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
-/** An instant in the lab's time zone, e.g. "Nov 2, 2026, 9:00 a.m.". */
-export const labDateTime = (iso: string) => LAB_DATE_TIME.format(new Date(iso));
+/** An instant in the lab's time zone, e.g. "2026-11-02 9:00 AM" (DESIGN.md › Dates). */
+export const labDateTime = (iso: string) => formatDateTime(iso);
 
 // ---- Strata round 7 (STRATA-95 part B) --------------------------------------------------------
 

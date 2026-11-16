@@ -33,6 +33,7 @@ import { notifySuccess } from '../../components/strata/toast';
 import { confirmPhysicalPrint } from '../../printing/api';
 import { PrintJobStatus } from '../../printing/PrintJobStatus';
 import { PRINT_POLL_MS } from '../../printing/usePrintJob';
+import { formatDateTime } from '../../lib/format';
 import { useMe } from '../../session/context';
 import { fetchLocation, fetchLocationLabelPreview, printLocationLabel } from './api';
 import { MANAGE_PERMISSION, inventoryLink, shelfLink } from './location-links';
@@ -54,17 +55,8 @@ type Load =
   | { state: 'error'; message: string }
   | { state: 'ready'; detail: LocationDetail };
 
-const timeFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
 function when(iso: string) {
-  return <time dateTime={iso}>{timeFormat.format(new Date(iso))}</time>;
+  return <time dateTime={iso}>{formatDateTime(iso)}</time>;
 }
 
 function personText(person: { initials: string | null; name: string | null }): string {
