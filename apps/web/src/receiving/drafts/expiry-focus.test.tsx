@@ -1,5 +1,13 @@
 import type { MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  cleanup,
+  configure,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -120,6 +128,10 @@ async function closeTab() {
   cleanup();
   await draftWritesSettled();
 }
+
+// The first find renders the whole app, restores the session and the IndexedDB draft and runs
+// the draft clean-up; leave room when many test files run at once (seen on CI).
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
