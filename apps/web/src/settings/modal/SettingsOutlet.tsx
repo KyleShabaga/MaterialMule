@@ -1,7 +1,10 @@
-import { useContext, useRef, type ReactNode } from 'react';
+import { Suspense, useContext, useRef, type ReactNode } from 'react';
 import { UNSAFE_LocationContext, useLocation, useOutlet, type Location } from 'react-router';
-import { SettingsModal } from './SettingsModal';
+import { lazyPage } from '../../lib/lazy-page';
 import { isSettingsPath } from './registry';
+
+// Settings is its own chunk (STRATA-132); the page behind stays while it loads.
+const SettingsModal = lazyPage(() => import('./SettingsModal'), 'SettingsModal');
 
 interface Background {
   outlet: ReactNode;
@@ -48,11 +51,13 @@ export function SettingsOutlet() {
         {behind ? behind.outlet : outlet}
       </UNSAFE_LocationContext.Provider>
       {open ? (
-        <SettingsModal
-          background={behind ? (behind.locationContext.location as Location) : null}
-          canGoBack={behind?.enteredBy === 'PUSH'}
-          opener={behind?.opener ?? null}
-        />
+        <Suspense fallback={null}>
+          <SettingsModal
+            background={behind ? (behind.locationContext.location as Location) : null}
+            canGoBack={behind?.enteredBy === 'PUSH'}
+            opener={behind?.opener ?? null}
+          />
+        </Suspense>
       ) : null}
     </>
   );

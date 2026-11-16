@@ -35,6 +35,20 @@
   .context-row-end {
     justify-content: flex-end;
   }
+
+  /* A page's code loading (STRATA-132): hidden for 300 ms so a cached chunk never flashes it. */
+  .route-loading {
+    animation: route-loading-in 150ms ease-out 300ms both;
+  }
+
+  @keyframes route-loading-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
 /* Windows contrast themes (MTR-131): forced colours flatten the sidebar's accent fill, so the

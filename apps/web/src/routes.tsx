@@ -1,69 +1,156 @@
-import { Navigate, type RouteObject } from 'react-router';
+import { Suspense } from 'react';
+import { Navigate, Outlet, type RouteObject } from 'react-router';
 import { FEATURES } from './features';
-import { InboxItemPage } from './notifications/InboxItemPage';
-import { InboxPage } from './notifications/InboxPage';
-import { InboxRedirect } from './notifications/InboxRedirect';
-import { DisposalPage } from './disposal/DisposalPage';
 import { DisposalScanPage } from './disposal/DisposalScanPage';
-import { InventoryPage } from './inventory/InventoryPage';
-import { LabTestingLayout } from './lab/LabTestingLayout';
-import { ProgramDetailPage } from './lab/ProgramDetailPage';
-import { ProgramEditor } from './lab/ProgramEditor';
-import { ProgramsPage } from './lab/ProgramsPage';
-import { SampleTagsPage } from './lab/SampleTagsPage';
-import { WorkedProgram } from './lab/WorkedProgram';
-import { WorklistPage } from './lab/WorklistPage';
-import { ConcreteWorklistPage } from './concrete/worklist/ConcreteWorklistPage';
-import { HoldManagementPage } from './concrete/holds/HoldManagementPage';
+import { PublicHelpGate } from './help/public-help';
 import { InventoryRedirect, StorageUnitRedirect } from './inventory/redirects';
-import { ShelfPage } from './inventory/ShelfPage';
-import { StorageUnitDetailPage } from './inventory/StorageUnitDetailPage';
 import { AppLayout } from './layout/AppLayout';
-import { RecordingPersonLayout, RequireRecordingPerson } from './session/recording-person';
-import { WHO_IS_WORKING_PATH } from './session/recording-person-store';
-import { WhoIsWorkingPage } from './session/WhoIsWorkingPage';
-import { AdminPage } from './settings/admin/AdminLayout';
-import { DashboardPage } from './pages/DashboardPage';
-import { MicrosoftCallbackPage } from './pages/MicrosoftCallbackPage';
-import { SignInPage } from './pages/SignInPage';
-import { LabelPrintPage } from './printing/LabelPrintPage';
-import { ProjectLayout } from './projects/ProjectLayout';
-import { ProjectOverviewTab } from './projects/ProjectOverviewTab';
-import { ProjectProgramsTab } from './projects/ProjectProgramsTab';
-import { ProjectUnitsTab } from './projects/ProjectUnitsTab';
-import { ProjectsPage } from './projects/ProjectsPage';
-import {
-  ProjectConcreteMixesRedirect,
-  ProjectConcreteRedirect,
-  ProjectConcreteTab,
-} from './concrete/project/ProjectConcretePage';
-import { MixDetailPage } from './concrete/project/MixDetailPage';
-import { PropagationReviewPage } from './concrete/project/PropagationReviewPage';
-import { TeamPermissionsPage } from './projects/TeamPermissionsPage';
+import { FullPageLoading } from './layout/route-loading';
+import { lazyPage } from './lib/lazy-page';
+import { MovePage } from './moves/MovePage';
+import { InboxRedirect } from './notifications/InboxRedirect';
 import {
   AccessPendingPage,
   ErrorPage,
   NotFoundPage,
   RequireActiveSession,
 } from './pages/simple-pages';
-import { HelpPage } from './pages/HelpPage';
-import { PublicHelpGate } from './help/public-help';
-import { ReceiveSamplesPage } from './receiving/ReceiveSamplesPage';
-import { ReceiptDetailPage } from './receiving-log/ReceiptDetailPage';
-import { ReceivingLogPage } from './receiving-log/ReceivingLogPage';
-import { MovePage } from './moves/MovePage';
 import { ScanPage } from './scanning/ScanPage';
-import { TestSignInPage } from './TestSignInPage';
-import { IssueReportPage } from './concrete-review/IssueReportPage';
-import { ReviewQueuePage } from './concrete-review/ReviewQueuePage';
-import { ReviewReportPage } from './concrete-review/ReviewReportPage';
-import { StrengthReportPage } from './concrete-review/StrengthReportPage';
-import { ConcreteDashboardPage } from './concrete/lab/ConcreteDashboardPage';
-import { ConcreteReceivingPage } from './concrete/lab/ConcreteReceivingPage';
-import { ConcreteSearchPage, SpecimenLookupPage } from './concrete/lab/ConcreteSearchPage';
-import { SetLookupPage } from './concrete/lab/SetLookupPage';
-import { SearchPage } from './search/SearchPage';
-import { TestingTablePage } from './concrete/testing/TestingTablePage';
+import { RecordingPersonLayout, RequireRecordingPerson } from './session/recording-person';
+import { WHO_IS_WORKING_PATH } from './session/recording-person-store';
+import { WhoIsWorkingPage } from './session/WhoIsWorkingPage';
+
+// STRATA-132: each area is its own chunk, loaded on first visit. The shell (session, LAB station
+// picker, sidebar, top bar) and the offline paths stay in the main chunk: Scan, Move and the
+// disposal scan queue their work on the device, so they must open with no network at all.
+// Pages in the shell suspend inside AppLayout (a page skeleton). Navigations run in a transition,
+// so the page you were on stays on screen until the next one is ready.
+
+// Sign-in
+const SignInPage = lazyPage(() => import('./pages/SignInPage'), 'SignInPage');
+const TestSignInPage = lazyPage(() => import('./TestSignInPage'), 'TestSignInPage');
+const MicrosoftCallbackPage = lazyPage(
+  () => import('./pages/MicrosoftCallbackPage'),
+  'MicrosoftCallbackPage',
+);
+// Today, Inbox, Help and Search
+const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage');
+const InboxPage = lazyPage(() => import('./notifications/InboxPage'), 'InboxPage');
+const InboxItemPage = lazyPage(() => import('./notifications/InboxItemPage'), 'InboxItemPage');
+const HelpPage = lazyPage(() => import('./pages/HelpPage'), 'HelpPage');
+const SearchPage = lazyPage(() => import('./search/SearchPage'), 'SearchPage');
+// Sample storage, receiving and labels
+const InventoryPage = lazyPage(() => import('./inventory/InventoryPage'), 'InventoryPage');
+const ShelfPage = lazyPage(() => import('./inventory/ShelfPage'), 'ShelfPage');
+const StorageUnitDetailPage = lazyPage(
+  () => import('./inventory/StorageUnitDetailPage'),
+  'StorageUnitDetailPage',
+);
+const ReceivingLogPage = lazyPage(
+  () => import('./receiving-log/ReceivingLogPage'),
+  'ReceivingLogPage',
+);
+const ReceiptDetailPage = lazyPage(
+  () => import('./receiving-log/ReceiptDetailPage'),
+  'ReceiptDetailPage',
+);
+const ReceiveSamplesPage = lazyPage(
+  () => import('./receiving/ReceiveSamplesPage'),
+  'ReceiveSamplesPage',
+);
+const LabelPrintPage = lazyPage(() => import('./printing/LabelPrintPage'), 'LabelPrintPage');
+// Retention and disposal
+const DisposalPage = lazyPage(() => import('./disposal/DisposalPage'), 'DisposalPage');
+// Projects
+const ProjectsPage = lazyPage(() => import('./projects/ProjectsPage'), 'ProjectsPage');
+const ProjectLayout = lazyPage(() => import('./projects/ProjectLayout'), 'ProjectLayout');
+const ProjectOverviewTab = lazyPage(
+  () => import('./projects/ProjectOverviewTab'),
+  'ProjectOverviewTab',
+);
+const ProjectUnitsTab = lazyPage(() => import('./projects/ProjectUnitsTab'), 'ProjectUnitsTab');
+const ProjectProgramsTab = lazyPage(
+  () => import('./projects/ProjectProgramsTab'),
+  'ProjectProgramsTab',
+);
+const TeamPermissionsPage = lazyPage(
+  () => import('./projects/TeamPermissionsPage'),
+  'TeamPermissionsPage',
+);
+// Lab testing
+const LabTestingLayout = lazyPage(() => import('./lab/LabTestingLayout'), 'LabTestingLayout');
+const WorklistPage = lazyPage(() => import('./lab/WorklistPage'), 'WorklistPage');
+const ProgramsPage = lazyPage(() => import('./lab/ProgramsPage'), 'ProgramsPage');
+const ProgramEditor = lazyPage(() => import('./lab/ProgramEditor'), 'ProgramEditor');
+const ProgramDetailPage = lazyPage(() => import('./lab/ProgramDetailPage'), 'ProgramDetailPage');
+const WorkedProgram = lazyPage(() => import('./lab/WorkedProgram'), 'WorkedProgram');
+const SampleTagsPage = lazyPage(() => import('./lab/SampleTagsPage'), 'SampleTagsPage');
+// Concrete: the project tab, mixes, lab, breaks and holds
+const ProjectConcreteTab = lazyPage(
+  () => import('./concrete/project/ProjectConcretePage'),
+  'ProjectConcreteTab',
+);
+const ProjectConcreteRedirect = lazyPage(
+  () => import('./concrete/project/ProjectConcretePage'),
+  'ProjectConcreteRedirect',
+);
+const ProjectConcreteMixesRedirect = lazyPage(
+  () => import('./concrete/project/ProjectConcretePage'),
+  'ProjectConcreteMixesRedirect',
+);
+const MixDetailPage = lazyPage(() => import('./concrete/project/MixDetailPage'), 'MixDetailPage');
+const PropagationReviewPage = lazyPage(
+  () => import('./concrete/project/PropagationReviewPage'),
+  'PropagationReviewPage',
+);
+const ConcreteWorklistPage = lazyPage(
+  () => import('./concrete/worklist/ConcreteWorklistPage'),
+  'ConcreteWorklistPage',
+);
+const HoldManagementPage = lazyPage(
+  () => import('./concrete/holds/HoldManagementPage'),
+  'HoldManagementPage',
+);
+const ConcreteDashboardPage = lazyPage(
+  () => import('./concrete/lab/ConcreteDashboardPage'),
+  'ConcreteDashboardPage',
+);
+const ConcreteReceivingPage = lazyPage(
+  () => import('./concrete/lab/ConcreteReceivingPage'),
+  'ConcreteReceivingPage',
+);
+const ConcreteSearchPage = lazyPage(
+  () => import('./concrete/lab/ConcreteSearchPage'),
+  'ConcreteSearchPage',
+);
+const SpecimenLookupPage = lazyPage(
+  () => import('./concrete/lab/ConcreteSearchPage'),
+  'SpecimenLookupPage',
+);
+const SetLookupPage = lazyPage(() => import('./concrete/lab/SetLookupPage'), 'SetLookupPage');
+const TestingTablePage = lazyPage(
+  () => import('./concrete/testing/TestingTablePage'),
+  'TestingTablePage',
+);
+// Concrete review and strength reports
+const ReviewQueuePage = lazyPage(
+  () => import('./concrete-review/ReviewQueuePage'),
+  'ReviewQueuePage',
+);
+const ReviewReportPage = lazyPage(
+  () => import('./concrete-review/ReviewReportPage'),
+  'ReviewReportPage',
+);
+const IssueReportPage = lazyPage(
+  () => import('./concrete-review/IssueReportPage'),
+  'IssueReportPage',
+);
+const StrengthReportPage = lazyPage(
+  () => import('./concrete-review/StrengthReportPage'),
+  'StrengthReportPage',
+);
+// Lab admin
+const AdminPage = lazyPage(() => import('./settings/admin/AdminLayout'), 'AdminPage');
 
 const featureRoutes: RouteObject[] = [
   ...(FEATURES.labTesting
@@ -131,6 +218,13 @@ const featureRoutes: RouteObject[] = [
 
 export const routes: RouteObject[] = [
   {
+    // Whole-window pages (sign-in, label sheets) load behind the session's own loader. Pages in
+    // the shell have their own boundary in AppLayout, so the shell never blanks.
+    element: (
+      <Suspense fallback={<FullPageLoading />}>
+        <Outlet />
+      </Suspense>
+    ),
     errorElement: <ErrorPage />,
     children: [
       { path: '/sign-in', element: <SignInPage /> },

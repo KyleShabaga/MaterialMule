@@ -309,7 +309,7 @@ describe('dashboard', () => {
     expect(within(account).getByRole('button', { name: /Account menu$/ })).toBeInTheDocument();
     // Strata Today (STRATA-23): the Lab Manager's shortcuts.
     expect(
-      within(screen.getByRole('navigation', { name: 'Shortcuts' })).getByRole('link', {
+      within(await screen.findByRole('navigation', { name: 'Shortcuts' })).getByRole('link', {
         name: 'Retention due',
       }),
     ).toHaveAttribute('href', '/disposal-retention');

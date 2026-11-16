@@ -253,7 +253,7 @@ describe('LabelPrintPage', () => {
     renderRoute('/labels/print/receipt/r1');
 
     expect(await screen.findByRole('heading', { name: 'Print labels' })).toBeInTheDocument();
-    expect(screen.getByText('Labels for the 3 units on this receipt.')).toBeInTheDocument();
+    expect(await screen.findByText('Labels for the 3 units on this receipt.')).toBeInTheDocument();
     const sheet = screen.getByLabelText('Labels to print');
     expect(
       within(sheet)
