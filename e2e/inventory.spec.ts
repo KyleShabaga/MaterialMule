@@ -287,10 +287,15 @@ test('MM-T46 T2: with a search active, two quick changes are both kept (5 rounds
 
     await expect(page.getByRole('group', { name: 'Filter Type' })).toHaveCount(0);
     await expect(count).toHaveText('5 storage units');
-    const url = new URL(page.url());
-    expect(url.searchParams.get('search'), `round ${round}`).toBe(data.tag);
-    expect(url.searchParams.get('sort'), `round ${round}`).toBe('id');
-    expect(url.searchParams.get('dir'), `round ${round}`).toBe('asc');
-    expect(url.searchParams.get('type'), `round ${round}`).toBeNull();
+    // The URL follows the state; wait for it rather than reading it once.
+    await expect(page, `round ${round}`).toHaveURL((url) => {
+      const query = url.searchParams;
+      return (
+        query.get('search') === data.tag &&
+        query.get('sort') === 'id' &&
+        query.get('dir') === 'asc' &&
+        query.get('type') === null
+      );
+    });
   }
 });

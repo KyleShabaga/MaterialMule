@@ -276,6 +276,49 @@ describe('Disposal scan-out (STRATA-92)', () => {
     );
   }, 15_000);
 
+  it('a removed scan never comes back from an older read of this computer’s list', async () => {
+    setOnline(true);
+    const user = userEvent.setup();
+    const fetchMock = renderScan(me(), (url, body) =>
+      url === '/api/disposal/scan/check'
+        ? json(200, { asOf: '2027-10-24', results: body!.intents.map(checkFor) })
+        : json(200, { open: 0 }),
+    );
+    await scan(user, 'BKT-2026-000002');
+    const row = await within(await rows()).findByRole('listitem', { name: 'BKT-2026-000002' });
+    await within(row).findByText(/Blocked: On hold/);
+    await waitFor(() =>
+      expect(calls(fetchMock, '/api/disposal/scan/check').length).toBeGreaterThan(0),
+    );
+
+    // The next read of the list (the second scan's) is held until after Remove has finished.
+    const list = indexedDbScanStore.list.bind(indexedDbScanStore);
+    let release: () => void = () => undefined;
+    let gate: Promise<void> | null = new Promise((resolve) => (release = resolve));
+    vi.spyOn(indexedDbScanStore, 'list').mockImplementation(async () => {
+      const result = await list();
+      const wait = gate;
+      gate = null;
+      if (wait) await wait;
+      return result;
+    });
+    await scan(user, 'BKT-2026-000001');
+    await user.click(within(row).getByRole('button', { name: 'Remove scan of BKT-2026-000002' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('listitem', { name: 'BKT-2026-000002' })).toBeNull(),
+    );
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole('listitem', { name: 'BKT-2026-000002' })).toBeNull();
+    await within(await rows()).findByRole('listitem', { name: 'BKT-2026-000001' });
+    expect(screen.queryByRole('listitem', { name: 'BKT-2026-000002' })).toBeNull();
+    await waitFor(() =>
+      expect(calls(fetchMock, '/api/disposal/scan/check').length).toBeGreaterThan(1),
+    );
+  }, 15_000);
+
   it('offline, scans queue as intents and nothing is sent or disposed; on reconnect they are checked, never recorded without the confirmation', async () => {
     setOnline(false);
     const user = userEvent.setup();
