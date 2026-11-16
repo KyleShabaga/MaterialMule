@@ -184,7 +184,7 @@ describe.runIf(testDatabaseUrl)('pins and recents API (Strata 1C)', () => {
           available: true,
           label: 'BKT-2026-000014',
           name: 'DEMO-2601 · TH26-01, TH26-02',
-          stage: 'draft',
+          stage: 'storage',
           href: '/sample-storage/BKT-2026-000014',
         },
         {

@@ -111,7 +111,8 @@ export type EffectiveStorageTerm = z.infer<typeof effectiveStorageTermSchema>;
 
 /**
  * A storage unit's record status, derived on the server:
- * - `received`: confirmed (ID issued) but not yet put away; shown in the draft hue (STRATA-58).
+ * - `received`: confirmed (ID issued) but not yet put away. Storage hue: it has an ID and is in
+ *   custody; the draft hue is only for records with no ID yet (STRATA-134).
  * - `in_lab`: checked out to the lab.
  * - `short_term` / `long_term`: on a shelf; the term follows the location's storage term.
  * - `retention_due` / `retention_overdue`: stored and past (or at) its retain-until date.
@@ -150,7 +151,7 @@ export const STORAGE_UNIT_SHELF_CELL_LABELS: Record<StorageUnitRecordStatus, str
 };
 
 export const STORAGE_UNIT_RECORD_STATUS_STAGE: Record<StorageUnitRecordStatus, StageKey> = {
-  received: 'draft',
+  received: 'storage',
   in_lab: 'lab',
   short_term: 'storage',
   long_term: 'storage',

@@ -511,9 +511,9 @@ describe('StaffPage', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent);
       expect(items).toEqual([
-        'Approved by Avery Admin on Oct 20, 2026',
-        'Disabled by Avery Admin on Oct 22, 2026: On leave',
-        'Re-enabled by Sam Admin on Oct 24, 2026',
+        'Approved by Avery Admin on 2026-10-20',
+        'Disabled by Avery Admin on 2026-10-22: On leave',
+        'Re-enabled by Sam Admin on 2026-10-24',
       ]);
     });
   });

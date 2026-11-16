@@ -98,8 +98,8 @@ test('T6: closure is blocked until every test is resolved; the Lead Project Engi
   await expect(header).toContainText(/In lab · (Pull units|Testing)/);
   const close = header.getByRole('button', { name: 'Close program' });
   await expect(close).toBeDisabled();
-  await expect(close).toHaveAccessibleDescription('1 test still Requested');
-  await expect(closure(page)).toContainText('Closure checklist: 1 test still Requested');
+  await expect(close).toHaveAccessibleDescription('1 test still Waiting');
+  await expect(closure(page)).toContainText('Closure checklist: 1 test still Waiting');
   await expect(closure(page)).toContainText(`Line 1 · ${code}`);
 
   // Cancel the test with a required reason: cancelled resolves it, without acceptance.

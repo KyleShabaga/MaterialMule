@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatDateTime } from '../lib/format';
 import { confirmPhysicalPrint, fetchPrintHistory } from './api';
 import { PrintJobStatus } from './PrintJobStatus';
 import { PrintLabelsPanel } from './PrintLabelsPanel';
@@ -26,15 +27,6 @@ type History =
   | { state: 'loading' }
   | { state: 'error'; message: string }
   | { state: 'ready'; history: PrintHistoryResponse };
-
-const timeFormat = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
 
 /**
  * "LAB for JS · Jordan Smith": the account, and the receiver as they were when the job was
@@ -170,9 +162,7 @@ export function StorageUnitLabelsSection({
               {jobs.map((job) => (
                 <TableRow key={job.id} className="align-top">
                   <TableCell>
-                    <time dateTime={job.createdAt}>
-                      {timeFormat.format(new Date(job.createdAt))}
-                    </time>
+                    <time dateTime={job.createdAt}>{formatDateTime(job.createdAt)}</time>
                   </TableCell>
                   <TableCell>{job.kind === 'reprint' ? 'Reprint' : 'Initial'}</TableCell>
                   <TableCell className="whitespace-normal">{who(job)}</TableCell>

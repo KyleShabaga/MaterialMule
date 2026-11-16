@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { openAge } from '../format';
 import { UrgentTag } from './ProgramCard';
-import { programHref, progressOf } from './program-facts';
+import { noProgressText, programHref, progressOf } from './program-facts';
 
 const COLUMNS: readonly DataTableColumn<WorklistItem>[] = [
   {
@@ -60,6 +60,8 @@ const COLUMNS: readonly DataTableColumn<WorklistItem>[] = [
     width: '9rem',
     cell: (item) => {
       const { done, total, percent } = progressOf(item);
+      const none = noProgressText(item);
+      if (none) return <span className="text-muted-foreground">{none}</span>;
       return (
         <span className="flex items-center gap-2">
           <Progress

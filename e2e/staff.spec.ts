@@ -38,7 +38,7 @@ test('an admin approves a pending applicant', async ({ page }, testInfo) => {
   // MTR-12: the drawer says who approved, disabled and re-enabled them, and when. Approve and
   // re-enable take no reason; disable needs one, given inline.
   const history = drawer.getByRole('list', { name: 'Access history' });
-  await expect(history.getByRole('listitem')).toHaveText([/^Approved by .+ on .+\d{4}$/]);
+  await expect(history.getByRole('listitem')).toHaveText([/^Approved by .+ on \d{4}-\d{2}-\d{2}$/]);
   await drawer.getByRole('button', { name: 'Disable access…' }).click();
   const confirm = drawer.getByRole('group', { name: `Disable ${applicant}'s access` });
   await confirm.getByRole('textbox', { name: 'Reason' }).fill('Example leave of absence');
@@ -47,7 +47,7 @@ test('an admin approves a pending applicant', async ({ page }, testInfo) => {
   await expect(history.getByRole('listitem')).toHaveText([
     /^Approved by .+ on /,
     /^Disabled by .+ on .+: Example leave of absence$/,
-    /^Re-enabled by .+ on .+\d{4}$/,
+    /^Re-enabled by .+ on \d{4}-\d{2}-\d{2}$/,
   ]);
 
   // The directory now lists them as active.

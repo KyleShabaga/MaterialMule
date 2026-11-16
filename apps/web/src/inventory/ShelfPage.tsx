@@ -376,7 +376,8 @@ function ReadyShelf({
               {capacity === null ? ' · Capacity not set' : ''}
             </p>
             <p className="text-sm">
-              {storageTermText(term)}
+              {/* Units on a lab or the receiving location read In lab or Received instead. */}
+              {storageTermText(term, location.kind !== 'lab' && location.kind !== 'receiving_lab')}
               {term?.source === 'inherited' && term.fromLocation ? (
                 <span className="text-muted-foreground">
                   {' '}

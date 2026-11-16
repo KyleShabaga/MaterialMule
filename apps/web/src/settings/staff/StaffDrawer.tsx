@@ -137,7 +137,7 @@ export function StaffDrawerBody({
           <>
             <dt className="text-muted-foreground">Approved</dt>
             <dd>
-              {dateOnly.format(new Date(approved.at))}
+              {dateOnly(approved.at)}
               {approved.byName ? ` by ${approved.byName}` : ''}
             </dd>
           </>

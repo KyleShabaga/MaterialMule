@@ -1,5 +1,5 @@
 import type { StageKey } from '@materialmule/shared';
-import { Check } from 'lucide-react';
+import { Check, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { STAGE_MARK_BG, STAGE_MARK_RING, STAGE_SOLID_CLASS, STAGE_TAG_CLASS } from './stage';
 
@@ -16,7 +16,7 @@ export interface LifecycleStep {
 /** Storage unit lifecycle in Kyle's order (2026-11-12): lab testing first, then storage terms. */
 // eslint-disable-next-line react-refresh/only-export-components -- step lists belong with the track
 export const STORAGE_UNIT_STEPS: readonly LifecycleStep[] = [
-  { key: 'received', name: 'Received', stage: 'draft' },
+  { key: 'received', name: 'Received', stage: 'storage' },
   { key: 'in_lab', name: 'In lab', stage: 'lab' },
   { key: 'short_term', name: 'Short-term storage', short: 'Short-term', stage: 'storage' },
   { key: 'long_term', name: 'Long-term storage', short: 'Long-term', stage: 'storage' },
@@ -107,7 +107,10 @@ export function LifecycleTrack({
                     'size-2 shrink-0 rounded-[1px]',
                     state === 'future'
                       ? 'border border-input bg-transparent'
-                      : cn(STAGE_MARK_BG[step.stage], 'forced-colors:bg-[CanvasText]'),
+                      : state === 'skipped'
+                        ? // Passed without doing (STRATA-134): a dashed outline, never a filled step.
+                          'border border-dashed border-muted-foreground bg-transparent'
+                        : cn(STAGE_MARK_BG[step.stage], 'forced-colors:bg-[CanvasText]'),
                     state === 'current' &&
                       cn(
                         'ring-2 ring-offset-2 ring-offset-background',
@@ -151,7 +154,11 @@ export function LifecycleTrack({
               // Squared segments (2 px corners); forced-colors keeps a CanvasText edge.
               'flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-sm px-2 text-[12px] font-semibold forced-colors:border forced-colors:border-[CanvasText]',
               state === 'future' && 'bg-muted font-medium text-muted-foreground',
-              (state === 'past' || state === 'skipped') && STAGE_TAG_CLASS[step.stage],
+              state === 'past' && STAGE_TAG_CLASS[step.stage],
+              // Passed without doing (STRATA-134): neither a done step (stage colour and check) nor a
+              // future one; a dashed muted segment with a minus, and "skipped" for screen readers.
+              state === 'skipped' &&
+                'border border-dashed border-muted-foreground/60 bg-transparent font-medium text-muted-foreground',
               state === 'current' &&
                 cn(
                   STAGE_SOLID_CLASS[step.stage],
@@ -160,6 +167,7 @@ export function LifecycleTrack({
             )}
           >
             {state === 'past' ? <Check aria-hidden="true" className="size-3 shrink-0" /> : null}
+            {state === 'skipped' ? <Minus aria-hidden="true" className="size-3 shrink-0" /> : null}
             {short ? (
               <span className="truncate" title={step.name}>
                 <span aria-hidden="true">{short}</span>

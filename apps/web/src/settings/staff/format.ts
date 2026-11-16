@@ -1,4 +1,10 @@
-import type { StaffMember, StaffStatus, StaffStatusChange } from '@materialmule/shared';
+import {
+  formatRecordDate,
+  type StaffMember,
+  type StaffStatus,
+  type StaffStatusChange,
+} from '@materialmule/shared';
+import { formatDateTime } from '../../lib/format';
 
 // Words and dates shared by the Staff table and drawer.
 
@@ -15,16 +21,9 @@ export const ACCOUNT_LABELS: Record<StaffMember['accountType'], string> = {
   test: 'Test',
 };
 
-const dateTime = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
-export const when = (iso: string | null) => (iso ? dateTime.format(new Date(iso)) : 'Never');
-export const dateOnly = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Edmonton',
-  dateStyle: 'medium',
-});
+export const when = (iso: string | null) => (iso ? formatDateTime(iso) : 'Never');
+/** The lab's calendar date of an instant, 2026-11-15 (DESIGN.md › Dates). */
+export const dateOnly = (iso: string) => formatRecordDate(iso);
 
 const STATUS_CHANGE_LABELS: Record<StaffStatusChange['change'], string> = {
   approved: 'Approved',
@@ -36,7 +35,7 @@ const STATUS_CHANGE_LABELS: Record<StaffStatusChange['change'], string> = {
 export function statusChangeText(change: StaffStatusChange): string {
   const by = change.byName ? ` by ${change.byName}` : '';
   const reason = change.reason ? `: ${change.reason}` : '';
-  return `${STATUS_CHANGE_LABELS[change.change]}${by} on ${dateOnly.format(new Date(change.at))}${reason}`;
+  return `${STATUS_CHANGE_LABELS[change.change]}${by} on ${dateOnly(change.at)}${reason}`;
 }
 
 /** The latest approval, for the drawer's facts. */
@@ -50,5 +49,5 @@ export function disabledText(member: StaffMember): string {
   if (!change) return member.disabledReason ?? '—';
   const by = change.byName ? ` by ${change.byName}` : '';
   const reason = change.reason ?? member.disabledReason;
-  return `${dateOnly.format(new Date(change.at))}${by}${reason ? `: ${reason}` : ''}`;
+  return `${dateOnly(change.at)}${by}${reason ? `: ${reason}` : ''}`;
 }
