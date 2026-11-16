@@ -1,4 +1,4 @@
-import type { InventoryItem, MeResponse, MoveRequest } from '@materialmule/shared';
+import type { InventoryListItem, MeResponse, MoveRequest } from '@materialmule/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -31,7 +31,7 @@ const PROJECT = {
   client: 'Example Client',
 };
 
-function item(unit: typeof U1, overrides: Partial<InventoryItem> = {}): InventoryItem {
+function item(unit: typeof U1, overrides: Partial<InventoryListItem> = {}): InventoryListItem {
   return {
     id: unit.id,
     readableId: unit.readableId,
@@ -87,7 +87,7 @@ function Harness({
   density = 'comfortable',
 }: {
   accountId: string;
-  items: InventoryItem[];
+  items: InventoryListItem[];
   density?: 'comfortable' | 'compact';
 }) {
   const pendingMoves = usePendingMoves(accountId);
@@ -117,6 +117,44 @@ describe('Sample Storage conflict and Pending markers (MM-T81)', () => {
       expect(row(U2.readableId).queryByText('Location conflict')).toBeNull();
       unmount();
     }
+  });
+
+  it('MM-T28: a conflicted row names the other location it was also scanned on', () => {
+    render(
+      <MemoryRouter>
+        <StorageUnitTable
+          items={[
+            item(U1, {
+              location: { id: C1.id, code: C1.code, name: C1.name },
+              locationPath: ['Warehouse C1'],
+              openConflict: true,
+              conflictLocation: { code: C2.code, name: C2.name },
+            }),
+            item(U2, { conflictLocation: null }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    // The saved location first, then the other scan in place of the path.
+    expect(row(U1.readableId).getByText(C1.code)).toBeVisible();
+    const also = row(U1.readableId).getByTestId('conflict-location');
+    expect(also).toHaveTextContent(`Also scanned on ${C2.code}`);
+    expect(also).toHaveClass('text-stage-danger-fg');
+    expect(row(U1.readableId).queryByText('Warehouse C1')).toBeNull();
+    // The ID is never cut: the link keeps the full readable ID.
+    expect(screen.getByRole('link', { name: U1.readableId })).toHaveTextContent(U1.readableId);
+    expect(row(U2.readableId).queryByTestId('conflict-location')).toBeNull();
+    expect(row(U2.readableId).getByText(RECEIVING.name)).toBeVisible();
+  });
+
+  it('MM-T28: an open conflict without another location keeps the path', () => {
+    render(
+      <MemoryRouter>
+        <StorageUnitTable items={[item(U1, { openConflict: true, conflictLocation: null })]} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId('conflict-location')).toBeNull();
+    expect(row(U1.readableId).getByText(RECEIVING.name)).toBeVisible();
   });
 
   it('AC2: a queued move on this device shows Pending beside the saved location', async () => {
@@ -196,7 +234,7 @@ describe('Sample Storage rows after an offline move settles in another tab (revi
     });
 
   /** Tab A: inventory open at `path`; `rows` answers each inventory request in turn. */
-  function openInventory(path: string, rows: () => InventoryItem[]) {
+  function openInventory(path: string, rows: () => InventoryListItem[]) {
     const requests: URL[] = [];
     vi.stubGlobal(
       'fetch',
