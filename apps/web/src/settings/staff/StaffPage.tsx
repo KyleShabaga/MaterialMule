@@ -35,6 +35,7 @@ import { notifySuccess } from '../../components/strata/toast';
 import { useMe } from '../../session/context';
 import { AddStaffDialog } from './AddStaffDialog';
 import { isStaffForbidden, listStaff, staffErrorMessage } from './api';
+import { labDate } from '../../dashboard/format';
 import { ACCOUNT_LABELS, disabledText, when } from './format';
 import { LabAccountCard } from './LabAccountCard';
 import { StaffDrawerBody } from './StaffDrawer';
@@ -698,6 +699,9 @@ function useStaffColumns(
         header: 'Roles',
         priority: 'attribute',
         width: '10rem',
+        // DESIGN.md › Tables: column priority. Person (identity) keeps its room at 1024 px:
+        // Account goes first, then Roles, then Last sign-in.
+        hideBelow: '54rem',
         cell: (m) => <RolesCell member={m} />,
       },
       {
@@ -705,17 +709,29 @@ function useStaffColumns(
         header: 'Account',
         priority: 'attribute',
         width: '6rem',
-        hideBelow: '46rem',
+        hideBelow: '60rem',
         cell: (m) => ACCOUNT_LABELS[m.accountType],
       },
       {
         id: 'lastSignIn',
         header: 'Last sign-in',
         priority: 'attribute',
-        width: '9rem',
+        width: '7rem',
         hideBelow: '46rem',
         sortKey: 'lastSignIn',
-        cell: (m) => when(m.lastSignInAt),
+        // The date only, whole, as on every other table; the time is in the tooltip.
+        cell: (m) =>
+          m.lastSignInAt ? (
+            <time
+              dateTime={m.lastSignInAt}
+              title={when(m.lastSignInAt)}
+              className="font-mono whitespace-nowrap"
+            >
+              {labDate(new Date(m.lastSignInAt))}
+            </time>
+          ) : (
+            'Never'
+          ),
       },
       status,
     ];

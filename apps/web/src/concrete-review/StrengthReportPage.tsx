@@ -19,6 +19,7 @@ import { useEffect, useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Empty,
@@ -278,7 +279,7 @@ export function StrengthReportBody({
                         <th scope="row" className="font-mono font-semibold">
                           {row.specimenLabel}
                         </th>
-                        <td className="font-mono">
+                        <td className="font-mono whitespace-nowrap">
                           {row.status === 'tested' ? dash(row.testedOn) : resultStatus(row)}
                         </td>
                         <td className="font-mono">{dash(row.actualAgeDays)}</td>
@@ -288,14 +289,18 @@ export function StrengthReportBody({
                         <td className="font-mono">
                           {row.heightReadings.length ? row.heightReadings.join(', ') : '—'}
                         </td>
-                        <td className="font-mono">{row.area === null ? '—' : `${row.area} mm²`}</td>
-                        <td className="font-mono font-semibold">{dash(row.maxLoad)}</td>
+                        <td className="font-mono whitespace-nowrap">
+                          {row.area === null ? '—' : `${row.area} mm²`}
+                        </td>
+                        <td className="font-mono font-semibold whitespace-nowrap">
+                          {dash(row.maxLoad)}
+                        </td>
                         <td className="font-mono font-semibold">
-                          <span className={row.excluded ? 'line-through' : undefined}>
+                          <span className={cn('whitespace-nowrap', row.excluded && 'line-through')}>
                             {mpa(row.strength)}
                           </span>
                           {row.calculationMethodVersion ? (
-                            <span className="font-normal text-muted-foreground">
+                            <span className="font-normal whitespace-nowrap text-muted-foreground">
                               {' '}
                               ({row.calculationMethodVersion})
                             </span>
@@ -746,7 +751,7 @@ export function StrengthReportPage() {
       </PanelSection>
       <PanelSection id="strength-who" title="Who reviews">
         <p className="text-sm text-muted-foreground">
-          The lead and reviewers designated for strength reports (concrete_strength). Never the only
+          The project lead and the people designated to review strength reports. Never the only
           person who tested or entered these results.
         </p>
       </PanelSection>

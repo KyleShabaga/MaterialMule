@@ -4,7 +4,7 @@ import type {
   RetentionDecisionUnit,
   RetentionDecisionUnits,
 } from '@materialmule/shared';
-import { CalendarPlus, ListPlus, Lock, Pause, Send } from 'lucide-react';
+import { CalendarPlus, ChevronDown, ChevronUp, ListPlus, Lock, Pause, Send } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -211,6 +211,8 @@ function DecisionForm({
   const [problem, setProblem] = useState<string | null>(null);
   const [failed, setFailed] = useState<RetentionDecisionResult['failed']>([]);
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  // A long list folds behind its summary, so the choice and its button stay in view together.
+  const [showUnits, setShowUnits] = useState(false);
   const formId = useId();
 
   const blocked = (u: RetentionDecisionUnit) => choice === 'dispose' && u.listBlockers.length > 0;
@@ -222,6 +224,7 @@ function DecisionForm({
     data.projectId !== null && choice !== 'dispose' && chosen.length === units.length;
 
   const monthsValue = Number.parseInt(months, 10);
+
   const amountOk =
     choice !== 'extend' ||
     (extendBy === 'months' ? monthsValue >= 1 && monthsValue <= 600 : retainUntil !== '');
@@ -383,7 +386,25 @@ function DecisionForm({
               </span>
             </div>
             <p className="text-muted-foreground text-xs">Untick to decide some separately.</p>
-            <Table aria-label="Units to decide on">
+            {units.length > UNITS_FOLD && failed.length === 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                aria-expanded={showUnits}
+                aria-controls={`${formId}-unit-table`}
+                onClick={() => setShowUnits((open) => !open)}
+              >
+                {showUnits ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+                {showUnits ? 'Hide the units' : `Show the ${units.length} units`}
+              </Button>
+            ) : null}
+            <Table
+              id={`${formId}-unit-table`}
+              aria-label="Units to decide on"
+              hidden={units.length > UNITS_FOLD && failed.length === 0 && !showUnits}
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8">
@@ -439,7 +460,10 @@ function DecisionForm({
                 })}
               </TableBody>
             </Table>
-            <p className="text-muted-foreground text-xs">
+            <p
+              className="text-muted-foreground text-xs"
+              hidden={units.length > UNITS_FOLD && failed.length === 0 && !showUnits}
+            >
               Retain until is the date now in effect, with extensions. Minimum is received + 1 year,
               the earliest retention allows.
             </p>
@@ -514,6 +538,13 @@ function DecisionForm({
                     for {n === 1 ? 'the unit' : 'each unit'}. It never moves a date earlier.
                   </FieldDescription>
                 ) : null}
+                {monthsValue >= 1 && n > 0 ? (
+                  <ExtendWarning
+                    perUnit={(u) => addMonths(u.minimumRetainUntil, monthsValue)}
+                    units={chosen}
+                    asOf={data.asOf}
+                  />
+                ) : null}
               </Field>
             ) : (
               <Field data-invalid={tried && !amountOk}>
@@ -526,6 +557,9 @@ function DecisionForm({
                   onChange={(event) => setRetainUntil(event.target.value)}
                 />
                 {tried && !amountOk ? <FieldError>Choose a date.</FieldError> : null}
+                {retainUntil && n > 0 ? (
+                  <ExtendWarning perUnit={() => retainUntil} units={chosen} asOf={data.asOf} />
+                ) : null}
               </Field>
             )}
           </FieldSet>
@@ -633,6 +667,46 @@ function DecisionForm({
         ) : null}
       </SheetFooter>
     </form>
+  );
+}
+
+/** Past this many units the list folds behind "Show the n units". */
+const UNITS_FOLD = 6;
+
+/**
+ * Says when an extension changes nothing for some units (they already keep longer) or leaves them
+ * at or before today (still overdue), so a bulk decision never looks like more than it is.
+ */
+function ExtendWarning({
+  units,
+  perUnit,
+  asOf,
+}: {
+  units: readonly RetentionDecisionUnit[];
+  perUnit: (u: RetentionDecisionUnit) => string;
+  asOf: string;
+}) {
+  let unchanged = 0;
+  let stillDue = 0;
+  for (const u of units) {
+    const next = perUnit(u);
+    const after = next > u.effectiveRetainUntil ? next : u.effectiveRetainUntil;
+    if (next <= u.effectiveRetainUntil) unchanged += 1;
+    if (after <= asOf) stillDue += 1;
+  }
+  if (unchanged === 0 && stillDue === 0) return null;
+  const parts = [
+    unchanged > 0
+      ? `${unchanged === 1 ? '1 unit already keeps' : `${unchanged} units already keep`} until that date or later, so nothing changes for ${unchanged === 1 ? 'it' : 'them'}.`
+      : null,
+    stillDue > 0
+      ? `${stillDue === 1 ? '1 unit would' : `${stillDue} units would`} still be due on ${asOf}. Add more months or choose a later date.`
+      : null,
+  ].filter(Boolean);
+  return (
+    <p className="text-sm text-stage-due-fg" role="status">
+      {parts.join(' ')}
+    </p>
   );
 }
 
