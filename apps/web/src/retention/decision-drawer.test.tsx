@@ -93,6 +93,48 @@ describe('Retention decision drawer (STRATA-91)', () => {
     expect(body.units).toContainEqual({ id: decisionUnit(10).storageUnitId, version: 3 });
   });
 
+  it('a long list folds behind its count so the choice stays in view', async () => {
+    stub(units({ units: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => decisionUnit(n)) }), () =>
+      json(200, {}),
+    );
+    render(<RetentionDecisionDrawer open onOpenChange={() => undefined} unitIds={['a']} />);
+    const form = await screen.findByRole('form', { name: 'Decide on 8 units at end of retention' });
+    expect(within(form).queryByRole('table', { name: 'Units to decide on' })).toBeNull();
+    expect(within(form).getByText('8 of 8 ticked')).toBeInTheDocument();
+    expect(within(form).getByRole('radiogroup', { name: 'Decision' })).toBeInTheDocument();
+    const show = within(form).getByRole('button', { name: 'Show the 8 units' });
+    expect(show).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(show);
+    expect(within(form).getByRole('table', { name: 'Units to decide on' })).toBeVisible();
+    expect(within(form).getByRole('button', { name: 'Hide the units' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('Extend says when units keep their date already or would still be due', async () => {
+    stub(
+      units({
+        units: [
+          // Minimum 2025-01-10: six months is 2025-07-10, still due on 2026-11-11.
+          decisionUnit(1, { minimumRetainUntil: '2025-01-10', effectiveRetainUntil: '2025-01-10' }),
+          // Already kept until 2028: an extension changes nothing for it.
+          decisionUnit(2, { minimumRetainUntil: '2026-05-01', effectiveRetainUntil: '2028-01-01' }),
+        ],
+      }),
+      () => json(200, {}),
+    );
+    render(<RetentionDecisionDrawer open onOpenChange={() => undefined} unitIds={['a']} />);
+    const form = await screen.findByRole('form', { name: 'Decide on 2 units at end of retention' });
+    expect(within(form).getByRole('status', { name: '' })).toHaveTextContent(
+      '1 unit already keeps until that date or later, so nothing changes for it. 1 unit would still be due on 2026-11-11. Add more months or choose a later date.',
+    );
+    const monthsBox = within(form).getByLabelText('Months past the minimum');
+    await userEvent.clear(monthsBox);
+    await userEvent.type(monthsBox, '60');
+    expect(within(form).queryByText(/would still be due/)).toBeNull();
+  });
+
   it('Add to disposal list: a unit that can’t go on it is unticked, disabled and says why', async () => {
     stub(units(), () => json(200, { action: 'dispose', done: [], created: [], failed: [] }));
     render(

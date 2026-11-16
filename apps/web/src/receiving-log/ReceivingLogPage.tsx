@@ -73,7 +73,8 @@ export interface ReceiptLinkState {
 type Loaded = { key: string; result: ReceiptLogResult<ReceiptLogPageData> };
 
 const SORT_OPTIONS: readonly SortOption[] = [
-  { label: 'Newest first', sort: null },
+  // The server's default order is when each receipt was confirmed, not its received date.
+  { label: 'Latest recorded first', sort: null },
   { label: 'Oldest first', sort: { key: 'received', dir: 'asc' } },
   { label: 'Most units first', sort: { key: 'units', dir: 'desc' } },
 ];
@@ -252,7 +253,7 @@ export function ReceivingLogPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Receiving log</h1>
-          <p className="text-sm text-muted-foreground">Every delivery, newest first.</p>
+          <p className="text-sm text-muted-foreground">Every delivery, latest recorded first.</p>
         </div>
         <Button asChild>
           <Link to={START_DELIVERY_PATH}>
@@ -343,7 +344,7 @@ export function ReceivingLogPage() {
               <EmptyHeader>
                 <EmptyTitle>No receipts yet.</EmptyTitle>
                 <EmptyDescription>
-                  Confirmed deliveries are listed here, newest first.
+                  Confirmed deliveries are listed here, latest recorded first.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>

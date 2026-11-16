@@ -140,7 +140,7 @@ function GroupCard({
           </h2>
         </CardTitle>
         <CardAction>
-          <span className="font-mono text-xs text-muted-foreground uppercase">{count}</span>
+          <span className="text-xs text-muted-foreground">{count}</span>
         </CardAction>
       </CardHeader>
       <CardContent className="px-4">
