@@ -1,5 +1,8 @@
 # Field Ledger: implementation plan
 
+> **Superseded (2026-11-15).** Field Ledger was replaced by Strata. The current design is
+> [`DESIGN.md`](../../DESIGN.md) at the repo root; this folder is kept as history only.
+
 Turns the Field Ledger redesign into the real app (`apps/web`, plus the API where a screen needs
 something the app cannot do yet). Written 2026-11-10. Starts when PR 170 is merged.
 

@@ -8,7 +8,9 @@
    Field Ledger's bare element rules (button, input, select, textarea, a, :focus-visible,
    [aria-invalid]) skip anything with data-slot, which every shadcn/Strata component part carries:
    a layer only loses to utilities for the properties they set, so 44 px heights, padding and
-   borders would otherwise leak into shadcn controls. :where() keeps their specificity unchanged. */
+   borders would otherwise leak into shadcn controls. :where() keeps their specificity unchanged.
+   Wave 3 (2026-11-15) deleted every legacy rule, variable and stylesheet that nothing renders any
+   more; what is left still styles a page that has not been rebuilt yet. */
 @layer theme, base, legacy, components, utilities;
 
 @import 'tailwindcss';
@@ -61,9 +63,7 @@
   --option-active: var(--ring);
   --on-option-active: var(--background);
   --option-hover: var(--accent);
-  --success: var(--stage-storage-fg);
   --success-bg: var(--stage-storage-bg);
-  --success-line: var(--stage-storage-mark);
   --warning: var(--stage-due-fg);
   --warning-bg: var(--stage-due-bg);
   --warning-line: var(--stage-due-fg);
@@ -105,7 +105,6 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-7: 32px;
-  --space-8: 48px;
   --content-max: 1240px;
   --page-pad: 32px;
 
@@ -342,7 +341,7 @@
     gap: var(--gap-button);
   }
 
-  /* Page title: Archivo 800, 44/44 (36 on a phone). */
+  /* Page title (Strata: 24/32). */
   .page-header h1 {
     margin: 0.5rem 0;
     font-size: var(--fs-page-title);
@@ -380,42 +379,6 @@
     color: var(--ink-soft);
   }
 
-  /* Settings pages and other sub-areas: links styled as underlined tabs. */
-  .sub-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-    margin-bottom: var(--space-5);
-    border-bottom: var(--rule-width) solid var(--rule);
-  }
-
-  .sub-nav a {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--target);
-    box-sizing: border-box;
-    padding: 0 0.875rem;
-    margin-bottom: -2px;
-    border-bottom: 4px solid transparent;
-    color: var(--ink);
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .sub-nav a.active,
-  .sub-nav a[aria-current='page'] {
-    border-bottom-color: var(--rule);
-    font-weight: 800;
-  }
-
-  @media (hover: hover) {
-    .sub-nav a:hover {
-      background-image: linear-gradient(var(--tint-hover), var(--tint-hover));
-      color: var(--ink);
-      text-decoration: none;
-    }
-  }
-
   /* A framed card: sheet in a 2 px ink frame, 6 px radius. */
   .card {
     border: var(--rule-width) solid var(--rule);
@@ -430,36 +393,11 @@
     margin-top: 0;
   }
 
-  /* Look-up, search and filter cards above a list (MM-T50): mono uppercase labels. */
-  .tool-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    min-width: 0;
-    margin: 0;
-    padding: var(--space-3) var(--space-4);
-    border: var(--rule-width) solid var(--rule);
-    border-radius: var(--radius-card);
-    background: var(--card);
-  }
-
-  .tool-card label {
-    font: 600 var(--fs-label) / 1rem var(--font-mono);
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-
-  .tool-card .field-hint {
-    margin: 0;
-  }
-
   /* ---- Card with a header band (MM-T55, canvas "card header bands") ---- */
 
   /* Side panel / banded card: 2 px ink frame with a rail-coloured head ("On confirm",
    "Disposal list", dialogs). */
-  .banded-card,
-  .side-panel {
+  .banded-card {
     border: var(--rule-width) solid var(--rule);
     border-radius: var(--radius-card);
     background: var(--card);
@@ -467,17 +405,12 @@
     overflow: hidden;
   }
 
-  .side-panel {
-    min-width: min(300px, 100%);
-  }
-
   /* Attention cards keep the ink frame; the head turns waiting-yellow and the heading says why. */
   .banded-card-attention .banded-card-head {
     background: var(--warning-bg);
   }
 
-  .banded-card-head,
-  .side-panel-head {
+  .banded-card-head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -488,17 +421,11 @@
     background: var(--card-head);
   }
 
-  .side-panel-body {
-    padding: var(--space-4) 18px;
-  }
-
   .banded-card-titles {
     min-width: 0;
   }
 
-  .banded-card-title,
-  .side-panel-head h2,
-  .side-panel-head h3 {
+  .banded-card-title {
     margin: 0;
     font-size: 1.125rem;
     line-height: 1.5rem;
@@ -761,8 +688,7 @@
     border-bottom: none;
   }
 
-  .data-table tbody tr[aria-selected='true'] > *,
-  .data-table tbody tr.is-selected > * {
+  .data-table tbody tr[aria-selected='true'] > * {
     background-color: var(--flag-wash);
   }
 
@@ -781,43 +707,6 @@
   .data-table.is-compact td .button {
     min-height: var(--control-compact);
     padding: 0 10px;
-  }
-
-  /* A table wrapped in its own frame (TableScroll) drops the table's frame so there is one. */
-  .table-frame {
-    border: var(--rule-width) solid var(--rule);
-    border-radius: var(--radius-card);
-    background: var(--card);
-    overflow-x: auto;
-  }
-
-  .table-frame > .data-table {
-    border: none;
-    border-radius: 0;
-  }
-
-  /* Selection: an ink action bar above the table. */
-  .selection-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border-radius: var(--radius-card);
-    background: var(--inverse);
-    color: var(--on-inverse);
-  }
-
-  .selection-bar-count {
-    flex: 1 1 140px;
-    font-weight: 700;
-  }
-
-  .selection-bar button:not(.primary),
-  .selection-bar .button:not(.primary) {
-    border-color: var(--on-inverse);
-    background-color: transparent;
-    color: var(--on-inverse);
   }
 
   /* Table view selector: comfortable / compact, joined in one 2 px frame. */
@@ -1095,15 +984,6 @@
     font-size: 0.875rem;
   }
 
-  /* ---- Staff & access (MM-T07) ---- */
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
   /* Notices: a framed strip; the tone sets the fill. Partial success uses waiting, not danger. */
   .notice {
     margin-top: 0;
@@ -1145,15 +1025,6 @@
     gap: 0.5rem;
   }
 
-  /* MTR-12: who approved, disabled or re-enabled someone, in the staff drawer. */
-  .status-history {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.25rem;
-  }
-
   .pending-staff li {
     display: flex;
     flex-wrap: wrap;
@@ -1191,41 +1062,6 @@
   .drawer::backdrop,
   .confirm-dialog::backdrop {
     background: var(--scrim);
-  }
-
-  .drawer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin: -1rem -1.25rem 0;
-    padding: 1rem 1.25rem;
-    background: var(--card-head);
-    border-bottom: 1px solid var(--line);
-  }
-
-  .drawer-header h2 {
-    margin: 0;
-  }
-
-  .drawer-section {
-    margin-top: 1.25rem;
-    display: grid;
-    gap: 0.5rem;
-    justify-items: start;
-  }
-
-  .drawer-section fieldset {
-    display: grid;
-    gap: 0.5rem;
-    justify-items: start;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--inset);
-  }
-
-  .drawer-section .form-field {
-    width: 100%;
   }
 
   /* Label/value list used across pages. minmax(0, …) and overflow-wrap keep a long value (a receipt
@@ -1276,32 +1112,8 @@
     color: var(--ink-soft);
   }
 
-  .readonly-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
-    gap: 0 1rem;
-  }
-
-  /* Inputs fill their cell and may shrink with it, so none spills out of the box (MM-T66 UI-07:
-   at 770–870px the Lead Project Engineer field overflowed the Project box). */
-  .readonly-grid input {
-    width: 100%;
-    min-width: 0;
-  }
-
   .combobox {
     position: relative;
-  }
-
-  .combobox-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .combobox-row input {
-    flex: 1 1 12rem;
-    min-width: 0;
   }
 
   .listbox {
@@ -1332,12 +1144,6 @@
   .listbox li[aria-disabled='true'] {
     color: var(--fl-muted);
     cursor: default;
-  }
-
-  .listbox li.add-option {
-    border-top: 1px solid var(--line);
-    font-weight: 600;
-    color: var(--fl-accent);
   }
 
   /* MM-T78: one highlight for every picker (receiver, project, test hole, Correct details).
@@ -1389,34 +1195,6 @@
     color: inherit;
   }
 
-  .inline-form {
-    border-top: 1px solid var(--line);
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-  }
-
-  .inline-form h3 {
-    font-size: 1rem;
-    margin: 0 0 0.5rem;
-  }
-
-  /* Square step numbers (no circles or pills). */
-  .step-number {
-    display: inline-grid;
-    place-items: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: var(--radius-tag);
-    background: var(--card-head);
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-
-  .wizard-step .card,
-  .wizard-step > .card {
-    margin-bottom: 1rem;
-  }
-
   .error-summary {
     border: var(--rule-width) solid var(--rule);
     border-radius: var(--radius-card);
@@ -1461,23 +1239,6 @@
     min-width: 0;
   }
 
-  .hole-summary {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--inset);
-    margin: 0 0 0.75rem;
-    padding: 0.5rem 0.75rem;
-    min-width: 0;
-  }
-
-  .hole-summary legend {
-    padding: 0 0.375rem;
-    font: 600 var(--fs-label) / 1.4 var(--font-mono);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-  }
-
   .range {
     display: flex;
     flex-wrap: wrap;
@@ -1492,12 +1253,6 @@
 
   .range input {
     width: 100%;
-  }
-
-  .depth-unit {
-    display: flex;
-    gap: 1rem;
-    padding: 0.4rem 0;
   }
 
   .radio {
@@ -1521,17 +1276,6 @@
     min-width: 0;
   }
 
-  .checkbox-field .checkbox {
-    margin: 0;
-  }
-
-  .source-type {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 1rem;
-    padding: 0.4rem 0;
-  }
-
   /* "Bulk sample · B1 · bucket 1 of 2": app metadata only, never on the sticker. */
   .badge-bulk {
     background: var(--info-bg);
@@ -1543,35 +1287,6 @@
     margin: 0;
     font-weight: 600;
     font-family: var(--font-mono);
-  }
-
-  .wizard-problems {
-    font-weight: 600;
-    color: var(--danger);
-  }
-
-  .wizard-problems + .draft-status::before {
-    content: '| ';
-    color: var(--line-control);
-  }
-
-  .link-button {
-    min-height: var(--control);
-    border: none;
-    background: none;
-    color: var(--fl-accent);
-    text-decoration: underline;
-    padding: 0 0.5rem;
-  }
-
-  .link-button:hover {
-    background: none;
-  }
-
-  .offline-notice {
-    border-color: var(--warning-line);
-    background: var(--warning-panel);
-    color: var(--warning-panel-ink);
   }
 
   /* ---- Receiving drafts (MM-T11) ---- */
@@ -1651,25 +1366,6 @@
     }
   }
 
-  .issued-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--gap-button);
-  }
-
-  @media (max-width: 640px) {
-    /* Status text on its own row(s); the buttons share the last row. */
-    .wizard-problems {
-      flex: 1 1 100%;
-      min-width: 0;
-    }
-
-    .wizard-problems + .draft-status::before {
-      content: none;
-    }
-  }
-
   /* ---- Test sign-in ---- */
 
   .fixtures {
@@ -1730,8 +1426,6 @@
 
     /* A checkbox's label is its hit area: the whole row is 44px tall. */
     .checkbox,
-    .checkbox-option,
-    .checkbox-label,
     .scan-sound {
       display: flex;
       align-items: center;
@@ -1788,21 +1482,6 @@
     }
   }
 
-  /* ---- Wide tables that stack by their own width (MM-T58, MM-T60) ---- */
-
-  /* At tablet widths the side menu leaves a wide table too little room, so it stacks into the phone
-   cards whenever its box is narrower than 48rem, whatever the viewport. Text wraps only between
-   words: headers, badges, IDs, numbers and dates stay whole. */
-  .table-stack {
-    container-type: inline-size;
-    overflow-wrap: break-word;
-  }
-
-  .table-stack th,
-  .table-stack .badge {
-    white-space: nowrap;
-  }
-
   /* A wide table scrolls inside its own box, never the page (MTR-58, MTR-93). The box is a
    focusable region (TableScroll), so keyboard users can scroll it with the arrow keys. */
   .table-scroll {
@@ -1812,131 +1491,6 @@
 
   .table-scroll:focus-visible {
     outline-offset: -2px;
-  }
-
-  @container (max-width: 47.99rem) {
-    .table-stack .data-table {
-      border: none;
-      background: none;
-    }
-
-    /* Stacked cards take the box's width; long badges (a bulk bucket, "Disposed after testing")
-     wrap between words instead of pushing the card past its box (MTR-58). */
-    .table-stack .data-table td > * {
-      min-width: 0;
-    }
-
-    .table-stack .badge {
-      white-space: normal;
-    }
-
-    .table-stack .data-table thead {
-      display: none;
-    }
-
-    .table-stack .data-table tr {
-      display: block;
-      border: var(--rule-width) solid var(--rule);
-      border-radius: var(--radius-card);
-      background: var(--card);
-      margin: 0.5rem;
-    }
-
-    .table-stack .data-table tbody tr:nth-child(even) {
-      background: var(--card);
-    }
-
-    /* A value too wide to sit beside its label (a date and time at 320 px) goes under it (MTR-93). */
-    .table-stack .data-table td {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem 0.5rem;
-      border-bottom: none;
-    }
-
-    .table-stack .data-table td::before {
-      content: attr(data-label);
-      flex: 0 0 auto;
-      min-width: 6rem;
-      font: 600 var(--fs-label) / 1.5rem var(--font-mono);
-      text-transform: uppercase;
-      color: var(--ink-soft);
-    }
-  }
-
-  /* ---- Settings layouts (MM-T55 part D) ---- */
-
-  /* Tiles: a small label over a value, on the shell ground inside a banded card. */
-  .stat-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-    gap: 0.75rem;
-    margin: 0 0 1rem;
-  }
-
-  .stat-tiles-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .stat-tiles-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin-bottom: 0;
-  }
-
-  .stat-tiles > div {
-    padding: 0.75rem 0.875rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--shell);
-    min-width: 0;
-  }
-
-  .stat-tiles dt {
-    font: 600 var(--fs-label) / 1rem var(--font-mono);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--fl-muted);
-  }
-
-  .stat-tiles dd {
-    margin: 0.25rem 0 0;
-    overflow-wrap: anywhere;
-  }
-
-  .stat-number {
-    font: 700 1.625rem/2rem var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stat-note {
-    font-size: 0.75rem;
-    color: var(--ink-soft);
-  }
-
-  .stat-mono {
-    font-family: var(--font-mono);
-  }
-
-  .stat-tiles > .stat-tile-warning {
-    border-color: var(--warning-line);
-  }
-
-  .stat-tile-warning dt,
-  .stat-tile-warning dd {
-    color: var(--warning);
-  }
-
-  .stat-tiles > .stat-tile-danger {
-    border-color: var(--danger-line);
-  }
-
-  .stat-tile-danger dt,
-  .stat-tile-danger dd {
-    color: var(--danger);
-  }
-
-  .text-success {
-    color: var(--success);
   }
 
   .text-warning {
@@ -1953,55 +1507,14 @@
     color: var(--warning-panel-ink);
   }
 
-  .status-alert,
-  .profile-warning {
-    border-color: var(--warning-line);
-    background: var(--warning-panel);
-    color: var(--warning-panel-ink);
-  }
-
-  /* My profile: who is signed in beside the banded profile card. */
-  .profile-warning {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem 1rem;
-  }
-
-  .profile-warning p {
-    flex: 1 1 20rem;
-    margin: 0;
-  }
-
   .profile-card .banded-card-body {
     padding: 0;
-  }
-
-  .profile-unconfirmed {
-    color: var(--warning);
-  }
-
-  /* Staff & access */
-  .filter-bar {
-    padding: 0.875rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--card);
   }
 
   .field-pair {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 1rem;
-  }
-
-  .lab-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: var(--gap-button);
-    padding-top: 0.875rem;
-    border-top: 1px solid var(--line);
   }
 
   /* Printers: the configured printers beside a dashed "Add a printer" card. */
@@ -2042,41 +1555,6 @@
     border-bottom: 1px solid var(--line);
   }
 
-  .disk-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: 1.25rem;
-  }
-
-  .disk-label {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0.25rem 1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .disk-label .stat-mono {
-    font-size: 0.8125rem;
-    color: var(--ink-soft);
-  }
-
-  .disk-bar {
-    height: 0.625rem;
-    border: 1px solid var(--line-control);
-    border-radius: var(--radius-tag);
-    background: var(--shell);
-    overflow: hidden;
-  }
-
-  .disk-bar > div {
-    height: 100%;
-    background: var(--primary);
-  }
-
   @media (max-width: 1024px) {
     .printers-layout {
       grid-template-columns: minmax(0, 1fr);
@@ -2084,33 +1562,10 @@
   }
 
   @media (max-width: 640px) {
-    .stat-tiles-2,
-    .stat-tiles-3,
     .field-pair,
     .field-pair-port {
       grid-template-columns: minmax(0, 1fr);
     }
-
-    .lab-actions button {
-      flex: 1 1 100%;
-    }
-  }
-
-  /* Notification center: unread rows say "Unread" and are bold; read rows lose the accent edge. */
-  .notification-read {
-    border-left-color: var(--line-control);
-  }
-
-  .notification-unread .notification-event {
-    font-weight: 700;
-  }
-
-  .notification-event {
-    font-weight: 600;
-  }
-
-  .notifications-message:empty {
-    display: none;
   }
 
   /* Retention (MM-T29): holds, extensions, requests. */
@@ -2151,43 +1606,6 @@
     font-weight: 600;
   }
 
-  /* Disposal (MM-T30): approval lists and the distinct disposal scan mode. */
-  .disposal-list {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0 0 0.75rem;
-    padding: 0;
-    list-style: none;
-    overflow-wrap: anywhere;
-  }
-
-  .disposal-scan-banner {
-    margin-bottom: 1rem;
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--danger);
-    border-radius: var(--radius-control);
-    background: var(--card);
-  }
-
-  .disposal-scan-banner h1 {
-    margin: 0 0 0.25rem;
-    color: var(--danger);
-  }
-
-  .disposal-scan-form {
-    display: grid;
-    gap: 0.5rem;
-    max-width: 28rem;
-  }
-
-  .disposal-scan-results {
-    display: grid;
-    gap: 0.25rem;
-    margin-top: 1rem;
-    padding: 0;
-    list-style: none;
-  }
-
   /* Access summaries (MM-AO06): My access and the Staff drawer's read-only view. */
   .access-summary {
     display: grid;
@@ -2214,8 +1632,6 @@
    chip, segment, tab and menu item looked the same. The selected one is drawn in the system
    Highlight colours, with a thicker edge and an underline as cues that need no colour. */
   @media (forced-colors: active) {
-    .sub-nav a[aria-current='page'],
-    .sub-nav a.active,
     .listbox li[aria-selected='true'],
     .receiver-options li[aria-selected='true'] {
       forced-color-adjust: none;
@@ -2224,15 +1640,6 @@
       color: HighlightText;
       text-decoration: underline;
       text-underline-offset: 0.2em;
-    }
-
-    .sub-nav a[aria-current='page'],
-    .sub-nav a.active {
-      border-bottom-width: 4px;
-    }
-
-    .sub-nav a:not([aria-current='page'], .active) {
-      border-bottom-color: Canvas;
     }
   }
 
@@ -2262,8 +1669,7 @@
       text-decoration: underline;
     }
 
-    .data-table tbody tr[aria-selected='true'] > *,
-    .data-table tbody tr.is-selected > * {
+    .data-table tbody tr[aria-selected='true'] > * {
       border-bottom-color: Highlight;
     }
   }

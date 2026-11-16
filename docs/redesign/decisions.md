@@ -1,5 +1,8 @@
 # Field Ledger: decision log
 
+> **Superseded (2026-11-15).** Field Ledger was replaced by Strata. The current design is
+> [`DESIGN.md`](../../DESIGN.md) at the repo root; this folder is kept as history only.
+
 Kyle's instruction, 2026-11-10: "If anything comes up make and choose a recommendation. And
 continue working until everything is completed. Make a note of your choices."
 

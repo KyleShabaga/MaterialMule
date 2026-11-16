@@ -197,10 +197,6 @@
     color: var(--on-selected);
   }
 
-  .view-tiles > .view-tile-due:not([aria-pressed='true'], [aria-selected='true']) {
-    background: var(--flag-wash);
-  }
-
   .view-tile-count {
     font-size: var(--fs-big-count);
     font-weight: 800;
