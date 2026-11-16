@@ -217,33 +217,6 @@ export function SectionHead({
   );
 }
 
-/** Side panel: 2 px frame with a rail-coloured head ("On confirm", "Disposal list"). */
-export function SidePanel({
-  title,
-  aside,
-  children,
-  className,
-}: {
-  title: ReactNode;
-  aside?: ReactNode;
-  children?: ReactNode;
-  className?: string;
-}) {
-  const headingId = useId();
-  return (
-    <section
-      className={className ? `side-panel ${className}` : 'side-panel'}
-      aria-labelledby={headingId}
-    >
-      <div className="side-panel-head">
-        <h2 id={headingId}>{title}</h2>
-        {aside ?? null}
-      </div>
-      {children ? <div className="side-panel-body">{children}</div> : null}
-    </section>
-  );
-}
-
 /** Segmented filter: buttons joined in one frame; the active one is ink-filled (aria-pressed). */
 export function Segmented<Value extends string>({
   label,
@@ -274,16 +247,6 @@ export function Segmented<Value extends string>({
           {option.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-/** Selection: the ink action bar shown above a table while rows are selected. */
-export function SelectionBar({ count, children }: { count: number; children?: ReactNode }) {
-  return (
-    <div className="selection-bar" role="group" aria-label="Selection">
-      <span className="selection-bar-count">{count} selected</span>
-      {children}
     </div>
   );
 }
