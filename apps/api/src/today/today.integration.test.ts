@@ -194,9 +194,7 @@ describe.runIf(testDatabaseUrl)(
         href: '/disposal-retention',
       });
       // Decide opens the decision drawer on Today with these exact units.
-      expect([...row(pat, 'system:retention_due')!.unitIds!].sort()).toEqual(
-        [u1.id, u2.id].sort(),
-      );
+      expect([...row(pat, 'system:retention_due')!.unitIds!].sort()).toEqual([u1.id, u2.id].sort());
       // Not Pat's to decide elsewhere, and not the technician's at all.
       expect(row(await needsYou('tech'), 'system:retention_due')).toBeUndefined();
       expect(row(await needsYou('js'), 'system:retention_due')).toBeUndefined();
