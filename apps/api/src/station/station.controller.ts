@@ -7,6 +7,7 @@ import {
   type StationConfig,
   type StationInboxPage,
   type StationInboxSummary,
+  type StationPickerPerson,
   type StationToday,
 } from '@materialmule/shared';
 import type { z } from 'zod';
@@ -18,6 +19,8 @@ import {
   type AuthenticatedRequest,
 } from '../auth/auth.decorators.js';
 import type { AuthUser } from '../auth/policy.js';
+import { DatabaseService } from '../database/database.service.js';
+import { listStationPeople } from '../staff-directory/staff-directory.js';
 import { parseBody } from '../validation/parse-body.js';
 import { StationConfigService } from './station-config.service.js';
 import { StationInboxService } from './station-inbox.service.js';
@@ -47,6 +50,8 @@ function stationIdOf(value: string): string {
 /**
  * The LAB station (Strata lane A: STRATA-20, 21, 27, 63). See docs/permissions.md "LAB station".
  * - Today: `station.today.read` (LAB, Lab Manager, Lab Technician).
+ * - People: `station.today.read` too. "Who is working here?" lists receiving-lab staff (the Lab
+ *   Technician and Lab Manager roles, STRATA-131) by name, initials and job title only.
  * - Config: every active session reads; saving is `station.configure` (Lab Manager with their own
  *   account; never the LAB session, whoever it picks).
  * - Inbox: `station.inbox.read` (LAB only), the picked person's Inbox with their consent,
@@ -58,12 +63,19 @@ export class StationController {
     private readonly today: StationTodayService,
     private readonly config: StationConfigService,
     private readonly inbox: StationInboxService,
+    private readonly database: DatabaseService,
   ) {}
 
   @Get('today')
   @RequirePermission('station.today.read')
   counts(): Promise<StationToday> {
     return this.today.today();
+  }
+
+  @Get('people')
+  @RequirePermission('station.today.read')
+  people(): Promise<StationPickerPerson[]> {
+    return listStationPeople(this.database.pool);
   }
 
   @Get('config/:stationId')

@@ -1688,6 +1688,7 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
 | Route                                                  | Policy                                                    |
 | ------------------------------------------------------ | --------------------------------------------------------- |
 | `GET /api/station/today`                               | `station.today.read` (LAB, Lab Manager, Lab Technician)   |
+| `GET /api/station/people`                              | `station.today.read` (LAB, Lab Manager, Lab Technician)   |
 | `GET /api/station/config/:stationId`                   | any active session, LAB included                          |
 | `PUT /api/station/config/:stationId {rows, version}`   | `station.configure` (Lab Manager, own account; never LAB) |
 | `GET /api/station/inbox?personId=&tab=&filter=&q=&...` | `station.inbox.read` (the shared LAB account only)        |
@@ -1705,6 +1706,13 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   time known, not authorized for disposal). `labelsToPrint` = storage units not disposed,
   received in the last `LABELS_TO_CHECK_DAYS` (30) days in the business time zone, whose newest
   print job is missing (never printed) or `failed`.
+- **Station people (STRATA-131).** The people "Who is working here?" lists without searching:
+  active staff holding the Lab Technician or Lab Manager role (Kyle, STRATA-36: receiving-lab
+  staff), whatever their position, by name. Each is `{id, displayName, initials, jobTitle}` only
+  (`jobTitle` = the effective job title, else the position's label, else null); roles,
+  permissions, positions and contact details are never returned. Disabled, pending and the LAB
+  account are never listed. "Someone else…" still searches all active staff
+  (`GET /api/staff/receivers`). Picking a person is attribution only and grants nothing.
 - **Configuration.** One row per station ID (`^[A-Za-z0-9_-]{8,64}$`); an unsaved station reads
   the defaults (`version` 0, `updatedBy` null). Saving needs `station.configure`, which only the
   Lab Manager role grants, checked again on the account as it stands in the transaction; the

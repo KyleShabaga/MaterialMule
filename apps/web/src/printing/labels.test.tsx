@@ -290,9 +290,10 @@ describe('LabelPrintPage', () => {
     expect(screen.getByText("A PDF isn't recorded as a print.")).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save as PDF' }));
     expect(print).toHaveBeenCalledOnce();
-    // Only the preview: no print job (the station's staff list is the Recording as chip's).
+    // Only the preview: no print job (the station's staff lists are the Recording as chip's).
+    const stationLists = ['/api/staff/active', '/api/station/people'];
     expect(
-      fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url !== '/api/staff/active'),
+      fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => !stationLists.includes(url)),
     ).toEqual(['/api/storage-units/BKT-2026-000014/label/preview']);
   });
 

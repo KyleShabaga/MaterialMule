@@ -30,7 +30,7 @@ async function pickStationPerson(page: Page, name: string) {
 
 test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ page }) => {
   await signInAsLabStation(page, { person: null });
-  await pickStationPerson(page, 'Alex Tester');
+  await pickStationPerson(page, 'Taylor Bench');
   const refused = collect403s(page);
 
   // The old Action requests page is the Inbox (STRATA-24); on a station it shows the station
@@ -63,7 +63,7 @@ test('LAB: personal-account pages refuse plainly and fire no 403s', async ({ pag
 
   // The picked person is attribution only: LAB still can't reach personal-account data.
   await expect(
-    page.getByRole('button', { name: 'Recording as Alex Tester. Sign off or switch person' }),
+    page.getByRole('button', { name: 'Recording as Taylor Bench. Sign off or switch person' }),
   ).toBeVisible();
 
   // Let in-flight requests settle before the check: the last page's loads must be finished.

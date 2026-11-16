@@ -3,11 +3,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './support/auth';
 import { accountRow } from './support/shell';
 
-/** STRATA-16: a LAB sign-in asks who is working; Alex Tester (fictional, dev seed) is picked. */
+/** STRATA-16: a LAB sign-in asks who is working; Taylor Bench (fictional, dev seed lab technician) is picked. */
 async function pickWhoIsWorking(page: Page) {
   await expect(page).toHaveURL(/\/who-is-working$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Who is working here?' })).toBeVisible();
-  await page.getByRole('button', { name: /^Alex Tester/ }).click();
+  await page.getByRole('button', { name: /^Taylor Bench/ }).click();
   await expect(page).toHaveURL(/\/$/);
 }
 

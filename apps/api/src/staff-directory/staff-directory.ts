@@ -1,4 +1,10 @@
-import { effectiveJobTitle, type Position, type StaffOption } from '@materialmule/shared';
+import {
+  POSITION_LABELS,
+  effectiveJobTitle,
+  type Position,
+  type StaffOption,
+  type StationPickerPerson,
+} from '@materialmule/shared';
 import type { Pool, PoolClient } from 'pg';
 import type { AuditReceiver } from '../audit/audit.js';
 
@@ -39,6 +45,37 @@ export async function listActiveStaff(pool: Pool): Promise<StaffOption[]> {
     ...toOption(row),
     position: row.position,
     jobTitle: effectiveJobTitle(row.job_title, row.job_title_override)?.value ?? null,
+  }));
+}
+
+/**
+ * The LAB station's people (STRATA-131): active staff holding the Lab Technician or Lab Manager
+ * role, by name, whatever their position (Kyle, STRATA-36: "receiving-lab staff"). Only what the
+ * picker shows: the job title (else the position's label) stands in for the role line, and the
+ * roles themselves, permissions and contact details never leave the server.
+ */
+export async function listStationPeople(pool: Pool): Promise<StationPickerPerson[]> {
+  const { rows } = await pool.query<
+    StaffRow & {
+      position: Position | null;
+      job_title: string | null;
+      job_title_override: string | null;
+    }
+  >(
+    `SELECT u.id, u.display_name, u.official_initials, u.position, u.job_title, u.job_title_override
+     FROM app_user u
+     WHERE u.status = 'active' AND u.account_type <> 'shared_lab'
+       AND EXISTS (SELECT 1 FROM role_assignment r
+                   WHERE r.user_id = u.id AND r.role IN ('lab_technician', 'lab_manager'))
+     ORDER BY lower(u.display_name), u.official_initials NULLS LAST, u.id`,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    displayName: row.display_name,
+    initials: row.official_initials,
+    jobTitle:
+      effectiveJobTitle(row.job_title, row.job_title_override)?.value ??
+      (row.position ? POSITION_LABELS[row.position] : null),
   }));
 }
 

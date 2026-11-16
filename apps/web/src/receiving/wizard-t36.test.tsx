@@ -1,5 +1,5 @@
 import type { BulkGroupSummary, MeResponse, ProjectSummary, TestHole } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -264,7 +264,8 @@ describe('MM-T36 receiving on one page', { timeout: 30_000 }, () => {
     // Joining inherits the identity: nothing about the sample is typed again.
     expect(within(b1).queryByLabelText(/^Sample reference/)).toBeNull();
     await confirmAndPrint(user);
-    expect(posts).toHaveLength(1);
+    // The receipt is posted after the dialog closes; wait for it rather than reading at once.
+    await waitFor(() => expect(posts).toHaveLength(1));
     expect((posts[0] as { units: { bulkGroup: unknown }[] }).units[0]!.bulkGroup).toEqual({
       existingId: stockpileB1.id,
       version: stockpileB1.version,

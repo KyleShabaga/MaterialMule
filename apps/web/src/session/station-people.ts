@@ -1,9 +1,10 @@
 import {
   POSITION_LABELS,
   receiverListResponseSchema,
-  type Position,
+  stationPeopleResponseSchema,
   type ReceiverOption,
   type StaffOption,
+  type StationPickerPerson,
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 import { listActiveStaff } from '../api/projects';
@@ -21,29 +22,11 @@ export interface RecordingPerson {
   roleLine: string;
 }
 
-/**
- * Positions listed on "Who is working here?" without searching. The board proposed "receiving-lab
- * staff" (STRATA-36); no endpoint exposes roles to LAB, so the station lists active staff whose
- * position is a lab one. Everyone else is one "Someone else…" search away.
- */
-export const STATION_POSITIONS: readonly Position[] = ['technician', 'technologist', 'lab_manager'];
-
 /** The role line under a name: the job title when known, else the position, else "Staff". */
 export function roleLineOf(option: Pick<StaffOption, 'jobTitle' | 'position'>): string {
   if (option.jobTitle) return option.jobTitle;
   if (option.position) return POSITION_LABELS[option.position];
   return 'Staff';
-}
-
-/** Only people with official initials can be credited (the receiver selector's rule). */
-export function toRecordingPerson(option: StaffOption): RecordingPerson | null {
-  if (!option.initials) return null;
-  return {
-    id: option.id,
-    displayName: option.displayName,
-    initials: option.initials,
-    roleLine: roleLineOf(option),
-  };
 }
 
 export function fromReceiver(
@@ -68,12 +51,31 @@ export function loadActiveStaff(): Promise<StaffOption[]> {
   return listActiveStaff();
 }
 
-/** The station's own list: active lab staff with initials, by name. */
-export function stationPeopleOf(staff: readonly StaffOption[]): RecordingPerson[] {
-  return staff
-    .filter((member) => member.position && STATION_POSITIONS.includes(member.position))
-    .map(toRecordingPerson)
-    .filter((person): person is RecordingPerson => person !== null);
+/**
+ * The station's own list (STRATA-131, Kyle's STRATA-36 rule): receiving-lab staff, i.e. active
+ * people with the Lab Technician or Lab Manager role whatever their position, from
+ * GET /api/station/people. Only people with initials can be credited, so the rest are left out.
+ */
+export async function loadStationPeople(): Promise<RecordingPerson[]> {
+  const response = await apiFetch('/api/station/people');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return stationPeopleOf(stationPeopleResponseSchema.parse(await response.json()));
+}
+
+/** Station people with initials, as the picker lists them (the server sorts them by name). */
+export function stationPeopleOf(people: readonly StationPickerPerson[]): RecordingPerson[] {
+  return people.flatMap((person) =>
+    person.initials
+      ? [
+          {
+            id: person.id,
+            displayName: person.displayName,
+            initials: person.initials,
+            roleLine: person.jobTitle ?? 'Staff',
+          },
+        ]
+      : [],
+  );
 }
 
 /** "Someone else…": all active staff by initials or name (GET /api/staff/receivers). */
