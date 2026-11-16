@@ -229,6 +229,28 @@ describe('Today with an own account', () => {
     expect(within(list).getAllByRole('link')[6]).toHaveFocus();
   });
 
+  it('Decide on retention due opens the decision drawer on Today with the row’s units', async () => {
+    const unitIds = [
+      '00000000-0000-4000-8000-000000000501',
+      '00000000-0000-4000-8000-000000000502',
+    ];
+    const { fetchMock } = renderToday(me(), {
+      '/api/today/needs-you': () => json(200, needs([need(2, { unitIds })])),
+    });
+    const section = screen.getByRole('region', { name: 'Needs you' });
+    const decide = await within(section).findByRole('button', {
+      name: 'Decide: Decide on 2 units at end of retention',
+    });
+    expect(decide).toHaveAttribute('aria-haspopup', 'dialog');
+    await userEvent.click(decide);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    const asked = fetchMock.mock.calls
+      .map(([input]) => new URL(String(input), 'http://localhost'))
+      .find((url) => url.pathname === '/api/retention/decision-units');
+    expect(asked?.search).toContain(unitIds[0]);
+    expect(asked?.search).toContain(unitIds[1]);
+  });
+
   it('marks requests with the Request pill and their kind', async () => {
     renderToday(me(), {
       '/api/today/needs-you': () =>
