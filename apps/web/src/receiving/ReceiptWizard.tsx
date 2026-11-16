@@ -916,7 +916,7 @@ export function ReceiptWizard({
       <div
         role="region"
         aria-label="Confirm receipt"
-        className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-20 border-t backdrop-blur"
+        className="bg-background sticky bottom-0 z-20 border-t"
       >
         <div className="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3">
           <div className="min-w-0 text-sm" aria-live="polite">
