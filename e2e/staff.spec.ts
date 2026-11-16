@@ -11,12 +11,12 @@ function staffDrawer(page: Page, name: string) {
 /** The toolbar's search box opens from its Search button. */
 async function searchStaff(page: Page, text: string) {
   const box = page.getByRole('searchbox', { name: 'Search staff' });
-  if (!(await box.isVisible())) {
-    await page
-      .getByRole('toolbar', { name: 'Staff tools' })
-      .getByRole('button', { name: 'Search', exact: true })
-      .click();
-  }
+  const open = page
+    .getByRole('toolbar', { name: 'Staff tools' })
+    .getByRole('button', { name: 'Search', exact: true });
+  // Wait for the box or its Search button before choosing (isVisible() doesn't wait).
+  await expect(box.or(open)).toBeVisible();
+  if (!(await box.isVisible())) await open.click();
   await box.fill(text);
 }
 
