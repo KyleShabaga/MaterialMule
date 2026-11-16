@@ -590,7 +590,9 @@ export function DisposalScanPage() {
                             )}
                           </ItemMedia>
                           <ItemContent>
-                            <ItemTitle className="gap-2 text-[13px]">
+                            {/* At 1024 px the column is narrow: the project wraps under the ID,
+                                which always stays whole. */}
+                            <ItemTitle className="w-auto min-w-0 flex-wrap gap-x-2 gap-y-0 text-[13px]">
                               <span className="font-mono font-semibold whitespace-nowrap">
                                 {unit.readableId}
                               </span>

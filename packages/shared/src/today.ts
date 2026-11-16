@@ -45,6 +45,9 @@ export const NEEDS_YOU_SYSTEM_KINDS = [
 ] as const;
 export type NeedsYouSystemKind = (typeof NEEDS_YOU_SYSTEM_KINDS)[number];
 
+/** Most units Today's Decide opens the decision drawer with (the IDs travel in its URL). */
+export const TODAY_DECIDE_MAX = 100;
+
 export const needsYouItemSchema = z.object({
   /** Stable: `request:<actionItemId>` or `system:<kind>[:<scope id>]`. */
   key: z.string(),
@@ -66,6 +69,12 @@ export const needsYouItemSchema = z.object({
   count: z.number().int().min(1),
   /** When it became due or arrived, for ordering ties and the detail line. */
   since: z.string().nullable(),
+  /**
+   * Retention due only: the units (storage unit UUIDs) the row is about, so Decide opens the
+   * decision drawer on Today. Left out past `TODAY_DECIDE_MAX` units (Decide then opens Retention).
+   * Optional; every rule is checked again when deciding.
+   */
+  unitIds: z.array(z.string().uuid()).max(TODAY_DECIDE_MAX).optional(),
 });
 export type NeedsYouItem = z.infer<typeof needsYouItemSchema>;
 

@@ -126,3 +126,63 @@ describe('notifyError and clearIdentityToasts', () => {
     expect(screen.queryByText("Couldn't move CT-2026-000004")).toBeNull();
   });
 });
+
+describe('StrataToaster position (STRATA-130)', () => {
+  function phone(matches: boolean) {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: matches && query.includes('max-width: 640px'),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+  }
+  const toaster = () => document.querySelector('[data-sonner-toaster]');
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.querySelectorAll('[data-test-sheet]').forEach((node) => node.remove());
+  });
+
+  it('moves toasts to the top on a phone while a Sheet is open, and back when it closes', async () => {
+    phone(true);
+    renderToaster();
+    act(() => {
+      notifySuccess('Retired the test');
+    });
+    await screen.findByText('Retired the test');
+    expect(toaster()).toHaveAttribute('data-y-position', 'bottom');
+
+    const sheet = document.createElement('div');
+    sheet.setAttribute('data-test-sheet', '');
+    sheet.setAttribute('data-slot', 'sheet-content');
+    sheet.setAttribute('data-state', 'open');
+    act(() => {
+      document.body.append(sheet);
+    });
+    await waitFor(() => expect(toaster()).toHaveAttribute('data-y-position', 'top'));
+
+    act(() => {
+      sheet.setAttribute('data-state', 'closed');
+    });
+    await waitFor(() => expect(toaster()).toHaveAttribute('data-y-position', 'bottom'));
+  });
+
+  it('keeps toasts bottom right on a computer even with a Sheet open', async () => {
+    phone(false);
+    const sheet = document.createElement('div');
+    sheet.setAttribute('data-test-sheet', '');
+    sheet.setAttribute('data-slot', 'sheet-content');
+    sheet.setAttribute('data-state', 'open');
+    document.body.append(sheet);
+    renderToaster();
+    act(() => {
+      notifySuccess('Saved');
+    });
+    await screen.findByText('Saved');
+    expect(toaster()).toHaveAttribute('data-y-position', 'bottom');
+    expect(toaster()).toHaveAttribute('data-x-position', 'right');
+  });
+});

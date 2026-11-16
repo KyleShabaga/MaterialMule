@@ -10,8 +10,11 @@
 //   so nothing from the previous person stays on screen.
 
 import { UNDO_BLOCKED_MESSAGES, type UndoBlockedReason } from '@materialmule/shared';
+import { useEffect, useState } from 'react';
 import { toast, type ExternalToast, type ToasterProps } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
+import { useMediaQuery } from '../useMediaQuery';
+import { PHONE_QUERY } from '../useTableView';
 
 export const TOAST_DURATION_MS = 5000;
 
@@ -100,5 +103,31 @@ export function clearIdentityToasts(): void {
  * On phones, pass `mobileOffset` so toasts sit above the bottom bar.
  */
 export function StrataToaster(props: ToasterProps) {
-  return <Toaster position="bottom-right" duration={TOAST_DURATION_MS} closeButton {...props} />;
+  const phone = useMediaQuery(PHONE_QUERY);
+  const sheetOpen = useSheetOpen(phone);
+  // STRATA-130: on a phone a Sheet fills the screen and keeps its actions at the bottom, where a
+  // toast would sit over them; while one is open, toasts show at the top instead.
+  const position = phone && sheetOpen ? 'top-center' : 'bottom-right';
+  return <Toaster position={position} duration={TOAST_DURATION_MS} closeButton {...props} />;
+}
+
+const OPEN_SHEET = '[data-slot="sheet-content"][data-state="open"]';
+
+/** Whether a shadcn Sheet is open anywhere (watched only while `enabled`). */
+function useSheetOpen(enabled: boolean): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const check = () => setOpen(document.querySelector(OPEN_SHEET) !== null);
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-state'],
+    });
+    return () => observer.disconnect();
+  }, [enabled]);
+  return enabled && open;
 }

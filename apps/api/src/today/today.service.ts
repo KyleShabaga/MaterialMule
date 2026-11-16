@@ -10,6 +10,7 @@ import {
   type NeedsYouItem,
   type NeedsYouResponse,
   type NeedsYouSystemKind,
+  TODAY_DECIDE_MAX,
 } from '@materialmule/shared';
 import { can, type AuthUser } from '../auth/policy.js';
 import { ConcreteHoldsService } from '../concrete/concrete-holds.service.js';
@@ -267,6 +268,8 @@ export class TodayService {
       href: '/disposal-retention',
       count: units.length,
       since: dateSince(units[0]!.effectiveRetainUntil),
+      // The drawer asks for the units by ID in its URL; past this many, Decide opens Retention.
+      ...(units.length <= TODAY_DECIDE_MAX ? { unitIds: units.map((u) => u.storageUnitId) } : {}),
     };
   }
 
