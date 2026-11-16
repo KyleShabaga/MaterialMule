@@ -1,4 +1,5 @@
 import {
+  LINE_COMMENT_MAX_LENGTH,
   LINE_SCOPE_LABEL,
   LINE_SCOPES,
   depthKey,
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { fetchSourceUnits } from './api';
@@ -44,7 +46,8 @@ import { TestChip, TestPicker } from './TestPicker';
 // One sample line (STRATA-86 Lines view; MM-T23 program entry, MM-T83 a line added by an
 // amendment): the sampling source with its exact identity (a test hole, a standalone Shelby tube
 // or a standalone bulk sample), ALL / Grabs / SPT / Specific with the sample's own depth, the
-// tests as chips with + Add test, and the storage units the line covers.
+// tests as chips with + Add test, the storage units the line covers, and an optional comment
+// for the lab (STRATA-129).
 
 const SOURCE_GROUPS: [string, LabSource['kind']][] = [
   ['Test holes', 'test_hole'],
@@ -350,6 +353,24 @@ export function LineEditor({
             readOnly={readOnly}
             onChange={onChange}
           />
+
+          {readOnly && line.comment.trim() === '' ? null : (
+            <div className={FIELD}>
+              <Label htmlFor={`${id}-comment`} className={LABEL}>
+                Comment for the lab{readOnly ? '' : ' (optional)'}
+              </Label>
+              <Textarea
+                id={`${id}-comment`}
+                rows={2}
+                className="min-h-16 resize-y"
+                value={line.comment}
+                maxLength={LINE_COMMENT_MAX_LENGTH}
+                readOnly={readOnly}
+                placeholder="Anything the lab should know about this sample line"
+                onChange={(event) => onChange({ comment: event.target.value })}
+              />
+            </div>
+          )}
 
           {review?.discrepancy ? (
             <Alert className="border-stage-due-fg/40">

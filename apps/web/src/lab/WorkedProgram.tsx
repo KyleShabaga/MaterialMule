@@ -750,6 +750,18 @@ function ProgramLine({
         </h3>
         {line.amendmentId ? <StageTag variant="outline" label="Added by amendment" /> : null}
       </div>
+      {line.comment ? (
+        <Item variant="muted" size="sm" className="my-1 rounded-md" data-testid="line-comment">
+          <ItemContent>
+            <ItemDescription className="text-[13px] font-medium">
+              Comment from {program.requestedBy.name}
+            </ItemDescription>
+            <ItemTitle className="block w-auto font-normal whitespace-pre-line [overflow-wrap:anywhere]">
+              {line.comment}
+            </ItemTitle>
+          </ItemContent>
+        </Item>
+      ) : null}
       <p className="text-sm text-muted-foreground">
         {included.length === 0 ? (
           'No physical unit linked'

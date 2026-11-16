@@ -25,6 +25,8 @@ export interface LineDraft {
   testTypeIds: string[];
   unitIds: string[];
   acknowledgedDepths: string[];
+  /** STRATA-129: the requester's comment for the lab ('' for none). */
+  comment: string;
 }
 
 const newKey = () => crypto.randomUUID();
@@ -42,6 +44,7 @@ export function emptyLine(): LineDraft {
     testTypeIds: [],
     unitIds: [],
     acknowledgedDepths: [],
+    comment: '',
   };
 }
 
@@ -72,6 +75,7 @@ export function linesFromProgram(program: Pick<LabProgram, 'lines'>): LineDraft[
     testTypeIds: line.tests.map((test) => test.testTypeId),
     unitIds: line.unitIds,
     acknowledgedDepths: line.acknowledgedDepths,
+    comment: line.comment ?? '',
   }));
 }
 
@@ -91,6 +95,7 @@ export function toInput(line: LineDraft): DraftLineInputValue {
     testTypeIds: line.testTypeIds,
     unitIds: line.scope === 'all' ? [] : line.unitIds,
     acknowledgedDepths: specific ? line.acknowledgedDepths : [],
+    comment: line.comment.trim() === '' ? null : line.comment,
   };
 }
 

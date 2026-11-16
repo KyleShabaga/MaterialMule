@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   TEST_REQUEST_STATUSES,
   coverageUnitSchema,
+  lineCommentSchema,
   personSnapshotSchema,
   type TestRequestStatus,
 } from './lab-programs';
@@ -297,6 +298,8 @@ export const amendmentLineInputSchema = z.strictObject({
   reviewedCoverageUnitIds: idList('storage unit', 500).default([]),
   /** Different depths of the same sample the requester acknowledged, e.g. ["7.5 ft"]. */
   acknowledgedDepths: z.array(z.string().max(60)).max(50).default([]),
+  /** STRATA-129: the requester's comment for the lab on the new line; null for none. */
+  comment: lineCommentSchema,
 });
 export type AmendmentLineInput = z.output<typeof amendmentLineInputSchema>;
 

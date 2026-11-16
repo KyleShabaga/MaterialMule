@@ -59,6 +59,7 @@ function line(overrides: Partial<LabLine> & Pick<LabLine, 'requests'>): LabLine 
     depthTo: null,
     depthUnit: 'm',
     acknowledgedDepths: [],
+    comment: null,
     tests: [],
     unitIds: [],
     coverage: [],

@@ -473,6 +473,7 @@ function amendmentLine(line: LineDraft, reviewedCoverageUnitIds: string[]): Amen
     unitIds: line.scope === 'all' ? [] : line.unitIds,
     reviewedCoverageUnitIds: specific ? [] : reviewedCoverageUnitIds,
     acknowledgedDepths: specific ? line.acknowledgedDepths : [],
+    comment: line.comment.trim() === '' ? null : line.comment,
   };
 }
 
@@ -668,8 +669,13 @@ function AddTestingLine({
             </Badge>
           }
           onChange={(change) => {
-            // Acknowledging a depth keeps the preview; any other change needs a fresh one.
-            if (Object.keys(change).some((field) => field !== 'acknowledgedDepths')) {
+            // Acknowledging a depth or writing the comment keeps the preview; any other change
+            // needs a fresh one.
+            if (
+              Object.keys(change).some(
+                (field) => field !== 'acknowledgedDepths' && field !== 'comment',
+              )
+            ) {
               revisionRef.current += 1;
               setRevision(revisionRef.current);
               setStored(null);
