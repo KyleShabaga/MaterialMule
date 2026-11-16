@@ -1,4 +1,4 @@
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { createElement, lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
 const preloads: Promise<unknown>[] = [];
 
@@ -19,19 +19,34 @@ export function lazyPage<M, K extends keyof M>(
   load: () => Promise<M>,
   name: K,
 ): LazyExoticComponent<M[K] extends ComponentType<infer P> ? ComponentType<P> : never> {
-  if (import.meta.env.MODE === 'test') {
-    // Unit tests only (the build drops this): start the import when routes.tsx is imported, and
-    // test-setup.ts waits for every one before the file's tests run (testPagePreloads). Pages
-    // then compile before the tests, as they did before the split, not inside a test's 1 s
-    // findBy window on a slow CI runner. Rendering still suspends once.
-    const loaded = load();
-    loaded.catch(() => undefined); // a failure surfaces when the page renders
-    preloads.push(loaded);
-    load = () => loaded;
-  }
-  return lazy(async () => ({
-    default: (await load())[name] as M[K] extends ComponentType<infer P> ? ComponentType<P> : never,
-  }));
+  type Page = M[K] extends ComponentType<infer P> ? ComponentType<P> : never;
+  if (import.meta.env.MODE === 'test')
+    return testPage(load, name) as unknown as LazyExoticComponent<Page>;
+  return lazy(async () => ({ default: (await load())[name] as Page }));
+}
+
+/**
+ * Unit tests only (the build drops the call): the import starts when routes.tsx is imported,
+ * test-setup.ts awaits every one before the file's tests (testPagePreloads), and the page then
+ * renders synchronously, as before the split. Tests never wait on the compiler or a Suspense
+ * tick. A page whose import failed throws that error, as React.lazy would.
+ */
+function testPage<M, K extends keyof M>(load: () => Promise<M>, name: K) {
+  let loaded: { module: M } | { error: unknown } | null = null;
+  const pending = load().then(
+    (module) => {
+      loaded = { module };
+    },
+    (error: unknown) => {
+      loaded = { error };
+    },
+  );
+  preloads.push(pending);
+  return function TestPage(props: object) {
+    if (!loaded) throw pending; // not preloaded yet: suspend until it is
+    if ('error' in loaded) throw loaded.error;
+    return createElement(loaded.module[name] as ComponentType<object>, props);
+  };
 }
 
 /**
