@@ -1477,6 +1477,13 @@ Grant body `{delegateUserId, reason, idempotencyKey}`; revoke body `{reason}` (D
   request you raised, or marks done a correction you returned. No routine-event notifications,
   none for lead appointments or grant reviews, none for your own resolution. Independent of the
   email preference and of `EMAIL_ENABLED`.
+- **Hold released** (STRATA-133, Kyle 2026-11-16, the one routine-event exception): when someone
+  else releases a retention hold, the person it was for gets one notice: the requester when it
+  came from a retention request, otherwise the person who placed it. Written by the database in
+  the release's transaction (migration 0051), once per hold; never to the releaser, LAB or a
+  disabled account. LAB can't place, request or release holds, so a station's "acting as"
+  person never becomes a recipient. No new route: it is read, dismissed and restored on the
+  routes below, and appears in Inbox as an update (badge-eligible like other updates).
 - **Own rows only.** Every route works on the signed-in person's notifications; another person's
   id, a missing one or a malformed one is 404 `notification_not_found`. The mutations are
   idempotent and return `{ unread }`. Dismiss hides a row (and marks it read); restore undoes it;

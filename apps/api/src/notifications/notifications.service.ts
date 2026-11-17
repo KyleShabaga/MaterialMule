@@ -21,6 +21,7 @@ import type { Pool, PoolClient } from 'pg';
 import { DatabaseService } from '../database/database.service.js';
 import { FEEDBACK_HREF, loadFeedbackEvents } from '../feedback/feedback-events.js';
 import { hrefOf, loadItemRows, titleOf } from './action-items.js';
+import { loadReleasedHolds } from './hold-released.js';
 
 const notificationIdSchema = z.uuid();
 
@@ -31,6 +32,7 @@ interface NotificationRow {
   concrete_field_report_id: string | null;
   concrete_report_transition_id: string | null;
   feedback_event_id: string | null;
+  retention_hold_id: string | null;
   created_at: Date;
   read_at: Date | null;
   dismissed_at: Date | null;
@@ -101,8 +103,8 @@ export class NotificationsService {
     const after = query.cursor ? decodeCursor(query.cursor) : null;
     const { rows: fetched } = await this.database.pool.query<NotificationRow>(
       `SELECT n.id, n.kind, n.action_item_id, n.concrete_field_report_id,
-              n.concrete_report_transition_id, n.feedback_event_id, n.created_at, n.read_at,
-              n.dismissed_at,
+              n.concrete_report_transition_id, n.feedback_event_id, n.retention_hold_id,
+              n.created_at, n.read_at, n.dismissed_at,
               (a.status = 'open' AND action_item_routed_to(a.id, $1)) AS still_yours,
               to_char(n.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
                 AS cursor_at
@@ -136,8 +138,31 @@ export class NotificationsService {
     const feedback = await loadFeedbackEvents(this.database.pool, [
       ...new Set(rows.flatMap((row) => row.feedback_event_id ?? [])),
     ]);
+    const holds = await loadReleasedHolds(this.database.pool, [
+      ...new Set(rows.flatMap((row) => row.retention_hold_id ?? [])),
+    ]);
     const list: Notification[] = [];
     for (const row of rows) {
+      if (row.kind === 'retention_hold.released') {
+        // STRATA-133: the released hold, read live.
+        const hold = row.retention_hold_id ? holds.get(row.retention_hold_id) : undefined;
+        if (!hold) continue;
+        list.push({
+          id: row.id,
+          kind: row.kind,
+          title: hold.title,
+          projectId: hold.projectId,
+          projectNumber: hold.projectNumber,
+          href: hold.href,
+          createdAt: row.created_at.toISOString(),
+          readAt: row.read_at?.toISOString() ?? null,
+          dismissedAt: row.dismissed_at?.toISOString() ?? null,
+          linkedRequest: null,
+          linkedReport: null,
+          linkedHold: hold.linked,
+        });
+        continue;
+      }
       if (row.kind === 'feedback.submitted') {
         // STRATA-104: the kind and page, read live from the feedback event; never the text.
         const event = row.feedback_event_id ? feedback.get(row.feedback_event_id) : undefined;

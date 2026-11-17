@@ -26,6 +26,7 @@ import {
 import type { Pool, PoolClient } from 'pg';
 import { FEEDBACK_HREF, loadFeedbackEvents } from '../feedback/feedback-events.js';
 import { hrefOf, loadItemRows, titleOf, type ItemRow } from '../notifications/action-items.js';
+import { loadReleasedHolds } from '../notifications/hold-released.js';
 import {
   loadConcreteReports,
   loadConcreteTransitions,
@@ -81,6 +82,7 @@ interface UpdateRow {
   concrete_specimen_id: string | null;
   concrete_report_transition_id: string | null;
   feedback_event_id: string | null;
+  retention_hold_id: string | null;
   created_at: Date;
   read_at: Date | null;
   dismissed_at: Date | null;
@@ -231,8 +233,8 @@ const unique = (values: (string | null)[]) => [
 async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
   const { rows } = await db.query<UpdateRow>(
     `SELECT n.id, n.kind, n.action_item_id, n.concrete_field_report_id, n.concrete_specimen_id,
-            n.concrete_report_transition_id, n.feedback_event_id, n.created_at, n.read_at,
-            n.dismissed_at
+            n.concrete_report_transition_id, n.feedback_event_id, n.retention_hold_id, n.created_at,
+            n.read_at, n.dismissed_at
      FROM notification n
      WHERE n.recipient_user_id = $1
        AND n.created_at >= now() - make_interval(days => $2)
@@ -256,6 +258,7 @@ async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
   );
   const specimens = await loadSpecimens(db, unique(rows.map((row) => row.concrete_specimen_id)));
   const feedback = await loadFeedbackEvents(db, unique(rows.map((row) => row.feedback_event_id)));
+  const holds = await loadReleasedHolds(db, unique(rows.map((row) => row.retention_hold_id)));
 
   const entries: FeedEntry[] = [];
   for (const row of rows) {
@@ -287,6 +290,23 @@ async function loadUpdates(db: Db, userId: string): Promise<FeedEntry[]> {
           href: FEEDBACK_HREF,
           aboutMyRequest: false,
           linkedRequestStatus: null,
+        };
+      }
+    } else if (row.kind === 'retention_hold.released') {
+      // STRATA-133: the hold read live; from the person who released it.
+      const hold = row.retention_hold_id ? holds.get(row.retention_hold_id) : undefined;
+      if (hold) {
+        item = {
+          ...base,
+          title: hold.title,
+          projectId: hold.projectId,
+          jobNumber: hold.projectNumber,
+          record: hold.record,
+          from: hold.from,
+          href: hold.href,
+          aboutMyRequest: hold.linked.requested,
+          linkedRequestStatus: null,
+          detail: hold.sentence,
         };
       }
     } else if (isConcreteNotificationKind(row.kind)) {

@@ -4,11 +4,13 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { usePeekAvailable } from '../components/strata/peek';
 import {
   REQUEST_ACTION_LABELS,
   REQUEST_CLOSES_WHEN,
   RECORD_KIND_LABELS,
   fromName,
+  itemHref,
   openRecordLabel,
   recordHref,
   requestState,
@@ -77,6 +79,7 @@ export function InboxItemDetail({
   const age = inboxAge(item.receivedAt, now, dateFormat);
   const ago = /^\d/.test(age) ? `${age} ago` : age;
   const otherHref = recordHref(item);
+  const href = itemHref(item, usePeekAvailable());
 
   return (
     <article className="flex flex-col gap-5 p-5" data-slot="inbox-item">
@@ -117,11 +120,11 @@ export function InboxItemDetail({
       ) : null}
 
       {item.type === 'request' ? (
-        <RequestActions item={item} otherHref={otherHref} actions={actions} />
+        <RequestActions item={item} href={href} otherHref={otherHref} actions={actions} />
       ) : (
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link to={item.href}>{openRecordLabel(item.record)}</Link>
+            <Link to={href}>{openRecordLabel(item.record)}</Link>
           </Button>
           {item.dismissed ? (
             actions.onRestore ? (
@@ -144,10 +147,12 @@ export function InboxItemDetail({
 
 function RequestActions({
   item,
+  href,
   otherHref,
   actions,
 }: {
   item: Extract<InboxItem, { type: 'request' }>;
+  href: string;
   otherHref: string | null;
   actions: InboxItemActions;
 }) {
@@ -158,12 +163,12 @@ function RequestActions({
       <div className="flex flex-wrap gap-2">
         {mine ? (
           <Button asChild>
-            <Link to={item.href}>{REQUEST_ACTION_LABELS[item.kind]}</Link>
+            <Link to={href}>{REQUEST_ACTION_LABELS[item.kind]}</Link>
           </Button>
         ) : null}
         {!mine ? (
           <Button asChild variant={open ? 'default' : 'outline'}>
-            <Link to={item.href}>{openRecordLabel(item.record)}</Link>
+            <Link to={href}>{openRecordLabel(item.record)}</Link>
           </Button>
         ) : otherHref ? (
           <Button asChild variant="outline">
