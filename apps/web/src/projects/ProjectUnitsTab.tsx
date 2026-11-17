@@ -193,7 +193,15 @@ export function ProjectUnitsTab() {
             asChild
             className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
           >
-            <Link to={`/sample-storage/${encodeURIComponent(item.readableId)}`}>
+            <Link
+              to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
+              onClick={(event) => {
+                // Wide screens: a plain click opens the drawer (the row does it), as on Inventory
+                // (STRATA-73); Ctrl/Cmd/Shift click still opens the unit page.
+                if (!peekAvailable || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                event.preventDefault();
+              }}
+            >
               {item.readableId}
             </Link>
           </Button>
@@ -252,7 +260,7 @@ export function ProjectUnitsTab() {
           item.retention?.retentionExempt ? '—' : (item.retention?.effectiveRetainUntil ?? '—'),
       },
     ],
-    [],
+    [peekAvailable],
   );
 
   const toolbarQuery: TableQuery = { ...query, sort, view: density };
