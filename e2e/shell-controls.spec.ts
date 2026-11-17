@@ -127,6 +127,25 @@ test('STRATA-7/15: Light, Dark and System in the account menu apply at once and 
   page,
 }) => {
   await page.emulateMedia({ colorScheme: 'light' });
+  // STRATA-101: the menu also saves the theme to the person's preferences, and the saved one
+  // applies at startup. The preferences are faked here so this test (run by desktop and phone at
+  // once as the same person) never leaves a saved theme for other tests.
+  let savedTheme = 'system';
+  const patches: unknown[] = [];
+  await page.route('**/api/me/preferences', async (route) => {
+    // The real read (for a PATCH too: its answer has the same shape), with the faked theme.
+    const response = await page.request.get(route.request().url());
+    const body = (await response.json()) as { preferences: Record<string, unknown> };
+    if (route.request().method() === 'PATCH') {
+      const change = route.request().postDataJSON() as { theme: string };
+      patches.push(change);
+      savedTheme = change.theme;
+    }
+    await route.fulfill({
+      response,
+      json: { ...body, preferences: { ...body.preferences, theme: savedTheme } },
+    });
+  });
   await signInAs(page, 'at');
   await page.goto('/');
   const lightBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -142,6 +161,12 @@ test('STRATA-7/15: Light, Dark and System in the account menu apply at once and 
     lightBg,
   );
 
+  await expect.poll(() => patches).toEqual([expect.objectContaining({ theme: 'dark' })]);
+
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  // The saved preference wins over this browser's own choice once it arrives.
+  await page.evaluate(() => window.localStorage.setItem('materialmule:theme', 'light'));
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   // An explicit light choice wins over a dark OS setting; System follows the OS again.
@@ -156,6 +181,7 @@ test('STRATA-7/15: Light, Dark and System in the account menu apply at once and 
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(lightBg);
   await menu.getByRole('menuitemradio', { name: 'System' }).click();
   await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+  await expect.poll(() => savedTheme).toBe('system');
 });
 
 test('MISC-09: server health shows only when the API is unreachable', async ({ page }) => {

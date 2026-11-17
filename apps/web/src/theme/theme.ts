@@ -6,6 +6,16 @@ export const THEME_STORAGE_KEY = 'materialmule:theme';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
+/**
+ * Fired on window after the theme changed (STRATA-101), so every Light / Dark / System control
+ * shows a choice applied elsewhere (the saved preference arriving, another control).
+ */
+export const THEME_CHANGED_EVENT = 'materialmule:theme-changed';
+
+function announceTheme(): void {
+  window.dispatchEvent(new Event(THEME_CHANGED_EVENT));
+}
+
 export type Theme = 'light' | 'dark';
 /** STRATA-7: what the person picked; 'system' means no stored choice, so the OS setting applies. */
 export type ThemeChoice = Theme | 'system';
@@ -44,6 +54,7 @@ export function chooseTheme(theme: Theme): void {
   } catch {
     // Storage blocked (private window, policy): the choice lasts for this page only.
   }
+  announceTheme();
 }
 
 /** Clears the stored choice so the operating system setting applies again (STRATA-7). */
@@ -54,6 +65,13 @@ export function followSystemTheme(): void {
   } catch {
     // Storage blocked: the page follows the OS until reload, then the old choice (if any) returns.
   }
+  announceTheme();
+}
+
+/** Applies a Light / Dark / System pick on this browser (stored as for chooseTheme). */
+export function applyThemeChoice(choice: ThemeChoice): void {
+  if (choice === 'system') followSystemTheme();
+  else chooseTheme(choice);
 }
 
 /** The person's pick: light, dark, or system when nothing is stored. */
@@ -65,9 +83,13 @@ export function currentThemeChoice(): ThemeChoice {
 /** The pick (for a Light / Dark / System control) and a setter. */
 export function useThemeChoice(): [ThemeChoice, (choice: ThemeChoice) => void] {
   const [choice, setChoice] = useState<ThemeChoice>(currentThemeChoice);
+  useEffect(() => {
+    const onChange = () => setChoice(currentThemeChoice());
+    window.addEventListener(THEME_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(THEME_CHANGED_EVENT, onChange);
+  }, []);
   const set = useCallback((next: ThemeChoice) => {
-    if (next === 'system') followSystemTheme();
-    else chooseTheme(next);
+    applyThemeChoice(next);
     setChoice(next);
   }, []);
   return [choice, set];
@@ -82,7 +104,11 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
     if (!query) return;
     const onChange = () => setTheme(currentTheme());
     query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
+    window.addEventListener(THEME_CHANGED_EVENT, onChange);
+    return () => {
+      query.removeEventListener('change', onChange);
+      window.removeEventListener(THEME_CHANGED_EVENT, onChange);
+    };
   }, []);
   const set = useCallback((next: Theme) => {
     chooseTheme(next);

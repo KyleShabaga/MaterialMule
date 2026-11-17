@@ -36,6 +36,8 @@ import { useOptionalFeedbackDialog } from '../feedback/feedback-context';
 import { useOptionalHelpDrawer } from '../help/help-drawer-context';
 import { useMe, useSession } from '../session/context';
 import { clearRecordingPerson } from '../session/recording-person-store';
+import { notifyError } from '../components/strata/toast';
+import { SAVE_FAILED_MESSAGE, saveThemePreference } from '../settings/account/preferences-api';
 import { useThemeChoice, type ThemeChoice } from '../theme/theme';
 import { accountInitials, accountRowText } from './nav';
 
@@ -111,9 +113,21 @@ const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System', icon: Monitor },
 ];
 
-/** STRATA-7: Light / Dark / System, saved per browser; System follows the operating system. */
-function ThemeChoiceItems() {
+/**
+ * STRATA-7: Light / Dark / System; System follows the operating system. It applies on this
+ * browser at once and, for a personal account, is saved to the person's preferences too
+ * (STRATA-101), like Settings › Preferences. The shared LAB account never saves (STRATA-119).
+ */
+function ThemeChoiceItems({ station }: { station: boolean }) {
   const [choice, setChoice] = useThemeChoice();
+  const change = (next: ThemeChoice) => {
+    setChoice(next);
+    if (station) return;
+    void saveThemePreference(next).then((result) => {
+      // Kept on this browser either way; a failed save says so (a read-only account stays quiet).
+      if (result.kind === 'failed') notifyError(SAVE_FAILED_MESSAGE);
+    });
+  };
   return (
     <DropdownMenuGroup>
       <DropdownMenuLabel className="text-[13px] font-normal text-muted-foreground">
@@ -121,7 +135,7 @@ function ThemeChoiceItems() {
       </DropdownMenuLabel>
       <DropdownMenuRadioGroup
         value={choice}
-        onValueChange={(value) => setChoice(value as ThemeChoice)}
+        onValueChange={(value) => change(value as ThemeChoice)}
       >
         {THEMES.map(({ value, label, icon: Icon }) => (
           <DropdownMenuRadioItem
@@ -234,7 +248,7 @@ export function AccountMenu() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <ThemeChoiceItems />
+                  <ThemeChoiceItems station={station} />
                   <DropdownMenuSeparator />
                 </>
               )}

@@ -11,6 +11,7 @@ import {
 } from '@materialmule/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../api/client';
+import { applyThemeChoice, currentThemeChoice, type ThemeChoice } from '../../theme/theme';
 
 // Settings › Preferences and Notifications (STRATA-29, STRATA-55, STRATA-101): one per-person
 // store with one version (lane 1C, packages/shared/src/user-preferences.ts).
@@ -226,6 +227,59 @@ export function usePersonPreferences({ station = false }: { station?: boolean } 
     reload,
   };
   return value;
+}
+
+// ---- Theme: applied from the saved preferences, saved from the account menu (STRATA-101) ----
+
+/**
+ * Saves the theme from outside Settings (the account menu): reads the version, then sends the
+ * change; a version conflict retries once with the newer version. Never throws. The shared LAB
+ * account never calls this (callers check), and the server refuses it anyway (403).
+ */
+export async function saveThemePreference(theme: ThemeChoice): Promise<PatchResult> {
+  let version: number;
+  try {
+    const current = await fetchPreferences();
+    if (current.readOnly) return { kind: 'forbidden' };
+    if (current.preferences.theme === theme) return { kind: 'saved', response: current };
+    version = current.version;
+  } catch {
+    return { kind: 'failed' };
+  }
+  const first = await patchPreferences({ theme }, version);
+  if (first.kind !== 'conflict') return first;
+  return patchPreferences({ theme }, first.current.version);
+}
+
+/**
+ * Applies the person's saved theme once the session is known (STRATA-101). Until the saved value
+ * arrives the browser's own choice stays (index.html applied it before first paint), so nothing
+ * flashes; if the person changes the theme here meanwhile, that change wins. The shared LAB
+ * account reads nothing: its theme stays local to the browser, as in Settings.
+ */
+export function useSavedTheme({
+  accountId,
+  station,
+}: {
+  /** Read again for another account (a new sign-in), not for every /api/me re-read. */
+  accountId: string;
+  station: boolean;
+}): void {
+  useEffect(() => {
+    if (station) return;
+    let active = true;
+    const before = currentThemeChoice();
+    fetchPreferences().then(
+      (data) => {
+        if (!active || data.readOnly || currentThemeChoice() !== before) return;
+        if (data.preferences.theme !== before) applyThemeChoice(data.preferences.theme);
+      },
+      () => undefined, // Unreadable: the browser's own choice stays.
+    );
+    return () => {
+      active = false;
+    };
+  }, [accountId, station]);
 }
 
 // ---- Reset sidebar layout (Settings › Preferences › Sidebar) ----
