@@ -647,6 +647,42 @@ describe('search results page', () => {
     expect(within(projects).getByText('First 5 shown')).toBeInTheDocument();
   });
 
+  it('on a wide screen a unit result opens the unit drawer (?open=), not the unit page', async () => {
+    // STRATA-73: the drawer exists from 1024 px; jsdom has no matchMedia, so the test opts in.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    const user = userEvent.setup();
+    const { router, fetchMock } = renderAt('/search?q=TH26-02', {
+      '/api/inventory': () => json(200, page([unit(1), unit(2)])),
+    });
+    const units = await screen.findByRole('region', { name: 'Storage units' });
+    await user.click(within(units).getByRole('link', { name: 'BKT-2026-000101' }));
+    expect(router.state.location.pathname).toBe('/search');
+    expect(router.state.location.search).toContain('open=BKT-2026-000101');
+    expect(router.state.location.search).toContain('q=TH26-02');
+    // The shared drawer reads the unit (here unknown, so it says so) beside the results.
+    expect(
+      await screen.findByText('No storage unit has the ID BKT-2026-000101.'),
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/api/storage-units/BKT-2026-000101'),
+      ),
+    ).toBe(true);
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+    await user.keyboard('j');
+    expect(router.state.location.search).toContain('open=BKT-2026-000102');
+    await user.keyboard('{Escape}');
+    expect(router.state.location.search).not.toContain('open=');
+  });
+
   it('says plainly when nothing matches', async () => {
     renderAt('/search?q=DEMO-2699');
     expect(await screen.findByText('Nothing matches.')).toBeInTheDocument();

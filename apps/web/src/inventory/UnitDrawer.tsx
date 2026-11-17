@@ -28,6 +28,9 @@ import {
   UNIT_DRAWER_TITLE_ID,
 } from './unit-record';
 
+const DISPOSED_PRINT_REASON = 'Disposed units can’t be relabelled.';
+const DISPOSED_PRINT_REASON_ID = 'unit-drawer-print-reason';
+
 type Loaded =
   | { key: string; ok: true; data: StorageUnitDetail }
   | { key: string; ok: false; notFound: boolean; message: string };
@@ -122,7 +125,18 @@ export function UnitDrawer({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <UnitPrimaryButton unit={unit} action={action} />
-          {disposed ? null : (
+          {disposed ? (
+            // Shown but disabled, with the reason beside it (STRATA-73).
+            <>
+              <Button variant="outline" disabled aria-describedby={DISPOSED_PRINT_REASON_ID}>
+                <Printer aria-hidden="true" />
+                Print label
+              </Button>
+              <span id={DISPOSED_PRINT_REASON_ID} className="text-sm text-muted-foreground">
+                {DISPOSED_PRINT_REASON}
+              </span>
+            </>
+          ) : (
             <Button asChild variant="outline">
               <Link to={unitPrintPath(unit.readableId)}>
                 <Printer aria-hidden="true" />

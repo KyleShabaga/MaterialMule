@@ -25,7 +25,16 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PageHeader } from '../components/app-ui';
 import { useMediaQuery } from '../components/useMediaQuery';
+import {
+  PeekSplit,
+  peekNeighbours,
+  usePeekAvailable,
+  usePeekKeys,
+  usePeekParam,
+} from '../components/strata/peek';
 import { FEATURES } from '../features';
+import { UnitDrawer } from '../inventory/UnitDrawer';
+import { UNIT_DRAWER_TITLE_ID } from '../inventory/unit-record';
 import { useOptionalCommandMenu } from './command-menu';
 import {
   SEARCH_PREVIEW,
@@ -193,7 +202,17 @@ function ResultTable({ rows, label }: { rows: ResultRow[]; label: string }) {
   );
 }
 
-function UnitTable({ rows }: { rows: UnitRow[] }) {
+function UnitTable({
+  rows,
+  openId,
+  onOpen,
+}: {
+  rows: UnitRow[];
+  /** The unit open in the drawer, if any. */
+  openId: string | null;
+  /** Opens a unit in the drawer (desktop); absent where the drawer doesn't exist (phones). */
+  onOpen?: (readableId: string) => void;
+}) {
   return (
     <Table aria-label="Storage units">
       <TableHeader>
@@ -207,10 +226,19 @@ function UnitTable({ rows }: { rows: UnitRow[] }) {
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
-          <TableRow key={row.key}>
+          <TableRow key={row.key} data-state={openId === row.id ? 'selected' : undefined}>
             <TableCell className="w-0">
               <Link
                 to={row.href}
+                data-peek-id={row.id}
+                aria-current={openId === row.id ? 'true' : undefined}
+                onClick={(event) => {
+                  // A plain click opens the drawer; Ctrl/Cmd/Shift click or a middle click still
+                  // opens the full page (STRATA-73).
+                  if (!onOpen || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                  event.preventDefault();
+                  onOpen(row.id);
+                }}
                 className="font-mono font-medium whitespace-nowrap text-link underline-offset-4 hover:underline"
               >
                 {row.id}
@@ -254,6 +282,9 @@ export function SearchPage() {
   const phone = useMediaQuery(PHONE_QUERY);
   const menu = useOptionalCommandMenu();
   const [filter, setFilter] = useState<PhoneFilter>('all');
+  // Storage-unit results open the shared unit drawer (`?open=`), as Inventory does (STRATA-73).
+  const peek = usePeekParam();
+  const peekAvailable = usePeekAvailable();
 
   const units = useResult(q, loadUnits);
   const projects = useResult(q, searchProjects);
@@ -261,6 +292,19 @@ export function SearchPage() {
   const receipts = useResult(q, searchReceipts);
   const programs = useResult(q, FEATURES.labTesting ? searchPrograms : noPrograms);
   const concrete = useResult(q, FEATURES.concreteLab ? loadConcrete : noConcrete);
+
+  const previewUnits = units?.ok ? units.data.items.slice(0, SEARCH_PREVIEW) : [];
+  const openId = peekAvailable && q ? peek.openId : null;
+  const nav = peekNeighbours(
+    previewUnits.map((unit) => unit.readableId),
+    openId,
+  );
+  usePeekKeys({
+    enabled: openId !== null,
+    onClose: peek.close,
+    onPrevious: nav.previousId ? () => peek.open(nav.previousId!) : undefined,
+    onNext: nav.nextId ? () => peek.open(nav.nextId!) : undefined,
+  });
 
   if (!q) {
     return (
@@ -319,7 +363,7 @@ export function SearchPage() {
       });
     }
     if (units.data.total > 0) {
-      unitRows = units.data.items.slice(0, SEARCH_PREVIEW).map(unitRow);
+      unitRows = previewUnits.map(unitRow);
       unitCount = matches(units.data.total);
       unitMore =
         units.data.total > SEARCH_PREVIEW
@@ -398,29 +442,8 @@ export function SearchPage() {
   ];
   const byKey = new Map(groups.map((group) => [group.key, group]));
 
-  return (
+  const resultsBody = (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <PageHeader title={`Results for “${q}”`} documentTitle={false} />
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          {loading ? 'Searching…' : `Searched ${SEARCHED_KINDS}.`}
-        </p>
-      </div>
-      {phone ? (
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          aria-label="Show"
-          value={filter}
-          onValueChange={(next) => next && setFilter(next as PhoneFilter)}
-        >
-          {PHONE_FILTERS.map((option) => (
-            <ToggleGroupItem key={option.value} value={option.value}>
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      ) : null}
       {failures.map((failure) => (
         <Alert key={failure.message} variant="destructive">
           <TriangleAlert />
@@ -447,7 +470,11 @@ export function SearchPage() {
         if (key === 'units') {
           return unitRows.length > 0 ? (
             <GroupCard key={key} title="Storage units" count={unitCount} more={unitMore}>
-              <UnitTable rows={unitRows} />
+              <UnitTable
+                rows={unitRows}
+                openId={openId}
+                onOpen={peekAvailable ? (id) => peek.open(id) : undefined}
+              />
             </GroupCard>
           ) : null;
         }
@@ -466,6 +493,59 @@ export function SearchPage() {
         );
       })}
       {loading ? <LoadingGroups /> : null}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <PageHeader title={`Results for “${q}”`} documentTitle={false} />
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {loading ? 'Searching…' : `Searched ${SEARCHED_KINDS}.`}
+        </p>
+      </div>
+      {phone ? (
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          aria-label="Show"
+          value={filter}
+          onValueChange={(next) => next && setFilter(next as PhoneFilter)}
+        >
+          {PHONE_FILTERS.map((option) => (
+            <ToggleGroupItem key={option.value} value={option.value}>
+              {option.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      ) : null}
+      {peekAvailable ? (
+        <PeekSplit
+          className="min-h-[24rem]"
+          open={openId !== null}
+          openId={openId}
+          listLabel={`Results for ${q}`}
+          drawerLabelledBy={UNIT_DRAWER_TITLE_ID}
+          list={resultsBody}
+          drawer={
+            openId ? (
+              <UnitDrawer
+                key={openId}
+                readableId={openId}
+                retention={previewUnits.find((unit) => unit.readableId === openId)?.retention}
+                toolbar={{
+                  onClose: peek.close,
+                  position: nav.index >= 0 ? { index: nav.index, total: nav.total } : undefined,
+                  onPrevious: nav.previousId ? () => peek.open(nav.previousId!) : undefined,
+                  onNext: nav.nextId ? () => peek.open(nav.nextId!) : undefined,
+                }}
+              />
+            ) : null
+          }
+        />
+      ) : (
+        resultsBody
+      )}
       <p className="text-xs text-muted-foreground">
         A scanned label that matches exactly one unit or shelf skips this page and opens it.
       </p>

@@ -54,6 +54,16 @@ test('T5: projects list → project page tabs → add test hole (duplicate rejec
   const units = page.getByRole('table', { name: `Storage units on ${data.projectA}` });
   await expect(units).toContainText(data.aReceiving);
   await expect(units).not.toContainText(data.aOtherHole);
+  // STRATA-73: on a wide screen a row opens the shared unit drawer beside the table.
+  if ((page.viewportSize()?.width ?? 1280) >= 1024) {
+    await units.getByRole('link', { name: data.aReceiving, exact: true }).click();
+    const drawer = page.getByRole('region', { name: data.aReceiving });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole('link', { name: 'Print label' })).toBeVisible();
+    await expect(drawer.getByRole('region', { name: 'Retention' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+  }
   // Refresh and Back keep the tab and its filter.
   await page.reload();
   await expect(page.getByRole('tab', { name: /Storage units/ })).toHaveAttribute(
