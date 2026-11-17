@@ -24,6 +24,7 @@ import {
   SIDEBAR_COLLAPSED_KEY,
   apiPrefsSource,
   moveSection,
+  moveSectionTo,
   toggleIn,
   useSidebarPrefs,
   type SidebarPrefsSource,
@@ -67,8 +68,31 @@ function json(status: number, body: unknown): Response {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   window.localStorage.clear();
 });
+
+/**
+ * jsdom has no layout, and dnd kit's keyboard sorting moves by measured rects: give each row of
+ * the "Sidebar sections" list a 36 px slot by its place in the list (its drag transform included),
+ * and the list their height (the drag is kept inside it).
+ */
+function stubSectionRowRects() {
+  const original = Element.prototype.getBoundingClientRect;
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    if (this.getAttribute('aria-label') === 'Sidebar sections') {
+      return DOMRect.fromRect({ x: 0, y: 0, width: 240, height: this.children.length * 36 });
+    }
+    const list = this.parentElement;
+    if (this.tagName !== 'LI' || list?.getAttribute('aria-label') !== 'Sidebar sections') {
+      return original.call(this);
+    }
+    const index = Array.from(list.children).indexOf(this);
+    const shift = /translate3d\([^,]+,\s*(-?[\d.]+)px/.exec((this as HTMLElement).style.transform);
+    const top = index * 36 + (shift ? Number(shift[1]) : 0);
+    return DOMRect.fromRect({ x: 0, y: top, width: 240, height: 36 });
+  });
+}
 
 describe('sidebarNavFor', () => {
   const labels = (who: MeResponse, features = ALL_ON) => {
@@ -192,6 +216,27 @@ describe('sidebar layout adapter', () => {
       'concrete',
     ]);
     expect(toggleIn(['recent'], 'soils', true)).toEqual(['recent', 'soils']);
+  });
+
+  it('a drop moves a section to the target place among the visible ones (STRATA-39)', () => {
+    const layout = DEFAULT_SIDEBAR_LAYOUT;
+    expect(moveSectionTo(layout, 'concrete', 'recent').order).toEqual([
+      'pinned',
+      'concrete',
+      'recent',
+      'storage_units',
+      'soils',
+    ]);
+    expect(moveSectionTo(layout, 'soils', 'soils')).toBe(layout);
+    // Hidden from this person (Pinned, Recent on a station): they keep their slots.
+    const among = ['storage_units', 'soils', 'concrete'] as const;
+    expect(moveSectionTo(layout, 'concrete', 'storage_units', among).order).toEqual([
+      'pinned',
+      'recent',
+      'concrete',
+      'storage_units',
+      'soils',
+    ]);
   });
 
   function fakeSource(
@@ -632,6 +677,7 @@ describe('Strata sidebar', () => {
 
   it('Customize: grips reorder with Space and arrows, Escape cancels, then leaves the mode', async () => {
     const user = userEvent.setup();
+    stubSectionRowRects();
     renderSidebar(me());
     const row = screen.getByRole('button', { name: 'Customize sidebar' });
     await user.click(row);
@@ -650,19 +696,30 @@ describe('Strata sidebar', () => {
     const pinnedGrip = within(editor).getByRole('button', { name: 'Move Pinned' });
     expect(pinnedGrip).toHaveFocus();
 
+    // dnd kit keyboard sorting (STRATA-39): Space picks up, arrows move, Space drops.
     await user.keyboard(' ');
-    expect(pinnedGrip).toHaveAttribute('aria-pressed', 'true');
-    await user.keyboard('{ArrowDown}{ArrowDown}');
+    await waitFor(() => expect(pinnedGrip).toHaveAttribute('aria-pressed', 'true'));
+    expect(editor).toHaveTextContent('Picked up Pinned.');
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(editor).toHaveTextContent('Pinned is now at place 2 of 5.'));
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(editor).toHaveTextContent('Pinned is now at place 3 of 5.'));
+    await user.keyboard(' ');
+    await waitFor(() => expect(editor).toHaveTextContent('Dropped Pinned at place 3 of 5.'));
     expect(order()).toEqual(['Recent', 'Storage units', 'Pinned', 'Soils', 'Concrete']);
-    expect(editor).toHaveTextContent('Pinned is now at place 3 of 5.');
-    await user.keyboard(' ');
-    expect(editor).toHaveTextContent('Dropped Pinned at place 3 of 5.');
 
-    // Pick up again and cancel: back where it was dropped.
-    within(editor).getByRole('button', { name: 'Move Pinned' }).focus();
-    await user.keyboard(' {ArrowUp}{Escape}');
+    // Pick up again and press Escape: the drag is cancelled, the order stays, and the mode stays.
+    const grip = within(editor).getByRole('button', { name: 'Move Pinned' });
+    grip.focus();
+    await user.keyboard(' ');
+    await waitFor(() => expect(grip).toHaveAttribute('aria-pressed', 'true'));
+    await user.keyboard('{ArrowUp}');
+    await waitFor(() => expect(editor).toHaveTextContent('Pinned is now at place 2 of 5.'));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(editor).toHaveTextContent('Moving Pinned was cancelled.'));
+    expect(grip).toHaveAttribute('aria-pressed', 'false');
     expect(order()[2]).toBe('Pinned');
-    expect(editor).toHaveTextContent('Moving Pinned was cancelled.');
+    expect(screen.getByRole('region', { name: 'Customize sidebar' })).toBeInTheDocument();
 
     // Hide Soils with its eye; Reset brings everything back.
     const eye = within(editor).getByRole('button', { name: 'Show Soils in the sidebar' });

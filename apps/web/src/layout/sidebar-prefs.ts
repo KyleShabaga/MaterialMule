@@ -77,6 +77,27 @@ export function moveSection(
   return { ...layout, order };
 }
 
+/**
+ * Moves `id` to where `target` is among `among` (what the person sees), as a drag drop does.
+ * Sections the person can't see keep their places in the saved order.
+ */
+export function moveSectionTo(
+  layout: SidebarLayout,
+  id: SidebarSectionId,
+  target: SidebarSectionId,
+  among: readonly SidebarSectionId[] = layout.order,
+): SidebarLayout {
+  const from = among.indexOf(id);
+  const to = among.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return layout;
+  const visible = [...among];
+  visible.splice(from, 1);
+  visible.splice(to, 0, id);
+  const queue = [...visible];
+  const order = layout.order.map((item) => (among.includes(item) ? queue.shift()! : item));
+  return { ...layout, order };
+}
+
 /** Adds (`on`) or removes `id`. */
 export function toggleIn<T extends string>(list: T[], id: T, on: boolean): T[] {
   const without = list.filter((item) => item !== id);
