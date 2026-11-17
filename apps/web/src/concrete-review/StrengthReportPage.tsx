@@ -12,7 +12,7 @@ import {
   type ConcreteStrengthReportDetail,
   type ConcreteStrengthReportSnapshot,
   type ConcreteStrengthResultRow,
-  type StaffOption,
+  type ReceiverOption,
 } from '@materialmule/shared';
 import { Eye, RotateCw, TriangleAlert } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -30,19 +30,11 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { listActiveStaff } from '../api/projects';
+import { ReceiverSelect } from '../components/ReceiverSelect';
 import { StageTag } from '../components/strata/stage-tag';
 import { shortDateTime } from '../dashboard/format';
 import { useMe } from '../session/context';
-import { useOptionalRecordingPerson } from '../session/recording-person-store';
 import {
   PanelSection,
   ReportHeader,
@@ -507,9 +499,7 @@ function strengthSteps(state: ConcreteStrengthReportDetail['state']): {
 export function StrengthReportPage() {
   const { setId = '' } = useParams();
   const me = useMe();
-  const recording = useOptionalRecordingPerson();
   const sharedStation = me.accountType === 'shared_lab';
-  const staffId = useId();
   const [attempt, setAttempt] = useState(0);
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [busy, setBusy] = useState(false);
@@ -518,17 +508,11 @@ export function StrengthReportPage() {
   const [excluding, setExcluding] = useState<ConcreteStrengthResultRow | null>(null);
   // Review fix: after an issue, the new later-age results can be viewed live (and excluded).
   const [live, setLive] = useState(false);
-  const [staff, setStaff] = useState<StaffOption[]>([]);
-  const [chosenPerformer, setPerformer] = useState('');
-  // A LAB station's picked person is the starting choice (attribution only); it can be changed.
-  const performer = chosenPerformer || (recording?.isStation ? (recording.person?.id ?? '') : '');
-
-  useEffect(() => {
-    if (!sharedStation) return;
-    void listActiveStaff()
-      .then((list) => setStaff(list.filter((p) => p.initials)))
-      .catch(() => setStaff([]));
-  }, [sharedStation]);
+  // STRATA-125: on a LAB station the person doing the work is the one picked with the station
+  // chip, read-only, as on the other LAB pages (attribution only). With no one picked yet, someone
+  // is chosen here.
+  const [performerChoice, setPerformerChoice] = useState<ReceiverOption | null>(null);
+  const performer = performerChoice?.id ?? '';
 
   useEffect(() => {
     let current = true;
@@ -716,18 +700,14 @@ export function StrengthReportPage() {
       </PanelSection>
       {sharedStation ? (
         <PanelSection id="strength-performer" title="Who is doing this">
-          <Select value={performer} onValueChange={setPerformer}>
-            <SelectTrigger id={staffId} aria-label="Who is doing this" className="w-full">
-              <SelectValue placeholder="Choose a person" />
-            </SelectTrigger>
-            <SelectContent>
-              {staff.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {formatPerson(p.initials, p.displayName)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ReceiverSelect
+            label="Who is doing this?"
+            required
+            stationPerson="follow"
+            value={performerChoice}
+            onChange={setPerformerChoice}
+            hint="Shared LAB station: attribution only; LAB gains none of this person’s permissions."
+          />
         </PanelSection>
       ) : null}
       <PanelSection id="strength-exceptions" title="Exceptions">

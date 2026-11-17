@@ -1,5 +1,5 @@
-import type { MeResponse } from '@materialmule/shared';
-import { render, screen, within } from '@testing-library/react';
+import { DEFAULT_USER_PREFERENCES, type MeResponse } from '@materialmule/shared';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -164,6 +164,42 @@ describe('SidebarFooter account menu', () => {
     await user.click(screen.getByRole('menuitemradio', { name: 'System' }));
     expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+  });
+
+  it('a theme picked in the account menu is saved to the person’s preferences (STRATA-101)', async () => {
+    const user = userEvent.setup();
+    renderFooter(person);
+    const calls: { method: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (!url.startsWith('/api/me/preferences')) {
+          return json(200, { status: 'ok', version: '0.1.0', database: 'up' });
+        }
+        const method = init?.method ?? 'GET';
+        calls.push({ method, body: init?.body ? JSON.parse(String(init.body)) : null });
+        const preferences = {
+          ...DEFAULT_USER_PREFERENCES,
+          theme: method === 'PATCH' ? 'dark' : 'system',
+        };
+        return json(200, {
+          preferences,
+          version: method === 'PATCH' ? 5 : 4,
+          readOnly: false,
+          labTimeZone: 'America/Edmonton',
+        });
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: /Account menu/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Dark' }));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    await waitFor(() =>
+      expect(calls).toEqual([
+        { method: 'GET', body: null },
+        { method: 'PATCH', body: { theme: 'dark', version: 4 } },
+      ]),
+    );
   });
 
   it('outside the shell, Help and Feedback & bugs fall back to /help with the page', async () => {

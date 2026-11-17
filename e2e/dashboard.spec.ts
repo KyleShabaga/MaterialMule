@@ -76,6 +76,20 @@ test('a search for exactly one unit ID opens the unit; anything else lists resul
   await expect(page).toHaveTitle('Search · Material Mule');
   const holes = page.getByRole('region', { name: 'Test holes' });
   await expect(holes.getByRole('link', { name: /^TH26-01 Test hole on DEMO-2601/ })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Storage units' })).toBeVisible();
+  const unitResults = page.getByRole('region', { name: 'Storage units' });
+  await expect(unitResults).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  // STRATA-73: on a wide screen a unit result opens the shared unit drawer, not the unit page.
+  if ((page.viewportSize()?.width ?? 1280) >= 1024) {
+    const first = unitResults
+      .getByRole('table', { name: 'Storage units' })
+      .getByRole('link')
+      .first();
+    const unitId = (await first.textContent())!.trim();
+    await first.click();
+    await expect(page).toHaveURL(/\/search\?.*open=/);
+    const drawer = page.getByRole('region', { name: unitId });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole('link', { name: 'Open as full page' })).toBeVisible();
+  }
 });

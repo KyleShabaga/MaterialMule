@@ -222,6 +222,9 @@ test('scan-anywhere: a label scanned with no field focused opens it, read-only',
   // Wait for the unit page to finish loading (as for A1), so the next scan isn't typed into a
   // page that is still mounting and moving focus.
   await expect(page.getByRole('heading', { level: 1, name: data.b1 })).toBeVisible();
+  // As for A1: let its loads (which can move focus) finish, or the start of the next scan can be
+  // lost while the page settles (CI received "9-000001" for BKT-1999-000001).
+  await page.waitForLoadState('networkidle');
   expect(resolves).toEqual([data.a1, data.b1.toLowerCase()]);
 
   // A code that matches nothing exactly lands on the results page.

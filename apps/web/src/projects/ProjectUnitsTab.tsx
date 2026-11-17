@@ -1,6 +1,5 @@
 import {
   currentLocationName,
-  formatStorageUnitHoleSummary,
   storageUnitStatusLabel,
   storageUnitTypeLabel,
   type InventoryItem,
@@ -34,7 +33,6 @@ import {
 } from '../components/strata/data-table';
 import {
   PeekSplit,
-  PeekToolbar,
   peekNeighbours,
   usePeekAvailable,
   usePeekKeys,
@@ -44,6 +42,8 @@ import { StageTag, UnitStatusTag } from '../components/strata/stage-tag';
 import { TableToolbar } from '../components/strata/table-toolbar';
 import { useTableQuery, type SortOption, type TableQuery } from '../components/strata/table-query';
 import { fetchInventory } from '../inventory/api';
+import { UnitDrawer } from '../inventory/UnitDrawer';
+import { UNIT_DRAWER_TITLE_ID } from '../inventory/unit-record';
 import type { LoadResult } from './api';
 import { useDebounced } from './project-format';
 import { useProjectLayout } from './project-layout-context';
@@ -113,6 +113,7 @@ export function ProjectUnitsTab() {
   const [density, setDensity] = useTableDensity('project-units');
   const peek = usePeekParam();
   const peekAvailable = usePeekAvailable();
+  const openPeek = peek.open;
   const stage = readStage(params);
   const holeId = params.get('hole');
   const hole = project.testHoles.find((h) => h.id === holeId) ?? null;
@@ -193,7 +194,16 @@ export function ProjectUnitsTab() {
             asChild
             className="h-auto p-0 font-mono focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&:hover]:underline"
           >
-            <Link to={`/sample-storage/${encodeURIComponent(item.readableId)}`}>
+            <Link
+              to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
+              onClick={(event) => {
+                // Wide screens: a plain click opens the drawer, as on Inventory (STRATA-73); the
+                // row ignores clicks on links. Ctrl/Cmd/Shift click still opens the unit page.
+                if (!peekAvailable || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                event.preventDefault();
+                openPeek(item.id);
+              }}
+            >
               {item.readableId}
             </Link>
           </Button>
@@ -252,7 +262,7 @@ export function ProjectUnitsTab() {
           item.retention?.retentionExempt ? '—' : (item.retention?.effectiveRetainUntil ?? '—'),
       },
     ],
-    [],
+    [peekAvailable, openPeek],
   );
 
   const toolbarQuery: TableQuery = { ...query, sort, view: density };
@@ -418,83 +428,25 @@ export function ProjectUnitsTab() {
         open={openItem !== null}
         openId={peek.openId}
         listLabel={`Storage units on ${project.projectNumber}`}
-        drawerLabelledBy="project-unit-peek-title"
+        drawerLabelledBy={UNIT_DRAWER_TITLE_ID}
         list={<div aria-busy={loading}>{list}</div>}
         drawer={
           openItem ? (
-            <>
-              <PeekToolbar
-                onClose={peek.close}
-                fullPageHref={`/sample-storage/${encodeURIComponent(openItem.readableId)}`}
-                position={{ index: nav.index, total: nav.total }}
-                onPrevious={nav.previousId ? () => peek.open(nav.previousId!) : undefined}
-                onNext={nav.nextId ? () => peek.open(nav.nextId!) : undefined}
-              />
-              <UnitPeek item={openItem} />
-            </>
+            // The shared unit drawer (STRATA-73), as on Inventory and the shelf.
+            <UnitDrawer
+              key={openItem.id}
+              readableId={openItem.readableId}
+              retention={openItem.retention}
+              toolbar={{
+                onClose: peek.close,
+                position: { index: nav.index, total: nav.total },
+                onPrevious: nav.previousId ? () => peek.open(nav.previousId!) : undefined,
+                onNext: nav.nextId ? () => peek.open(nav.nextId!) : undefined,
+              }}
+            />
           ) : null
         }
       />
-    </div>
-  );
-}
-
-/** The unit summary in the drawer, with a link to the unit page. */
-function UnitPeek({ item }: { item: InventoryItem }) {
-  const facts: [string, ReactNode][] = [
-    ['Type', storageUnitTypeLabel(item.unitType)],
-    ['Where', <span className="font-mono">{currentLocationName(item)}</span>],
-    ['Received', <span className="font-mono">{item.receivedDate}</span>],
-    [
-      'Retain until',
-      item.retention?.retentionExempt ? (
-        'Not applicable'
-      ) : (
-        <span className="font-mono">
-          {item.retention?.effectiveRetainUntil ?? '—'}
-          {item.retention?.onHold ? ' · On hold' : ''}
-        </span>
-      ),
-    ],
-  ];
-  return (
-    <div className="flex flex-col gap-4 p-5">
-      <div className="flex flex-col gap-2">
-        <h2 id="project-unit-peek-title" className="font-mono text-xl font-bold">
-          {item.readableId}
-        </h2>
-        <div>
-          <StatusCell item={item} />
-        </div>
-      </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-        {facts.map(([term, value]) => (
-          <div key={term} className="contents">
-            <dt className="text-muted-foreground">{term}</dt>
-            <dd className="min-w-0">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {item.holes.length > 0 ? (
-        <section aria-labelledby="project-unit-peek-holes" className="flex flex-col gap-2">
-          <h3 id="project-unit-peek-holes" className="text-sm font-semibold">
-            SAMPLE#/DEPTH by test hole
-          </h3>
-          <ul className="flex flex-col gap-1 text-sm">
-            {item.holes.map((h) => (
-              <li key={h.testHoleId} className="flex gap-2">
-                <span className="font-mono">{h.testHoleName}</span>
-                <span className="text-muted-foreground">{formatStorageUnitHoleSummary(h)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      <Button variant="outline" asChild className="self-start">
-        <Link to={`/sample-storage/${encodeURIComponent(item.readableId)}`}>
-          Open the unit page
-        </Link>
-      </Button>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
 } from './sidebar-prefs';
 import { PageLoading } from './route-loading';
 import { useFocusPageHeading } from './useFocusPageHeading';
+import { useSavedTheme } from '../settings/account/preferences-api';
 import { SettingsOutlet } from '../settings/modal/SettingsOutlet';
 import './shell.css';
 
@@ -110,6 +111,8 @@ export function AppLayout() {
     [me.id, station, personId, records],
   );
   const prefs = useSidebarPrefs(source);
+  // The person's saved theme, once /api/me is known (STRATA-101); never on a LAB station.
+  useSavedTheme({ accountId: me.id, station: me.accountType === 'shared_lab' });
   const nav = sidebarNavFor(me);
 
   const narrow = useMediaQuery(NARROW_DESKTOP_QUERY);
