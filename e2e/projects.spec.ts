@@ -61,8 +61,10 @@ test('T5: projects list → project page tabs → add test hole (duplicate rejec
     await expect(drawer).toBeVisible();
     await expect(drawer.getByRole('link', { name: 'Print label' })).toBeVisible();
     await expect(drawer.getByRole('region', { name: 'Retention' })).toBeVisible();
-    await page.keyboard.press('Escape');
+    // Back closes the drawer (the open pushed one history entry), leaving the tab as it was.
+    await page.goBack();
     await expect(drawer).toBeHidden();
+    await expect(page).toHaveURL(/\/units\?hole=[^&]+$/);
   }
   // Refresh and Back keep the tab and its filter.
   await page.reload();

@@ -113,6 +113,7 @@ export function ProjectUnitsTab() {
   const [density, setDensity] = useTableDensity('project-units');
   const peek = usePeekParam();
   const peekAvailable = usePeekAvailable();
+  const openPeek = peek.open;
   const stage = readStage(params);
   const holeId = params.get('hole');
   const hole = project.testHoles.find((h) => h.id === holeId) ?? null;
@@ -196,10 +197,11 @@ export function ProjectUnitsTab() {
             <Link
               to={`/sample-storage/${encodeURIComponent(item.readableId)}`}
               onClick={(event) => {
-                // Wide screens: a plain click opens the drawer (the row does it), as on Inventory
-                // (STRATA-73); Ctrl/Cmd/Shift click still opens the unit page.
+                // Wide screens: a plain click opens the drawer, as on Inventory (STRATA-73); the
+                // row ignores clicks on links. Ctrl/Cmd/Shift click still opens the unit page.
                 if (!peekAvailable || event.metaKey || event.ctrlKey || event.shiftKey) return;
                 event.preventDefault();
+                openPeek(item.id);
               }}
             >
               {item.readableId}
@@ -260,7 +262,7 @@ export function ProjectUnitsTab() {
           item.retention?.retentionExempt ? '—' : (item.retention?.effectiveRetainUntil ?? '—'),
       },
     ],
-    [peekAvailable],
+    [peekAvailable, openPeek],
   );
 
   const toolbarQuery: TableQuery = { ...query, sort, view: density };
