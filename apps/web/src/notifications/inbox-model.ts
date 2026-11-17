@@ -222,6 +222,8 @@ export function openRecordLabel(record: InboxRecord | null): string {
       return 'Open the program';
     case 'project':
       return 'Open the project';
+    case 'storage_unit':
+      return 'Open the unit';
     case 'storage_units':
       return 'Open retention';
     case 'concrete_report':
@@ -232,6 +234,18 @@ export function openRecordLabel(record: InboxRecord | null): string {
     default:
       return 'Open the record';
   }
+}
+
+/**
+ * Where an item's main link goes on this screen. A single storage unit opens its drawer in
+ * Inventory (`?open=<ID>`) from 1024 px; narrower screens have no drawer, so it opens the unit
+ * page instead (STRATA-133).
+ */
+export function itemHref(item: InboxItem, peekAvailable: boolean): string {
+  if (!peekAvailable && item.record?.kind === 'storage_unit') {
+    return `/sample-storage/${encodeURIComponent(item.record.id)}`;
+  }
+  return item.href;
 }
 
 /** The record's own page when it differs from the item's link; null when it is the same page. */
@@ -247,6 +261,7 @@ export function recordHref(item: InboxItem): string | null {
 export const RECORD_KIND_LABELS: Record<InboxRecord['kind'], string> = {
   lab_program: 'Lab program',
   project: 'Project',
+  storage_unit: 'Storage unit',
   storage_units: 'Storage units',
   concrete_report: 'Field report',
   specimen: 'Specimen',
@@ -289,6 +304,8 @@ export function updateSentence(item: InboxUpdateItem): string {
       return 'This field report was submitted automatically.';
     case 'feedback.submitted':
       return 'Someone sent feedback from this page. Read it on Help & Feedback.';
+    case 'retention_hold.released':
+      return item.detail || 'A hold you placed or asked for was released.';
   }
 }
 

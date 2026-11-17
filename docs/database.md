@@ -1279,3 +1279,22 @@ is indexed by person. Relevance only: All projects is unchanged and nothing is h
   before `created_at`; a draft is registered open; a close is recorded once and never changed or
   cleared; a deleted row is never closed afterwards; 0044's rules on every other column still
   hold (its immutability trigger is extended, not replaced).
+
+## Hold released notices (STRATA-133, `0051_hold_released_notifications.sql`)
+
+- **What it adds.** A notification kind `retention_hold.released` and a `retention_hold_id`
+  column on `notification` naming the released hold (event key
+  `retention_hold:<id>:released`). Kyle 2026-11-16: the one exception to the 2026-10-31 rule
+  against routine-event notices in V1; extensions and every other routine event still get none.
+- **Who gets it.** The person the hold was for: the requester when the hold came from an
+  approved retention request (`request_id`), otherwise the person who placed it. Never the
+  person who released it, and only an active personal or test account (never LAB, never a
+  disabled account).
+- **How it is written.** A trigger on the hold's one-time release (`released_at` null → a time)
+  inserts it in the release's own transaction, so a retried or concurrent release writes one row
+  (the hold is released once; the unique (recipient, event_key) key is a second guard). Nothing
+  is backfilled for holds released earlier.
+- **Rules** (proved in `schema-hold-released-notifications.test.ts`): the hold must exist and be
+  released; the recipient must be that hold's recipient and not its releaser; only this kind may
+  name a hold; the hold reference is frozen like every other target (only the read state
+  changes).

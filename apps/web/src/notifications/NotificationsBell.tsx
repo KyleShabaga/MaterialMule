@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
+import { usePeekAvailable } from '../components/strata/peek';
 import { useMediaQuery } from '../components/useMediaQuery';
 import { formatAge, formatExpiry } from '../lib/format';
 import { notificationsLabel } from './api';
@@ -307,10 +308,11 @@ function PreviewRow({
   onNavigate: () => void;
 }) {
   const request = item.type === 'request';
+  const wide = usePeekAvailable();
   return (
     <li>
       <Link
-        to={item.href}
+        to={wide ? item.href : (item.narrowHref ?? item.href)}
         onClick={onNavigate}
         className="flex items-start gap-3 rounded-md px-2 py-2 text-sm no-underline hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
       >

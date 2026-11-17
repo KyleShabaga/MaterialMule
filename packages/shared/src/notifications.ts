@@ -8,7 +8,8 @@ import { personSnapshotSchema } from './lab-programs';
 //
 // A notification tells a person something happened. An action request is work they must do in the
 // underlying workflow. Reading, dismissing or opening a notification never resolves, approves or
-// changes an action request. Owner decisions (2026-10-31): no routine-event kinds for V1; unread/read,
+// changes an action request. Owner decisions (2026-10-31): no routine-event kinds for V1 (one
+// exception, Kyle 2026-11-16: `retention_hold.released`, STRATA-133); unread/read,
 // "Mark all read", and a dismiss that only hides a row and can be undone; nothing is deleted; the
 // list covers the last 90 days; reassignment adds a row for the new recipient and never retargets
 // the old one.
@@ -35,6 +36,11 @@ export const NOTIFICATION_KINDS = [
    * feedback audit event and the page it came from, never the text.
    */
   'feedback.submitted',
+  /**
+   * STRATA-133 (Kyle 2026-11-16, the one routine-event exception): a retention hold you placed,
+   * or asked for through a retention request, was released by someone else. Names the hold.
+   */
+  'retention_hold.released',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -140,6 +146,24 @@ export const notificationLinkedReportSchema = z.object({
 });
 export type NotificationLinkedReport = z.infer<typeof notificationLinkedReportSchema>;
 
+/**
+ * STRATA-133: the released hold a `retention_hold.released` notice names, read live from the hold
+ * (never copied): who released it and why, its scope and units, and whether the recipient asked
+ * for it (a retention request) or placed it.
+ */
+export const notificationLinkedHoldSchema = z.object({
+  id: z.string(),
+  scope: z.enum(['project', 'units']),
+  /** Readable storage unit IDs (BKT-2026-000014) for a selected-unit hold; empty for a project. */
+  unitIds: z.array(z.string()),
+  releasedBy: personSnapshotSchema.nullable(),
+  releasedAt: z.string().nullable(),
+  releaseReason: z.string().nullable(),
+  /** True when the hold came from the recipient's retention request. */
+  requested: z.boolean(),
+});
+export type NotificationLinkedHold = z.infer<typeof notificationLinkedHoldSchema>;
+
 export const notificationSchema = z.object({
   id: z.string(),
   kind: z.enum(NOTIFICATION_KINDS),
@@ -167,6 +191,8 @@ export const notificationSchema = z.object({
     })
     .nullable()
     .optional(),
+  /** `retention_hold.released` only (STRATA-133): the released hold, read live. */
+  linkedHold: notificationLinkedHoldSchema.nullable().optional(),
 });
 export type Notification = z.infer<typeof notificationSchema>;
 
