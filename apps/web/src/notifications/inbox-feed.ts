@@ -6,6 +6,7 @@ import {
 } from '@materialmule/shared';
 import { apiFetch } from '../api/client';
 import { announceNotificationsChanged } from './api';
+import { itemHref } from './inbox-model';
 
 /**
  * The Inbox feed as the bell and the sidebar badge see it (STRATA-13), read from lane 1C's single
@@ -40,6 +41,8 @@ export interface InboxPreviewItem {
   title: string;
   projectNumber: string | null;
   href: string;
+  /** Under 1024 px (no drawer), when it differs: a single unit's page (STRATA-133). */
+  narrowHref?: string;
   createdAt: string;
   unread: boolean;
 }
@@ -55,7 +58,9 @@ export interface InboxFeedSource {
 
 /** An Inbox item as a preview row: request vs update from the item's type. */
 export function toPreviewItem(item: InboxItem): InboxPreviewItem {
+  const narrow = itemHref(item, false);
   return {
+    ...(narrow !== item.href ? { narrowHref: narrow } : {}),
     id: item.key,
     type: item.type,
     kind: item.task,

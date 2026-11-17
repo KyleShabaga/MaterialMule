@@ -64,6 +64,7 @@ export const UPDATE_TASK_LABELS: Record<NotificationKind, string> = {
   'concrete_test.failed': 'Failed test',
   'concrete_report.auto_submitted': 'Submitted automatically',
   'feedback.submitted': 'Feedback',
+  'retention_hold.released': 'Hold released',
 };
 
 export const REQUEST_DOMAINS: Record<ActionRequestKind, WorkDomain> = {
@@ -86,6 +87,7 @@ export const UPDATE_DOMAINS: Record<NotificationKind, WorkDomain> = {
   'concrete_test.failed': 'concrete',
   'concrete_report.auto_submitted': 'concrete',
   'feedback.submitted': 'feedback',
+  'retention_hold.released': 'retention',
 };
 
 /** Structured facts a request title is built from (never parsed from text). */
@@ -159,12 +161,77 @@ export function updateTitle(
     return requestFacts ? requestTitle(requestFacts) : 'A request';
   }
   if (kind === 'feedback.submitted') return feedbackTitle(feedbackKind ?? null);
+  // STRATA-133: the API titles these with holdReleasedTitle (it knows the hold).
+  if (kind === 'retention_hold.released') return 'Hold released';
   return CONCRETE_UPDATE_TITLES[kind];
 }
 
 /** STRATA-104: "Feedback · Problem" (round-10 kind words); "Feedback" when the kind is unknown. */
 export function feedbackTitle(kind: FeedbackKind | null): string {
   return kind ? `Feedback · ${FEEDBACK_KIND_LABELS[kind]}` : 'Feedback';
+}
+
+/** STRATA-133: the facts a hold-released title is built from (never parsed from text). */
+export interface HoldReleasedFacts {
+  projectNumber: string;
+  scope: 'project' | 'units';
+  /** Readable storage unit IDs of a selected-unit hold. */
+  unitIds: readonly string[];
+}
+
+/**
+ * "Hold released on BKT-2026-000014" (one unit), "Hold released on DEMO-2601 · 3 units",
+ * "Hold released on DEMO-2601 · whole project".
+ */
+export function holdReleasedTitle(facts: HoldReleasedFacts): string {
+  if (facts.scope === 'units' && facts.unitIds.length === 1) {
+    return `Hold released on ${facts.unitIds[0]}`;
+  }
+  const scope =
+    facts.scope === 'units' ? ` · ${plural(facts.unitIds.length, 'unit')}` : ' · whole project';
+  return `Hold released on ${facts.projectNumber}${scope}`;
+}
+
+/**
+ * The record a hold-released notice is about: the one unit (opens its drawer), the units, or the
+ * project.
+ */
+export function holdReleasedRecord(
+  facts: HoldReleasedFacts & { holdId: string; projectId: string },
+): InboxRecord {
+  if (facts.scope === 'units' && facts.unitIds.length === 1) {
+    return { kind: 'storage_unit', id: facts.unitIds[0]!, label: facts.unitIds[0]! };
+  }
+  if (facts.scope === 'units') {
+    return { kind: 'storage_units', id: facts.holdId, label: plural(facts.unitIds.length, 'unit') };
+  }
+  return { kind: 'project', id: facts.projectId, label: facts.projectNumber };
+}
+
+/**
+ * Where a hold-released notice opens: one unit's drawer in Inventory (`?open=<ID>`), otherwise
+ * the project's retention section.
+ */
+export function holdReleasedHref(
+  facts: Pick<HoldReleasedFacts, 'scope' | 'unitIds'> & { projectId: string },
+): string {
+  if (facts.scope === 'units' && facts.unitIds.length === 1) {
+    return `/sample-storage?open=${encodeURIComponent(facts.unitIds[0]!)}`;
+  }
+  return `/projects/${facts.projectId}#retention`;
+}
+
+/** The update sentence: "Pat Example released the hold you asked for: Claim settled". */
+export function holdReleasedSentence(facts: {
+  releasedByName: string | null;
+  requested: boolean;
+  releaseReason: string | null;
+}): string {
+  const who = facts.releasedByName || 'Someone';
+  const what = facts.requested ? 'the hold you asked for' : 'the hold you placed';
+  return facts.releaseReason
+    ? `${who} released ${what}: ${facts.releaseReason}`
+    : `${who} released ${what}.`;
 }
 
 /**
@@ -186,6 +253,7 @@ export const UPDATE_STAGES: Record<NotificationKind, StageKey> = {
   'concrete_test.failed': 'danger',
   'concrete_report.auto_submitted': 'due',
   'feedback.submitted': 'due',
+  'retention_hold.released': 'closed',
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -193,10 +261,19 @@ export const UPDATE_STAGES: Record<NotificationKind, StageKey> = {
 
 /**
  * The record an item is about, for the Record column (IDs in mono). `page` (STRATA-104): a
- * feedback update's in-app page path; its id is the feedback submission's id.
+ * feedback update's in-app page path; its id is the feedback submission's id. `storage_unit`
+ * (STRATA-133): one unit, id and label its readable ID.
  */
 export const inboxRecordSchema = z.object({
-  kind: z.enum(['lab_program', 'project', 'storage_units', 'concrete_report', 'specimen', 'page']),
+  kind: z.enum([
+    'lab_program',
+    'project',
+    'storage_unit',
+    'storage_units',
+    'concrete_report',
+    'specimen',
+    'page',
+  ]),
   id: z.string(),
   /** LP-001, DEMO-2601, "4 units", a report date, a page path. */
   label: z.string(),
@@ -254,6 +331,11 @@ export const inboxUpdateItemSchema = z.object({
   linkedRequestStatus: z.enum(['open', 'resolved']).nullable(),
   /** For action-request updates: how the request was resolved; null while open or not linked. */
   linkedResolution: z.enum(ACTION_REQUEST_RESOLUTIONS).nullable().optional(),
+  /**
+   * `retention_hold.released` (STRATA-133): the drawer sentence, from holdReleasedSentence (who
+   * released the hold and why, read live). Optional so older fixtures still parse.
+   */
+  detail: z.string().nullable().optional(),
 });
 export type InboxUpdateItem = z.infer<typeof inboxUpdateItemSchema>;
 

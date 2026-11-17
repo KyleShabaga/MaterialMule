@@ -2,13 +2,24 @@ import {
   DEFAULT_USER_PREFERENCES,
   REQUEST_TASK_LABELS,
   UPDATE_TASK_LABELS,
+  holdReleasedHref,
+  holdReleasedRecord,
+  holdReleasedSentence,
+  holdReleasedTitle,
   requestTitle,
   type InboxItem,
   type InboxPage,
   type MeResponse,
   type UserPreferences,
 } from '@materialmule/shared';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  cleanup as cleanupRender,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
@@ -91,6 +102,38 @@ const UPDATE: InboxItem = {
   aboutMyRequest: true,
   linkedRequestStatus: 'resolved',
   linkedResolution: 'approved',
+};
+
+// STRATA-133: a hold Pat placed on one unit, released by Sam (wording from the shared module).
+const HOLD_FACTS = {
+  projectNumber: 'DEMO-2601',
+  scope: 'units',
+  unitIds: ['BKT-2026-000014'],
+} as const;
+const HOLD_RELEASED: InboxItem = {
+  key: 'update:n-3',
+  sourceId: 'n-3',
+  type: 'update',
+  kind: 'retention_hold.released',
+  task: UPDATE_TASK_LABELS['retention_hold.released'],
+  title: holdReleasedTitle(HOLD_FACTS),
+  projectId: 'p1',
+  jobNumber: 'DEMO-2601',
+  record: holdReleasedRecord({ ...HOLD_FACTS, holdId: 'h1', projectId: 'p1' }),
+  from: { userId: 'u-sam', initials: 'SS', name: 'Sam Sample' },
+  receivedAt: minutesAgo(2),
+  unread: true,
+  stage: 'closed',
+  domain: 'retention',
+  href: holdReleasedHref({ ...HOLD_FACTS, projectId: 'p1' }),
+  dismissed: false,
+  aboutMyRequest: false,
+  linkedRequestStatus: null,
+  detail: holdReleasedSentence({
+    releasedByName: 'Sam Sample',
+    requested: false,
+    releaseReason: 'Claim settled',
+  }),
 };
 
 const summary = (unread = 1) => ({
@@ -353,6 +396,40 @@ describe('Inbox page (STRATA-24)', () => {
     );
     await user.keyboard('k');
     await waitFor(() => expect(router.state.location.search).toContain('open=request%3Aa-1'));
+  });
+
+  it('a hold-released update names the unit, project and releaser, and opens the unit drawer', async () => {
+    const answer: Api = (url) =>
+      url.startsWith('/api/inbox?') ? json(200, page([REQUEST, HOLD_RELEASED])) : undefined;
+    renderAt('/inbox', answer);
+    const row = await within(await screen.findByRole('list', { name: 'Today' })).findByRole(
+      'listitem',
+      { name: 'Hold released on BKT-2026-000014' },
+    );
+    expect(within(row).getByText('Hold released')).toBeVisible();
+    expect(within(row).getByText('DEMO-2601')).toBeVisible();
+    expect(within(row).getByText(/Sam Sample/)).toBeVisible();
+    cleanupRender();
+
+    renderAt('/inbox?open=update%3An-3', answer);
+    const drawer = await screen.findByRole('region', { name: HOLD_RELEASED.title });
+    expect(
+      within(drawer).getByText('Sam Sample released the hold you placed: Claim settled'),
+    ).toBeVisible();
+    expect(within(drawer).getByText('Storage unit')).toBeVisible();
+    expect(within(drawer).getByRole('link', { name: 'Open the unit' })).toHaveAttribute(
+      'href',
+      '/sample-storage?open=BKT-2026-000014',
+    );
+  });
+
+  it('under 1024 px a hold-released update opens the unit page', async () => {
+    screenWidth(false);
+    renderAt('/inbox/update%3An-3', (url) =>
+      url.startsWith('/api/inbox?') ? json(200, page([HOLD_RELEASED])) : undefined,
+    );
+    const link = await screen.findByRole('link', { name: 'Open the unit' });
+    expect(link).toHaveAttribute('href', '/sample-storage/BKT-2026-000014');
   });
 
   it('Grouped shows Needs action then Updates', async () => {
