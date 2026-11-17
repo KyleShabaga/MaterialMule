@@ -11,6 +11,7 @@ import { RouterProvider } from 'react-router/dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routes } from '../routes';
 import { SessionContext } from '../session/context';
+import { pickStationPerson, TEST_STATION_PERSON } from '../session/station-test-person';
 
 // MM-V2-C39: the strength report page. Fictional project and people only (DEMO-2601, Lee
 // Manager, Riley Reviewer).
@@ -217,6 +218,8 @@ function renderAt(answer: (url: URL, init?: RequestInit) => Response, who = me()
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.sessionStorage.clear();
+  window.localStorage.clear();
 });
 
 describe('Strength report page', () => {
@@ -264,6 +267,36 @@ describe('Strength report page', () => {
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!;
     expect(String(post[0])).toBe(`/api/concrete/specimen-sets/${SET}/strength-report/submit`);
     expect(JSON.parse(String(post[1]!.body))).toMatchObject({ version: 0 });
+  });
+
+  it('STRATA-125: on a LAB station the person doing it follows the station chip, read-only', async () => {
+    const user = userEvent.setup();
+    const lab = me({
+      id: '00000000-0000-4000-8000-000000000199',
+      displayName: 'LAB',
+      initials: null,
+      accountType: 'shared_lab',
+      roles: [],
+    });
+    pickStationPerson(lab);
+    const { fetchMock } = renderAt((url, init) => {
+      if (init?.method === 'POST') return json(201, detail({ state: 'submitted' }));
+      return json(200, detail());
+    }, lab);
+    const who = await screen.findByRole('textbox', { name: /Who is doing this/ });
+    expect(who).toHaveAttribute('readonly');
+    expect(who).toHaveValue('AT · Alex Tester');
+    expect(screen.queryByRole('combobox', { name: /Who is doing this/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Submit for review' }));
+    const post = await waitFor(() => {
+      const found = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+      expect(found).toBeDefined();
+      return found!;
+    });
+    expect(JSON.parse(String(post[1]!.body))).toMatchObject({
+      version: 0,
+      performedByUserId: TEST_STATION_PERSON.id,
+    });
   });
 
   it('MM-V2-C24: shows the P1 values, the advisory assessment and the method line', async () => {
